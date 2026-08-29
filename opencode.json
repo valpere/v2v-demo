@@ -1,0 +1,65 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "small_model": "ollama/glm-5.3-flash:cloud",
+
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (Pro cloud)",
+      "options": { "baseURL": "http://localhost:11434/v1" },
+      "models": {
+        "minimax-m3:cloud": { "tools": true },
+        "deepseek-v4-pro:cloud": { "tools": true },
+        "deepseek-v4-flash:cloud": { "tools": true },
+        "glm-5.3-flash:cloud": { "tools": true }
+      }
+    }
+  },
+
+  "instructions": ["AGENTS.md", ".agents/plan.md"],
+
+  "permission": {
+    "edit": "allow",
+    "bash": {
+      "*": "allow",
+      "git commit *": "ask",
+      "git push *": "deny",
+      "rm -rf *": "deny"
+    }
+  },
+
+  "agent": {
+    "coder": {
+      "description": "Implements code changes per .agents/plan.md. Appends a changelog to .agents/changes.md.",
+      "mode": "subagent",
+      "model": "ollama/minimax-m3:cloud",
+      "temperature": 0.1,
+      "prompt": "Implement exactly what .agents/plan.md specifies — nothing beyond it. Match surrounding code style. Go 1.26+, standard library first, minimal dependencies. Append what you did to .agents/changes.md. If the plan is ambiguous, stop and write the question there instead of guessing.",
+      "tools": { "write": true, "edit": true, "bash": true }
+    },
+    "reviewer": {
+      "description": "Independent review: bugs, security, Go idioms. Read-only.",
+      "mode": "primary",
+      "model": "ollama/deepseek-v4-pro:cloud",
+      "temperature": 0.3,
+      "prompt": "Read-only reviewer. Report correctness bugs, security issues (leaked keys, unvalidated input, path traversal on downloaded voice files), and non-idiomatic Go — most severe first. Re-derive each finding from the actual code. No praise, no style nits below a real defect.",
+      "tools": { "write": false, "edit": false, "bash": false }
+    },
+    "tester": {
+      "description": "Runs go test and go vet, diagnoses failures, applies minimal fixes. Writes .agents/test-report.md.",
+      "mode": "primary",
+      "model": "ollama/deepseek-v4-flash:cloud",
+      "temperature": 0.1,
+      "prompt": "Run `go build ./...`, `go vet ./...`, `go test ./... -race`. For each failure: root-cause, apply the minimal fix, re-run. NEVER delete or weaken a test to make it pass — if a test looks wrong, report it, don't touch it. Write summary + changes to .agents/test-report.md.",
+      "tools": { "write": true, "edit": true, "bash": true }
+    },
+    "documenter": {
+      "description": "Writes/updates README and godoc comments to match the code. Writes .agents/summary.md.",
+      "mode": "primary",
+      "model": "ollama/glm-5.3-flash:cloud",
+      "temperature": 0.4,
+      "prompt": "Update README and godoc to match current code. Factual and terse. Short change summary to .agents/summary.md.",
+      "tools": { "write": true, "edit": true, "bash": false }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+# secrets
+.env
+*.env
+!.env.example
+
+# build
+/bin/
+/ftb-demo
+/bot
+*.exe
+
+# runtime data
+*.db
+*.sqlite
+*.log
+/recordings/
+
+# opencode agent scratch (keep plan.md tracked)
+.agents/changes.md
+.agents/test-report.md
+.agents/summary.md
