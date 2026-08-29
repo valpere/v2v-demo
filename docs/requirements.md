@@ -29,9 +29,9 @@ repo is public).
   azure_region:     String,
   azure_voice_a:    String @constraint(default: "uk-UA-PolinaNeural"),
   azure_voice_b:    String @constraint(default: "uk-UA-OstapNeural"),
-  stt_backend:      Enum["local","openai"] @constraint(default: "local", rule: "dev default: local is free + needs no key. The client-facing recording (I-10) MUST flip to openai — local Whisper on a CPU box is 15-40s and fails REQ-NFR-02 live (B2 substance kept, its default-flip reverted)"),
-  whisper_bin:      String @constraint(default: "whisper-cli", rule: "used only when stt_backend=local"),
-  whisper_model:    String @constraint(rule: "ggml model path; required when stt_backend=local"),
+  stt_backend:      Enum["local","openai"] @constraint(default: "local", rule: "dev default: local (openai-whisper CLI) is free + needs no key. The client-facing recording (I-10) MUST flip to openai — local Whisper on a CPU box is tens of seconds to minutes and fails REQ-NFR-02 live (B2 substance kept, its default-flip reverted)"),
+  whisper_bin:      String @constraint(default: "whisper", rule: "the openai-whisper CLI (pipx-installed); used only when stt_backend=local"),
+  whisper_model:    String @constraint(default: "medium", rule: "openai-whisper model NAME (tiny|base|small|medium|large-v3|turbo), auto-downloaded to ~/.cache/whisper on first use; used only when stt_backend=local"),
   whisper_lang:     Enum["auto","uk","en"] @constraint(default: "auto"),
   dialog_backend:   Enum["ollama","openai","gemini"] @constraint(default: "ollama", rule: "gemini was the intended default but needs a $25 prepay on the AI Studio project (429 'prepayment credits depleted', 2026-08-29) — demoted to last resort; ollama gemma4:cloud is the verified default"),
   dialog_model:     String @constraint(default: "gemma4:cloud"),
@@ -162,12 +162,13 @@ dialogue. Out: everything in §6.
 ### 4.2 Speech-to-text
 
 5. [REQ-STT-01] The bot must transcribe a voice message to text. Dual-mode:
-   the dev / code default is `stt_backend=local` (`ffmpeg` OGG->WAV, then
-   `whisper-cli` with a ggml model) — free, no key. The **client-facing
-   recording (I-10) MUST use `stt_backend=openai`** (`whisper-1` API, ~2–4 s):
-   local Whisper on a CPU box (15–40 s) alone blows REQ-NFR-02 in a live
-   setting (B2). A failure never auto-switches backends — only the config
-   flag does.
+   the dev / code default is `stt_backend=local` — the `openai-whisper` CLI
+   (`whisper`), which ingests the OGG directly via its own ffmpeg call (no
+   manual conversion), model name from `whisper_model` (default `medium`).
+   Free, no key. The **client-facing recording (I-10) MUST use
+   `stt_backend=openai`** (`whisper-1` API, ~2–4 s): local Whisper on a CPU
+   box (30 s–minutes at `medium`) alone blows REQ-NFR-02 in a live setting
+   (B2). A failure never auto-switches backends — only the config flag does.
    -> [FUN-STT-01] stt.Transcriber.Transcribe(ctx, oggPath, langHint); impls stt.NewLocal (default), stt.NewOpenAI, selected by Config.stt_backend
 
 ### 4.3 Dialogue core

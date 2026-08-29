@@ -8,8 +8,8 @@ not production code, not a framework.
 ## Loop
 
 ```
-Telegram voice msg ─► local whisper.cpp STT ─► whole KB + grounding gate ─► gemma4:cloud ─► ElevenLabs TTS ─► Telegram voice reply
-                      alt: whisper-1 API (for the client recording)             alt: gpt-4o-mini / Gemini Flash   alt: Azure Neural
+Telegram voice msg ─► local openai-whisper STT ─► whole KB + grounding gate ─► gemma4:cloud ─► ElevenLabs TTS ─► Telegram voice reply
+                      alt: whisper-1 API (for the client recording)               alt: gpt-4o-mini / Gemini Flash   alt: Azure Neural
                                           │
                                           ├─ collects: language pair, doc type, volume,
                                           │            deadline, certification, delivery
@@ -23,8 +23,9 @@ second voice for comparison.
 
 ```bash
 cp .env.example .env      # TELEGRAM_BOT_TOKEN, ELEVENLABS_API_KEY + two voice IDs
-# dev path needs: ffmpeg, a whisper.cpp `whisper-cli` binary + a ggml model
-# (local STT), and `ollama` logged in to a Pro/Max account (gemma4:cloud)
+# dev path needs: the `openai-whisper` CLI + ffmpeg on PATH (local STT — first
+# run downloads the model to ~/.cache/whisper), and `ollama` logged in to a
+# Pro/Max account (gemma4:cloud)
 go run ./cmd/bot
 ```
 

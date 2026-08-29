@@ -13,9 +13,9 @@ file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
 ## What it does (one turn) — overview
 
 1. Telegram voice (or text) arrives. Voice → OGG to a validated temp path →
-   `stt.Transcribe` → transcript (dev default `STT_BACKEND=local` whisper.cpp;
-   `STT_BACKEND=openai` `whisper-1` — mandatory for the I-10 client recording,
-   B2).
+   `stt.Transcribe` → transcript (dev default `STT_BACKEND=local` — the
+   `openai-whisper` CLI; `STT_BACKEND=openai` `whisper-1` — mandatory for the
+   I-10 client recording, B2).
 2. `cmd/bot` starts the recording-action ticker, then calls
    `dialog.Handle(ctx, sess, kb, gen, systemPrompt, transcript)`.
 3. `dialog.Handle` runs the sequence in **§"Behavioural spec (pseudocode)"**
@@ -45,8 +45,8 @@ cmd/bot/main.go     wiring: config, clients, per-chat session map (mutex-guarded
 internal/telegram/  long-poll getUpdates, file download, SendVoice (no caption)
                     / SendText / SendRecordingAction — transport only, no
                     command or session logic
-internal/stt/       Transcriber interface; local.go (ffmpeg ogg->wav + shell
-                    whisper-cli) · openai.go (whisper-1 API). STT_BACKEND picks.
+internal/stt/       Transcriber interface; local.go (shell openai-whisper CLI
+                    on the ogg) · openai.go (whisper-1 API). STT_BACKEND picks.
 internal/tts/       Synthesizer interface; elevenlabs.go (eleven_multilingual_v2,
                     output_format opus) · azure.go (SSML + ogg-opus header).
                     TTS_BACKEND picks. Google = documented, not built.
@@ -97,7 +97,7 @@ type Transcriber interface {
 	// langHint is "" | "uk" | "en"; oggPath is a local file.
 	Transcribe(ctx context.Context, oggPath, langHint string) (string, error)
 }
-// NewLocal(bin, ggmlModel, lang string) Transcriber   // ffmpeg + whisper-cli
+// NewLocal(bin, model, lang string) Transcriber        // openai-whisper CLI; bin default "whisper", model default "medium"
 // NewOpenAI(apiKey, model string) Transcriber          // whisper-1
 
 // ── internal/tts ─────────────────────────────────────────────────
@@ -223,8 +223,8 @@ type Config struct {
 	AzureVoiceB  string
 
 	STTBackend   string // "local" (default) | "openai" (I-10 client recording)
-	WhisperBin   string
-	WhisperModel string
+	WhisperBin   string // openai-whisper CLI; default "whisper"
+	WhisperModel string // openai-whisper model name; default "medium"
 	WhisperLang  string // "auto" | "uk" | "en"
 
 	DialogBackend string // "ollama" (default) | "openai" | "gemini"
@@ -498,13 +498,20 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
 - **Telegram:** long-polling (`getUpdates`), no webhook / public URL. Use
   `github.com/go-telegram/bot` (maintained, std-context API) — the one Go
   dependency. Everything else is stdlib `net/http`.
-- **STT (D-13, dual-mode):** dev / code default is `local` — `ffmpeg -i in.ogg
-  -ar 16000 -ac 1 out.wav` then `whisper-cli -m $WHISPER_MODEL -l $lang -otxt
-  -nt -f out.wav`, read the `.txt`. Free, no key. **For the I-10 client
-  recording, flip `STT_BACKEND=openai`:** the `openai` impl posts the ogg to
-  `whisper-1` (~2–4 s, ~$0.006/min, < $2 total) — local CPU latency (15–40 s)
-  fails NFR-2 in a live setting (B2 substance; its default-flip reverted, option
-  A 2026-08-29 — OpenAI needs a $5 prepay, deferred to that step). Both impls
+- **STT (D-13, dual-mode):** dev / code default is `local` — shell out to the
+  `openai-whisper` CLI (Val installed it via pipx, `whisper` on `PATH`):
+  `whisper <ogg> --model $WHISPER_MODEL --task transcribe --output_format txt
+  --output_dir <tmpdir> --fp16 False --verbose False` (add `--language uk|en`
+  only when `WHISPER_LANG != auto`), then read `<tmpdir>/<ogg-stem>.txt`. The
+  CLI decodes the ogg with its own internal ffmpeg call — no manual
+  conversion. `$WHISPER_MODEL` is a model NAME (`medium` default;
+  `large-v3` / `turbo` are the quality overrides), auto-downloaded to
+  `~/.cache/whisper` on first use (one-time blocking download). Free, no key.
+  **For the I-10 client recording, flip `STT_BACKEND=openai`:** the `openai`
+  impl posts the ogg to `whisper-1` (~2–4 s, ~$0.006/min, < $2 total) — local
+  CPU transcription (tens of seconds to minutes at `medium`) fails NFR-2 in a
+  live setting (B2 substance; its default-flip reverted, option A 2026-08-29 —
+  OpenAI needs a $5 prepay, deferred to that step). Both impls
   satisfy `Transcribe(ctx, oggPath, langHint) (string, error)`; a failure does
   **not** auto-switch backends — only the `STT_BACKEND` env does.
 - **Dialogue Generator (D-13):** `Generate(ctx, systemPrompt, msgs) (string, error)`,
@@ -585,7 +592,7 @@ substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
 2. `telegram` long-poll loop, echo text back
 3. `dialog`: `gate.go` (kbOverlap + hardEscalate + isSlotAnswer + gate) +
    `Generator` (`ollama` first) + trailer parse + slot merge; onto text messages
-4. `stt`: `local` impl (ffmpeg + whisper-cli — the dev default) — voice in
+4. `stt`: `local` impl (shell the openai-whisper CLI — the dev default) — voice in
 5. `tts`: `elevenlabs` impl — voice out; `/voice` command
 6. alternates batch: `openai` + `gemini` impls for `dialog.Generator`,
    `openai` (`whisper-1`) for `stt` — needed for the I-10 recording,
