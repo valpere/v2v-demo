@@ -29,7 +29,7 @@ repo is public).
   azure_region:     String,
   azure_voice_a:    String @constraint(default: "uk-UA-PolinaNeural"),
   azure_voice_b:    String @constraint(default: "uk-UA-OstapNeural"),
-  stt_backend:      Enum["local","openai"] @constraint(default: "openai", rule: "B2: openai is the demo default — local Whisper on a CPU box blows NFR-2"),
+  stt_backend:      Enum["local","openai"] @constraint(default: "local", rule: "dev default: local is free + needs no key. The client-facing recording (I-10) MUST flip to openai — local Whisper on a CPU box is 15-40s and fails REQ-NFR-02 live (B2 substance kept, its default-flip reverted)"),
   whisper_bin:      String @constraint(default: "whisper-cli", rule: "used only when stt_backend=local"),
   whisper_model:    String @constraint(rule: "ggml model path; required when stt_backend=local"),
   whisper_lang:     Enum["auto","uk","en"] @constraint(default: "auto"),
@@ -37,7 +37,7 @@ repo is public).
   dialog_model:     String @constraint(default: "gemma4:cloud"),
   gemini_key:       String @constraint(rule: "required when dialog_backend=gemini"),
   ollama_base_url:  String @constraint(default: "http://localhost:11434"),
-  openai_key:       String @constraint(rule: "required for the default STT path (whisper-1); and when dialog_backend=openai"),
+  openai_key:       String @constraint(rule: "required when stt_backend=openai (the I-10 client recording) or dialog_backend=openai; not needed for the dev default"),
   kb_path:          String @constraint(default: "kb/translation-bureau.md"),
   system_prompt_path: String @constraint(default: "prompt/system.md"),
   greeting_path:    String @constraint(default: "prompt/greeting.md"),
@@ -118,10 +118,10 @@ Kept generic here; full references in `.engage/sources.md`.
   structured lead in Zoho-field shape (no real connection), a short fixed
   timeline, credited toward a later build; plus the explicit "not in the demo"
   list.
-- **S4** — the chosen stack: Go, Telegram long-polling, `whisper-1` STT +
-  Ollama `gemma4:cloud` + ElevenLabs multilingual v2, with config-flag
-  alternates (local Whisper, `gpt-4o-mini` / Gemini Flash, Azure Neural). See
-  `docs/architecture.md`.
+- **S4** — the chosen stack: Go, Telegram long-polling, local Whisper STT
+  (dev) / `whisper-1` (client recording) + Ollama `gemma4:cloud` + ElevenLabs
+  multilingual v2, with config-flag alternates (`gpt-4o-mini` / Gemini Flash,
+  Azure Neural). See `docs/architecture.md`.
 - **S5** — the project's coding conventions: Go for user-facing tools, GDPR
   awareness, never commit secrets, Ukrainian for user-facing copy.
 
@@ -161,13 +161,14 @@ dialogue. Out: everything in §6.
 
 ### 4.2 Speech-to-text
 
-5. [REQ-STT-01] The bot must transcribe a voice message to text. The demo
-   default is `openai` (`whisper-1` API, ~2–4 s) — B2, because local Whisper
-   on a CPU box (15–40 s) alone blows REQ-NFR-02. `stt_backend=local`
-   (`ffmpeg` OGG->WAV, then `whisper-cli` with a ggml model) is the
-   zero-per-use / offline alternate. A failure never auto-switches backends —
-   only the config flag does.
-   -> [FUN-STT-01] stt.Transcriber.Transcribe(ctx, oggPath, langHint); impls stt.NewOpenAI (default), stt.NewLocal, selected by Config.stt_backend
+5. [REQ-STT-01] The bot must transcribe a voice message to text. Dual-mode:
+   the dev / code default is `stt_backend=local` (`ffmpeg` OGG->WAV, then
+   `whisper-cli` with a ggml model) — free, no key. The **client-facing
+   recording (I-10) MUST use `stt_backend=openai`** (`whisper-1` API, ~2–4 s):
+   local Whisper on a CPU box (15–40 s) alone blows REQ-NFR-02 in a live
+   setting (B2). A failure never auto-switches backends — only the config
+   flag does.
+   -> [FUN-STT-01] stt.Transcriber.Transcribe(ctx, oggPath, langHint); impls stt.NewLocal (default), stt.NewOpenAI, selected by Config.stt_backend
 
 ### 4.3 Dialogue core
 
@@ -460,8 +461,9 @@ project); revisit as the default only if that is paid and a Ukrainian dialogue
 test then passes.
 
 **Resolved:** dialogue default Ollama `gemma4:cloud` (verified on a Ukrainian
-dialogue test), with `gpt-4o-mini` then Gemini Flash as alternates; local Whisper
-with the `whisper-1` rollback; ElevenLabs Free
+dialogue test), with `gpt-4o-mini` then Gemini Flash as alternates; STT
+dual-mode — local Whisper for dev, `whisper-1` a mandatory flip for the I-10
+client recording; ElevenLabs Free
 during build then Starter before the client link, Azure the free fallback;
 fictional bureau "FromToBridge"; Ukrainian + English, no Russian; host local
 for now.

@@ -8,8 +8,8 @@ not production code, not a framework.
 ## Loop
 
 ```
-Telegram voice msg ─► whisper-1 STT ─► whole KB + grounding gate ─► gemma4:cloud ─► ElevenLabs TTS ─► Telegram voice reply
-                      alt: local whisper.cpp                        alt: gpt-4o-mini / Gemini Flash   alt: Azure Neural
+Telegram voice msg ─► local whisper.cpp STT ─► whole KB + grounding gate ─► gemma4:cloud ─► ElevenLabs TTS ─► Telegram voice reply
+                      alt: whisper-1 API (for the client recording)             alt: gpt-4o-mini / Gemini Flash   alt: Azure Neural
                                           │
                                           ├─ collects: language pair, doc type, volume,
                                           │            deadline, certification, delivery
@@ -22,14 +22,16 @@ second voice for comparison.
 ## Run
 
 ```bash
-cp .env.example .env      # TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, ELEVENLABS_API_KEY + two voice IDs
-# default path needs: an OpenAI key (whisper-1 STT) and `ollama` logged in to a
-# Pro/Max account (gemma4:cloud dialogue)
+cp .env.example .env      # TELEGRAM_BOT_TOKEN, ELEVENLABS_API_KEY + two voice IDs
+# dev path needs: ffmpeg, a whisper.cpp `whisper-cli` binary + a ggml model
+# (local STT), and `ollama` logged in to a Pro/Max account (gemma4:cloud)
 go run ./cmd/bot
 ```
 
-Alternates (config only, no code change): `STT_BACKEND=local`
-(+ ffmpeg, a `whisper-cli` binary, a ggml model),
+For the client-facing sample recording, flip `STT_BACKEND=openai` (+ an
+`OPENAI_API_KEY`) — local CPU transcription is too slow for a live demo.
+
+Other alternates (config only, no code change):
 `DIALOG_BACKEND=openai|gemini` (+ `OPENAI_API_KEY` / `GEMINI_API_KEY`),
 `TTS_BACKEND=azure` (+ `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION`).
 

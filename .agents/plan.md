@@ -13,8 +13,9 @@ file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
 ## What it does (one turn) — overview
 
 1. Telegram voice (or text) arrives. Voice → OGG to a validated temp path →
-   `stt.Transcribe` → transcript (default `whisper-1` API — B2;
-   `STT_BACKEND=local` for the offline whisper.cpp path).
+   `stt.Transcribe` → transcript (dev default `STT_BACKEND=local` whisper.cpp;
+   `STT_BACKEND=openai` `whisper-1` — mandatory for the I-10 client recording,
+   B2).
 2. `cmd/bot` starts the recording-action ticker, then calls
    `dialog.Handle(ctx, sess, kb, gen, systemPrompt, transcript)`.
 3. `dialog.Handle` runs the sequence in **§"Behavioural spec (pseudocode)"**
@@ -221,7 +222,7 @@ type Config struct {
 	AzureVoiceA  string
 	AzureVoiceB  string
 
-	STTBackend   string // "local" | "openai"
+	STTBackend   string // "local" (default) | "openai" (I-10 client recording)
 	WhisperBin   string
 	WhisperModel string
 	WhisperLang  string // "auto" | "uk" | "en"
@@ -497,12 +498,13 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
 - **Telegram:** long-polling (`getUpdates`), no webhook / public URL. Use
   `github.com/go-telegram/bot` (maintained, std-context API) — the one Go
   dependency. Everything else is stdlib `net/http`.
-- **STT (D-13, default `openai` per B2):** `openai` impl posts the ogg to
-  `whisper-1` (~2–4 s, ~$0.006/min, < $2 for the whole demo). Chosen as the
-  demo default because local Whisper on a CPU-only box is 15–40 s and alone
-  blows NFR-2. `local` impl (`ffmpeg -i in.ogg -ar 16000 -ac 1 out.wav` then
-  `whisper-cli -m $WHISPER_MODEL -l $lang -otxt -nt -f out.wav`, read the
-  `.txt`) stays as the zero-per-use / offline / GPU-box alternate. Both
+- **STT (D-13, dual-mode):** dev / code default is `local` — `ffmpeg -i in.ogg
+  -ar 16000 -ac 1 out.wav` then `whisper-cli -m $WHISPER_MODEL -l $lang -otxt
+  -nt -f out.wav`, read the `.txt`. Free, no key. **For the I-10 client
+  recording, flip `STT_BACKEND=openai`:** the `openai` impl posts the ogg to
+  `whisper-1` (~2–4 s, ~$0.006/min, < $2 total) — local CPU latency (15–40 s)
+  fails NFR-2 in a live setting (B2 substance; its default-flip reverted, option
+  A 2026-08-29 — OpenAI needs a $5 prepay, deferred to that step). Both impls
   satisfy `Transcribe(ctx, oggPath, langHint) (string, error)`; a failure does
   **not** auto-switch backends — only the `STT_BACKEND` env does.
 - **Dialogue Generator (D-13):** `Generate(ctx, systemPrompt, msgs) (string, error)`,
@@ -512,7 +514,7 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
     Needs `ollama` logged in to a Pro/Max account. Verified on a UA dialogue
     test (~5 s, fluent Ukrainian, correct grounding, valid JSON trailer).
   - `openai` → `api.openai.com`, `DIALOG_MODEL` default `gpt-4o-mini`. First
-    alternate; one OpenAI key already covers the default STT path (B2).
+    alternate; shares the OpenAI key with the I-10 `whisper-1` STT flip.
   - `gemini` (last resort) → native `POST generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`,
     header `x-goog-api-key: $GEMINI_API_KEY`, body `{systemInstruction, contents,
     generationConfig:{temperature}}`, `DIALOG_MODEL` default `gemini-flash-latest`.
@@ -583,10 +585,11 @@ substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
 2. `telegram` long-poll loop, echo text back
 3. `dialog`: `gate.go` (kbOverlap + hardEscalate + isSlotAnswer + gate) +
    `Generator` (`ollama` first) + trailer parse + slot merge; onto text messages
-4. `stt`: `openai` impl (`whisper-1` API — the B2 default) — voice in
+4. `stt`: `local` impl (ffmpeg + whisper-cli — the dev default) — voice in
 5. `tts`: `elevenlabs` impl — voice out; `/voice` command
 6. alternates batch: `openai` + `gemini` impls for `dialog.Generator`,
-   `local` for `stt`, `azure` for `tts`; verify `STT_BACKEND` /
+   `openai` (`whisper-1`) for `stt` — needed for the I-10 recording,
+   `azure` for `tts`; verify `STT_BACKEND` /
    `DIALOG_BACKEND` / `TTS_BACKEND` switch cleanly
 7. README refresh + `.env.example` check + a short smoke-test doc
 
