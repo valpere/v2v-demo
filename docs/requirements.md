@@ -90,9 +90,9 @@ Out: everything in §6.
 | **I-3** | ElevenLabs API key | key with multilingual v2 | elevenlabs.io → Profile → API key | **confirm Val has one** · Free 10k chars/mo may cover it; Starter $5 |
 | **I-4** | 2 voice IDs | two ElevenLabs voices that read Ukrainian cleanly — test each on a UA sentence containing a Latin surname and a EUR amount | ElevenLabs Voice Library → filter *multilingual* → preview | Val picks · free |
 | **I-5** | Neutral KB | services, pricing model, 1800-char page, certified/notarized/sworn, turnaround, retention+NDA, QA chain, payment/delivery, common questions — all fictional, generalised from Kyiv-market patterns (`../research/`) | **written**: `kb/translation-bureau.md` ("FromToBridge") | done · Val may adjust numbers/tone |
-| **I-6** | Handoff wording | the line the bot says on escalation, UA + EN | **drafted** in `prompt/system.md` + `examples/dialogues.md` (cases 3–5) | Val approves tone |
+| **I-6** | Handoff wording | the line the bot says on escalation, UA + EN | in `prompt/system.md` + `examples/dialogues.md` (cases 3–5) | done · tone approved 2026-08-29 |
 | **I-7** | Consent/demo line (FR-14) | first-message disclaimer text | Claude drafts | pending |
-| **I-8** | System prompt — persona + conversation playbook | name (**"Віра"**), tone, intake order for the 6 slots, hard rules, output format | **written**: `prompt/system.md` | Val approves (name, tone) |
+| **I-8** | System prompt — persona + conversation playbook | name **"Віра"**, tone, intake order for the 6 slots, hard rules, output format | `prompt/system.md` | **done** · name + tone approved 2026-08-29 |
 | **I-13** | Example dialogues | worked UA/EN conversations — recorded-sample script + test cases | **written**: `examples/dialogues.md` (5 cases) | done |
 | **I-9** | Host | run the long-polling bot | **local for now** (Val, 2026-08-29); an always-on host (Hetzner / Fly.io) is deferred until the client gets an unattended link | ≈ €0 now |
 | **I-10** | Sample recorded dialogue | a 2–3 min realistic UA conversation with the deployed bot, exported as audio, to attach in `chat.md` | Val records himself talking to the bot | after the bot works |
