@@ -1,4 +1,4 @@
-# ftb-demo — requirements
+# v2v-demo — requirements
 
 Traced requirements for the throwaway client demo. This is the *what* and
 *why*; `docs/architecture.md` is the *shape*; `.agents/plan.md` is the *how*.

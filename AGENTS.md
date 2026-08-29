@@ -1,4 +1,4 @@
-# AGENTS.md — ftb-demo
+# AGENTS.md — v2v-demo
 
 Throwaway client demo. A Telegram voice assistant for a translation bureau,
 neutral scenario, fabricated data. **Not production, not a framework.** See

@@ -1,4 +1,4 @@
-# ftb-demo — implementation plan
+# v2v-demo — implementation plan
 
 A throwaway demo for a prospective client (a translation bureau). Goal: let
 them talk to a voice assistant on Telegram and judge conversation quality +

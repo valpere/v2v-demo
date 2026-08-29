@@ -1,4 +1,4 @@
-# ftb-demo — architecture
+# v2v-demo — architecture
 
 Companion to `docs/requirements.md` (the *what*) and `.agents/plan.md` (the
 *how*, file by file). This is the *shape*: components, the turn data flow, and

@@ -1,4 +1,4 @@
-# ftb-demo
+# v2v-demo
 
 A throwaway demo: a **Telegram voice assistant for a translation bureau**.
 Neutral scenario, fabricated data (`kb/translation-bureau.md`). Built to let a
