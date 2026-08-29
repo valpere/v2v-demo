@@ -1,4 +1,4 @@
-# Knowledge base — "LinguaBridge" translation bureau (fictional, demo only)
+# Knowledge base — "FromToBridge" translation bureau (fictional, demo only)
 
 All names, prices, and policies below are invented for a demo. Not a real
 company.

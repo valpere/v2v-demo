@@ -29,8 +29,9 @@ unscripted*. Everything else exists only to make that judgeable.
 ## 3. Scope
 
 In: a Telegram bot that holds a spoken quote-gathering conversation for a
-fictional bureau, in UA/EN (RU if it appears), on fabricated data, hosted so
-the client can poke at it for ~a week, plus a short recorded sample dialogue.
+fictional bureau, **in Ukrainian and English** (no RU — Q5), on fabricated
+data, hosted so the client can poke at it, plus a short recorded sample
+dialogue.
 
 Out: everything in §6.
 
@@ -46,7 +47,7 @@ Out: everything in §6.
 | **FR-6** | Answer questions about the fictional bureau's services from the KB | S1 ("answer questions about our services") |
 | **FR-7** | Collect the six quote parameters: **language pair · document type · volume · deadline · certification/notarization · delivery** | S1 (explicit list) |
 | **FR-8** | When all six are known: summarize them back, then emit a **structured lead record in Zoho-lead field shape** (written to the log, not sent anywhere) | S1 ("create/update leads in Zoho"); S3 (shown as structured lead, no real connection) |
-| **FR-9** | Detect the user's language (uk / ru / en) from the first turn, converse in it, follow a mid-dialogue switch | S1 ("Ukrainian, Russian and English"; Q5 — context, not translated scripts) |
+| **FR-9** | Detect the user's language (**uk / en**) from the first turn, converse in it, follow a mid-dialogue switch. RU is out of demo scope (Q5) — if a RU message arrives the model may still answer, it is just not tested or prompted for | S1 ("Ukrainian, Russian and English" — the full system; the demo covers uk/en per Q5) |
 | **FR-10** | Reply with a Telegram **voice message** (TTS) | S2 (client wants to hear it) |
 | **FR-11** | `/voice a` \| `/voice b` — switch between two configured voices for comparison | S3 (2 voice options) |
 | **FR-12** | Escalate to a human on: out-of-scope request, complaint, legal/liability or payment question, or explicit user request — reply with a fixed handoff line and mark the session escalated in the log | S1 ("escalate complex or non-standard requests"; "transfer to a human"); KB escalation list |
@@ -88,8 +89,8 @@ Out: everything in §6.
 | **I-2** | OpenAI API key | key with `whisper-1` + `gpt-4o-mini` | platform.openai.com → API keys | **confirm Val has one** · pay-as-you-go, demo ≈ $1–3 total |
 | **I-3** | ElevenLabs API key | key with multilingual v2 | elevenlabs.io → Profile → API key | **confirm Val has one** · Free 10k chars/mo may cover it; Starter $5 |
 | **I-4** | 2 voice IDs | two ElevenLabs voices that read Ukrainian cleanly — test each on a UA sentence containing a Latin surname and a EUR amount | ElevenLabs Voice Library → filter *multilingual* → preview | Val picks · free |
-| **I-5** | Neutral KB | services, pairs, turnaround, indicative pricing, certified-vs-notarized, delivery, hours, escalation rules — all fictional | **written**: `kb/translation-bureau.md` (fictional "LinguaBridge") | done · Val may adjust numbers/tone |
-| **I-6** | Handoff wording | the exact line the bot says on escalation (UA/RU/EN) | Claude drafts → Val approves tone | pending |
+| **I-5** | Neutral KB | services, pairs, turnaround, indicative pricing, certified-vs-notarized, delivery, hours, escalation rules — all fictional | **written**: `kb/translation-bureau.md` (fictional "FromToBridge") | done · Val may adjust numbers/tone |
+| **I-6** | Handoff wording | the exact line the bot says on escalation (UA + EN) | Claude drafts → Val approves tone | pending |
 | **I-7** | Consent/demo line (FR-14) | first-message disclaimer text | Claude drafts | pending |
 | **I-8** | System-prompt persona | assistant name, tone, do/don't rules, language policy | Claude drafts from KB + S1 → Val approves | pending |
 | **I-9** | Host | run the long-polling bot | **local for now** (Val, 2026-08-29); an always-on host (Hetzner / Fly.io) is deferred until the client gets an unattended link | ≈ €0 now |
@@ -99,8 +100,7 @@ Out: everything in §6.
 
 | # | Question | Note |
 |---|---|---|
-| **Q1** | Dialogue LLM: `gpt-4o-mini` (recommended — reliable multilingual dialogue, cheap) vs Ollama cloud (≈ free, quality risk on a client-facing demo) vs Claude Haiku | blocks I-2 |
-| ~~Q2~~ | ~~Always-on host choice~~ — **resolved: local for now** (I-9) | |
+| **Q1** | Dialogue LLM: `gpt-4o-mini` (recommended — reliable dialogue, cheap) vs Ollama cloud (≈ free, quality risk on a client-facing demo) vs Claude Haiku | blocks I-2 |
 | **Q3** | Does Val already hold the OpenAI (I-2) and ElevenLabs (I-3) keys, or create fresh? | |
-| **Q4** | Keep the fictional bureau name "LinguaBridge" or rename? | cosmetic |
-| **Q5** | RU in the demo — full uk/ru/en per FR-9, or UA primary + EN, RU only if it appears? (MVP tier was UA+EN, MMP was all three) | affects system-prompt + voice tests |
+
+**Resolved:** Q2 → host local for now (I-9). Q4 → **"FromToBridge"** ("LinguaBridge" is a real company). Q5 → **Ukrainian + English, no Russian** (RU stays a Phase-1 concern).

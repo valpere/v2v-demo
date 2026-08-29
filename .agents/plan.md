@@ -79,9 +79,10 @@ internal/store/     append-only JSONL: turn records + lead records (DATA_DIR)
   e.g. certification ∈ {none, certified, notarized}). Merge only keys the LLM
   sent; log every slot change in the turn record.
 - **History:** in-memory per chat ID, last 20 turns, dropped on restart.
-- **Languages:** system prompt tells the model to detect uk / ru / en from the
-  first message and stay in it, switching if the user does. One ElevenLabs
-  multilingual voice ID covers all three. (Scope of RU — see requirements Q5.)
+- **Languages:** Ukrainian + English only (Q5 — no RU). System prompt tells the
+  model to detect uk / en from the first message and stay in it, switching if
+  the user does. One ElevenLabs multilingual voice ID covers both. A RU message
+  is not tested or prompted for (the model will likely still answer).
 - **Voices:** `ELEVENLABS_VOICE_A` default; `/voice b` swaps to
   `ELEVENLABS_VOICE_B` for that chat only.
 - **Latency:** "recording voice" chat action while the STT→LLM→TTS chain runs
