@@ -21,7 +21,8 @@ given in EUR.
 - Apostille and consular legalisation assistance
 - Proofreading and editing of an existing translation
 - Website and software localisation
-- Interpreting — consecutive and simultaneous (with equipment)
+- Interpreting — consecutive and simultaneous (with equipment). Details and
+  bookings are arranged by a manager, not through this assistant.
 
 ## How a price is formed
 

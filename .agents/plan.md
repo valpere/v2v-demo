@@ -10,38 +10,22 @@ Requirements (the *what* / *why*, with source traces) live in
 `docs/architecture.md` and is authoritative for *shape*. This file is the
 file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
 
-## What it does (one turn)
+## What it does (one turn) — overview
 
-1. User sends a **voice** (or text) message to the Telegram bot.
-2. Voice → download OGG to a validated temp path → `stt.Transcribe` → transcript.
-   Text → used directly. STT default = **local `whisper-cli`** (ogg→wav via
-   `ffmpeg`); `STT_BACKEND=openai` switches to the `whisper-1` API (D-13).
-3. `dialog.Handle(chatID, text)`:
-   a. **Retrieve** — score the ~12 KB sections against the message
-      (BM25-lite, in memory); keep those above a floor.
-   b. **Grounding gate** — if the turn is a content question and nothing
-      cleared the floor → escalate *without calling the LLM* (FR-12, NFR-9).
-      If the turn is answering a pending slot question, skip the gate.
-   c. **LLM call** via `dialog.Generator` (temp 0.2–0.3) — default =
-      **`gemini`** (`gemini-flash-latest`); alternates `DIALOG_BACKEND=ollama`
-      (`gemma4:cloud`) and `openai` (`gpt-4o-mini`) (D-13). System prompt =
-      **`prompt/system.md`** (persona + conversation playbook + hard rules +
-      output format) + `--- KNOWLEDGE BASE ---` + retrieved sections verbatim
-      + `--- COLLECTED SO FAR ---` + slot-state JSON; messages = last ~10
-      turns + this one.
-   d. **Parse** the response: spoken reply text + a fenced JSON trailer
-      `{ "slots": {…}, "signal": "continue" | "lead_ready" | "escalate" }`.
-      Strip the trailer before speaking.
-   e. **Merge** `slots` into the session — validate; never clear a filled
-      slot unless the user explicitly corrected it.
-   f. `escalate` → replace reply with the handoff line, mark session.
-      `lead_ready` → append a lead record (Zoho-field shape).
-4. Reply text → `tts.Speak` (session's current voice) → OGG/Opus. Default =
-   **ElevenLabs `eleven_multilingual_v2`**; `TTS_BACKEND=azure` switches to
-   Azure Neural (`uk-UA-*Neural`) (D-15).
-5. Telegram: `sendVoice` + `sendMessage` with the same text (so it's readable).
-6. Append a turn record to the JSONL log: transcript, reply, signal, matched
-   section titles, latency (FR-13).
+1. Telegram voice (or text) arrives. Voice → OGG to a validated temp path →
+   `stt.Transcribe` → transcript (default local `whisper-cli`, `STT_BACKEND`
+   switches to `whisper-1` — D-13).
+2. `cmd/bot` starts the recording-action ticker, then calls
+   `dialog.Handle(ctx, sess, kb, gen, systemPrompt, transcript)`.
+3. `dialog.Handle` runs the sequence in **§"Behavioural spec (pseudocode)"**
+   below — that section is authoritative; every step, constant, and edge case
+   is spelled out there. LLM default `gemini` (`gemini-flash-latest`);
+   `DIALOG_BACKEND` switches to `ollama` / `openai` (D-13).
+4. `Reply.Text` → `tts.Speak` (session voice) → OGG/Opus (default ElevenLabs
+   `eleven_multilingual_v2`; `TTS_BACKEND=azure` — D-15).
+5. Telegram: `SendVoice` (no caption) then one `SendText(Reply.Text)`.
+6. `store.AppendTurn` always; `store.AppendLead` iff `Reply.Signal ==
+   lead_ready`.
 
 ## Quote parameters (FR-7)
 
@@ -53,10 +37,13 @@ prompted to ask about exactly those.
 ## Package layout
 
 ```
-cmd/bot/main.go     wiring: config, clients, per-chat session map, the update loop
-internal/telegram/  long-poll getUpdates, file download, sendVoice/sendMessage,
-                    "recording voice" chat action, /voice a|b, sends
-                    prompt/greeting.md once per chat on /start or first message
+cmd/bot/main.go     wiring: config, clients, per-chat session map (mutex-guarded),
+                    the update loop — owns /voice a|b parsing, the greeting
+                    (greeting.md body once per chat), the recording ticker,
+                    getUpdates offset, per-chat serialization, store calls
+internal/telegram/  long-poll getUpdates, file download, SendVoice (no caption)
+                    / SendText / SendRecordingAction — transport only, no
+                    command or session logic
 internal/stt/       Transcriber interface; local.go (ffmpeg ogg->wav + shell
                     whisper-cli) · openai.go (whisper-1 API). STT_BACKEND picks.
 internal/tts/       Synthesizer interface; elevenlabs.go (eleven_multilingual_v2,
@@ -95,10 +82,13 @@ type Update struct {
 type Client interface {
 	Updates(ctx context.Context) (<-chan Update, error)      // long-poll loop
 	DownloadVoice(ctx context.Context, fileID string) (oggPath string, err error)
-	SendVoice(ctx context.Context, chatID int64, ogg []byte, text string) error
+	SendVoice(ctx context.Context, chatID int64, ogg []byte) error  // NO caption
 	SendText(ctx context.Context, chatID int64, text string) error
-	SendRecordingAction(ctx context.Context, chatID int64) error
+	SendRecordingAction(ctx context.Context, chatID int64) error    // lasts ~5s server-side
 }
+// The reply text goes out once, via SendText — never also as a SendVoice
+// caption. The update loop keeps "recording voice" visible for the whole
+// turn by re-calling SendRecordingAction on a ~4s ticker (see cmd/bot loop).
 
 // ── internal/stt ─────────────────────────────────────────────────
 type Transcriber interface {
@@ -155,8 +145,9 @@ type trailer struct {
 
 type Session struct {
 	Slots     QuoteSlots
-	History   []Msg  // trimmed to the last historyLimit (20) turns
+	History   []Msg  // trimmed to the last HistoryLimit (20) Msg entries ≈ 10 turns
 	Voice     string // "a" | "b"; default "a"
+	Lang      string // "uk" | "en"; set from the first non-empty user turn, langOf fallback
 	Escalated bool
 }
 
@@ -189,13 +180,14 @@ func groundingGate(topScore float64, isSlotAnswer bool) (forceEscalate bool)
 
 // ── internal/store ──────────────────────────────────────────────
 type TurnRecord struct {
-	Time      time.Time `json:"time"`
-	ChatID    int64     `json:"chat_id"`
-	UserText  string    `json:"user_text"`
-	ReplyText string    `json:"reply_text"`
-	Signal    string    `json:"signal"`
-	Matched   []string  `json:"matched"`
-	LatencyMS int64     `json:"latency_ms"`
+	Time      time.Time  `json:"time"`
+	ChatID    int64      `json:"chat_id"`
+	UserText  string     `json:"user_text"`
+	ReplyText string     `json:"reply_text"`
+	Signal    string     `json:"signal"`
+	Matched   []string   `json:"matched"`      // empty on a pre-LLM escalate
+	Slots     QuoteSlots `json:"slots"`        // snapshot after this turn's merge
+	LatencyMS int64      `json:"latency_ms"`
 }
 
 // the shape a Zoho lead would take — written to the log, not sent anywhere
@@ -242,7 +234,14 @@ type Config struct {
 	GreetingPath     string
 	DataDir          string
 }
-func LoadConfig() (Config, error) // env + optional .env via a tiny hand parser
+func LoadConfig() (Config, error)
+// env + optional .env (tiny hand parser: KEY=VALUE lines, "#" comments, no
+// quotes, no multiline, no "export "). Env→field map (the .env.example keys):
+//   TELEGRAM_BOT_TOKEN TTS_BACKEND ELEVENLABS_API_KEY ELEVENLABS_VOICE_A/_B
+//   AZURE_SPEECH_KEY AZURE_SPEECH_REGION AZURE_VOICE_A/_B
+//   STT_BACKEND WHISPER_BIN WHISPER_MODEL WHISPER_LANG
+//   DIALOG_BACKEND DIALOG_MODEL GEMINI_API_KEY OLLAMA_BASE_URL OPENAI_API_KEY
+//   KB_PATH SYSTEM_PROMPT_PATH GREETING_PATH DATA_DIR
 ```
 
 ## Behavioural spec (pseudocode)
@@ -256,7 +255,7 @@ const (
     ScoreFloor       = 0.15   // retrieve: min score to count as "relevant"
     TopK             = 3      // retrieve: max sections passed to the LLM
     TitleWeight      = 3.0    // retrieve: a query term in the title counts 3x
-    HistoryLimit     = 20     // Session.History cap, in Msg entries (not turns)
+    HistoryLimit     = 20     // Session.History cap, in Msg entries ≈ 10 turns (NOT 20 turns)
     SlotAnswerMaxTok = 6      // isSlotAnswer: an answer to a slot question is short
 )
 ```
@@ -316,7 +315,8 @@ answer never reaches the Generator.
 ### parseTrailer(raw string) (spoken string, tr *trailer)
 
 ```
-find the LAST ```json … ``` fenced block in raw
+find the LAST fenced block whose opening fence is ```json / ```JSON / bare ```
+    immediately followed by a line starting with "{"
 if none:
     return trimspace(raw), nil
 parse the block body as JSON into a trailer value
@@ -326,50 +326,73 @@ spoken := trimspace(raw with that fenced block + trailing whitespace removed)
 return spoken, &trailer
 ```
 
+Lenient on the fence spelling, strict on the JSON: a malformed trailer is
+`nil`, and Handle step 8 turns that into a fixed handoff line — the raw model
+output is never spoken.
+
 ### Handle(ctx, sess, kb, gen, systemPrompt, userText) (Reply, error)
 
 ```
+0. lang := langOf(userText); if lang != "" && sess.Lang == "" { sess.Lang = lang }
 1. slotAnswer     := isSlotAnswer(sess, userText)
 2. hits, topScore := retrieve(userText, kb)
 3. if groundingGate(topScore, slotAnswer):
        sess.Escalated = true
-       return Reply{Text: handoffLine(langOf(userText)), Signal: SignalEscalate,
-                    Matched: titles(hits)}, nil
+       return Reply{Text: handoffLine(sessLang(sess)), Signal: SignalEscalate,
+                    Matched: nil}, nil                // pre-LLM escalate: no sections were "used"
 4. sysPrompt := systemPrompt
-              + "\n\n--- KNOWLEDGE BASE ---\n"  + join("\n\n", hit.Body for hit in hits)
+              + "\n\n--- KNOWLEDGE BASE ---\n"  + join("\n\n", "## "+hit.Title+"\n"+hit.Body for hit in hits)
               + "\n\n--- COLLECTED SO FAR ---\n" + jsonCompact(sess.Slots)
 5. hist := trimTail(append(sess.History, Msg{"user", userText}), HistoryLimit)
 6. raw, err := gen.Generate(ctx, sysPrompt, hist)
    if err != nil:
-       return Reply{Text: apologyLine(langOf(userText)), Signal: SignalEscalate,
-                    Matched: titles(hits)}, nil     // degrade, never bubble the error
-7. spoken, tr := parseTrailer(raw)
-8. if tr == nil:                                    // missing / unparseable trailer
        sess.Escalated = true
-       return Reply{Text: spoken, Signal: SignalEscalate, Matched: titles(hits)}, nil
-9. for each of the 6 slot keys k:
-       if tr.Slots.k != nil { sess.Slots.k = tr.Slots.k }   // never nil-out a filled slot
-10. signal := tr.Signal
-    if signal == SignalContinue && sess.Slots.Complete() { signal = SignalLeadReady }
-    if signal == SignalEscalate { sess.Escalated = true }
+       return Reply{Text: apologyLine(sessLang(sess)), Signal: SignalEscalate,
+                    Matched: titles(hits)}, nil       // degrade, never bubble the error
+7. spoken, tr := parseTrailer(raw)
+8. if tr == nil:                                      // missing / unparseable trailer
+       sess.Escalated = true
+       return Reply{Text: handoffLine(sessLang(sess)), Signal: SignalEscalate,
+                    Matched: titles(hits)}, nil       // NEVER speak untrailered raw output
+9. merge (6 explicit field assignments, not a loop — QuoteSlots is a struct):
+       if tr.Slots.LanguagePair  != nil { sess.Slots.LanguagePair  = tr.Slots.LanguagePair }
+       if tr.Slots.DocType       != nil { sess.Slots.DocType       = tr.Slots.DocType }
+       … and the other four. Never assign nil (that would clear a filled slot).
+10. signal := tr.Signal                               // trust the model
+    if signal == SignalEscalate:
+        sess.Escalated = true
+        spoken = handoffLine(sessLang(sess))          // A3: replace the spoken text
+    // NOTE: no continue->lead_ready upgrade. The model owns lead_ready and the
+    //       system prompt ties it to the read-back summary (REQ-DLG-04). See B4.
 11. sess.History = trimTail(append(hist, Msg{"assistant", spoken}), HistoryLimit)
 12. return Reply{Text: spoken, Signal: signal, Matched: titles(hits)}, nil
 ```
 
-The caller (`cmd/bot` update loop) is responsible for: sending the recording
-chat action before step 1; `tts.Speak` + `telegram.SendVoice`/`SendText` on
-the `Reply`; `store.AppendTurn` always; `store.AppendLead` iff
-`Reply.Signal == SignalLeadReady`.
+`sessLang(sess)` returns `sess.Lang` if set, else `"en"`.
+
+The caller — the `cmd/bot` update loop — owns everything around `Handle`:
+detecting `/start` / an unseen chat and sending `prompt/greeting.md` once;
+the STT step and its error/empty-transcript handling; the recording-action
+ticker; `tts.Speak` + `telegram.SendVoice` then `telegram.SendText` (one
+text, no caption); `store.AppendTurn` **always**; `store.AppendLead` iff
+`Reply.Signal == SignalLeadReady`; `getUpdates` offset management and
+per-chat serialization. **That loop still needs its own pseudocode** —
+flagged by the consilium (B5), pending Val's calls on B1–B5.
 
 ### langOf(text string) string
 
 ```
 if text has any Cyrillic rune -> "uk"   (RU is out of scope; Cyrillic == uk here)
-else -> "en"
+else if text has any Latin letter -> "en"
+else -> ""                               (digits/punctuation only: undetermined)
 ```
 
-Used only to pick the fixed handoff / apology line. The *conversation*
-language is the model's job (REQ-DLG-05), not this function's.
+Used only to pick the fixed handoff / apology line, via `sessLang(sess)`
+which prefers `Session.Lang` (locked from the first non-empty turn, step 0)
+and falls back to `"en"` only when nothing was ever detected. So an STT
+failure on turn 3 of a Ukrainian chat still gets a Ukrainian handoff line.
+The *conversation* language is the model's job (REQ-DLG-05), not this
+function's.
 
 ### Fixed lines
 
@@ -420,7 +443,7 @@ string per language. The handoff wording is the one in
   `*string`. Merge only keys the model filled with a non-null value this turn;
   never clear a filled slot unless the user corrected it; log every change in
   the turn record.
-- **History:** in-memory per chat ID, last 20 turns, dropped on restart.
+- **History:** in-memory per chat ID, last 20 Msg entries (≈10 turns), dropped on restart.
 - **Languages:** Ukrainian + English only (Q5 — no RU). System prompt tells the
   model to detect uk / en from the first message and stay in it, switching if
   the user does. One multilingual voice per provider covers both. A RU message

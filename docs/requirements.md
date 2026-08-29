@@ -48,7 +48,7 @@ repo is public).
   score_floor:         Float @constraint(default: 0.15, rule: "min BM25-lite score to count as relevant; also the grounding-gate escalation threshold"),
   top_k:               Int   @constraint(default: 3, rule: "max sections passed to the LLM"),
   title_weight:        Float @constraint(default: 3.0, rule: "a query term in a section title counts this many body occurrences"),
-  history_limit:       Int   @constraint(default: 20, rule: "Session.History cap in Msg entries, not turns"),
+  history_limit:       Int   @constraint(default: 20, rule: "Session.History cap: 20 Msg entries (about 10 turns), NOT 20 turns"),
   slot_answer_max_tok: Int   @constraint(default: 6, rule: "isSlotAnswer: an answer to a slot question is at most this many tokens")
   @constraint(rule: "package-level consts in internal/dialog; not runtime config")
 }
@@ -70,8 +70,9 @@ repo is public).
 
 @schema Session {
   slots:     QuoteSlots,
-  history:   List<Msg> @constraint(rule: "trimmed to the last 20 turns; lost on restart"),
+  history:   List<Msg> @constraint(rule: "trimmed to the last 20 Msg entries (about 10 turns); lost on restart"),
   voice:     Enum["a","b"] @constraint(default: "a"),
+  lang:      Enum["uk","en"] @constraint(rule: "locked from the first non-empty user turn; the fallback for handoff/apology lines when the current turn's language is undetermined"),
   escalated: Bool @constraint(default: false)
 }
 
@@ -86,7 +87,8 @@ repo is public).
   user_text:  String,
   reply_text: String,
   signal:     String,
-  matched:    List<String> @constraint(rule: "titles of the KB sections used this turn"),
+  matched:    List<String> @constraint(rule: "titles of the KB sections used this turn; empty on a pre-LLM escalate"),
+  slots:      QuoteSlots @constraint(rule: "snapshot of Session.Slots after this turn's merge — the slot-change trail"),
   latency_ms: Int
 }
 
@@ -147,14 +149,15 @@ dialogue. Out: everything in §6.
    recording audio.
    -> [FUN-TG-02] telegram.Client.Updates yields Update{Text}; cmd/bot update loop calls dialog.Handle with Update.Text unchanged
 
-3. [REQ-TG-03] The bot must reply with a Telegram **voice message** carrying
-   the synthesized answer, and also send the same text as a normal message so
-   it is readable.
-   -> [FUN-TG-03] telegram.Client.SendVoice(ctx, chatID, ogg, text) then SendText; ogg from tts.Synthesizer.Speak
+3. [REQ-TG-03] The bot must reply with a Telegram **voice message** (the
+   synthesized answer) and, **once**, the same text as a normal message so it
+   is readable. The text must not also be attached as a voice caption.
+   -> [FUN-TG-03] telegram.Client.SendVoice(ctx, chatID, ogg) — no caption — then one SendText(ctx, chatID, reply.Text); ogg from tts.Synthesizer.Speak
 
-4. [REQ-TG-04] While the STT -> LLM -> TTS chain runs, the bot must show the
-   Telegram "recording voice" chat action.
-   -> [FUN-TG-04] telegram.Client.SendRecordingAction(ctx, chatID) called before the chain, once per turn
+4. [REQ-TG-04] The Telegram "recording voice" chat action must stay visible
+   for the whole STT -> LLM -> TTS chain (server-side it lasts ~5 s, so it
+   must be re-sent).
+   -> [FUN-TG-04] cmd/bot update loop re-calls telegram.Client.SendRecordingAction on a ~4 s ticker until the turn completes or ctx is cancelled
 
 ### 4.2 Speech-to-text
 
@@ -252,44 +255,53 @@ named constants are `@schema RetrieveParams` in §1.
     — a content question the KB cannot answer never reaches the LLM.
     -> [FUN-DLG-13] dialog.groundingGate(topScore float64, slotAnswer bool) (forceEscalate bool) @constraint(rule: "pure function of its two arguments; no I/O, no session read")
 
-19. [REQ-DLG-14] `dialog.Handle` must execute the exact 12-step sequence in
-    plan.md: classify slot answer -> retrieve -> grounding gate (early return
-    on escalate) -> build system prompt (`system` file + `--- KNOWLEDGE BASE
-    ---` + retrieved bodies + `--- COLLECTED SO FAR ---` + compact slot JSON)
-    -> append user msg, trim to `HistoryLimit` -> Generate -> parse trailer ->
-    merge slots -> resolve signal -> append assistant msg -> return Reply.
+19. [REQ-DLG-14] `dialog.Handle` must execute the exact step sequence in
+    plan.md §"Behavioural spec": lock `Session.Lang` -> classify slot answer
+    -> retrieve -> grounding gate (early return with the fixed handoff line on
+    escalate) -> build the system prompt (`system` file + `--- KNOWLEDGE BASE
+    ---` + each retrieved section as `## Title` **then** body + `--- COLLECTED
+    SO FAR ---` + compact slot JSON) -> append user msg, trim to
+    `HistoryLimit` -> Generate -> parse trailer -> merge slots (6 explicit
+    field assignments) -> resolve signal -> append assistant msg -> return
+    Reply.
     -> [FUN-DLG-14] dialog.Handle(ctx, sess *Session, kb []Section, gen Generator, systemPrompt, userText string) (Reply, error)
 
-20. [REQ-DLG-15] Trailer parsing must take the **last** ```json fenced block
-    in the model output, JSON-parse it into a Trailer, and validate
+20. [REQ-DLG-15] Trailer parsing must take the **last** fenced block whose
+    opening fence is ```json / ```JSON / a bare ``` immediately followed by a
+    line starting with `{`, JSON-parse it into a Trailer, and validate
     `signal ∈ {continue, lead_ready, escalate}`. A missing block, a JSON
-    error, or an unknown signal all yield `tr = nil`; the spoken text is the
-    output with that block (and trailing whitespace) removed and trimmed.
+    error, or an unknown signal all yield `tr = nil`. **The raw model output
+    is never spoken** — a `nil` trailer makes `dialog.Handle` reply with the
+    fixed handoff line and escalate (see REQ-DLG-16).
     -> [FUN-DLG-15] dialog.parseTrailer(raw string) (spoken string, tr *trailer)
 
-21. [REQ-DLG-16] Signal resolution: when `tr == nil` the turn escalates and is
-    logged. Otherwise the signal is `tr.Signal`, except a `continue` is
-    upgraded to `lead_ready` when `Session.Slots.Complete()` is true (all six
-    non-nil). Any `escalate` (from the trailer or forced by the gate/parse
-    failure) sets `Session.Escalated`.
-    -> [LOG-DLG-16] dialog.Handle steps 8–10; QuoteSlots.Complete() gates the upgrade
+21. [REQ-DLG-16] Signal resolution: `tr == nil` -> escalate, reply text is the
+    fixed handoff line, logged. Otherwise the signal is `tr.Signal` verbatim —
+    **no `continue`->`lead_ready` upgrade**: the model owns `lead_ready` and
+    the system prompt ties it to the read-back summary (REQ-DLG-04). Any
+    `escalate` (from the trailer, the gate, or a parse failure) sets
+    `Session.Escalated` and replaces the spoken text with the handoff line.
+    -> [LOG-DLG-16] dialog.Handle steps 3, 8, 10 — every escalate path substitutes handoffLine(sessLang(sess)) before returning
 
 22. [REQ-DLG-17] Any `Generator.Generate` error must be caught inside
     `dialog.Handle` and turned into a `Reply{Signal: escalate}` with a fixed
-    apology line — the error is never returned to the caller and never crashes
-    the update loop (see REQ-NFR-03).
-    -> [LOG-DLG-17] dialog.Handle step 6: err path returns a Reply, nil error; apologyLine(lang) constant
+    apology line in the session language — the error is never returned to the
+    caller and never crashes the update loop (see REQ-NFR-03).
+    -> [LOG-DLG-17] dialog.Handle step 6: err path sets Session.Escalated, returns Reply{Text: apologyLine(sessLang(sess))}, nil error
 
 23. [REQ-DLG-18] The assistant must never state a final total price; it
     collects parameters and defers the quote to a manager. Ranges quoted from
     the KB are allowed; a computed or committed total is not.
     -> [LOG-DLG-18] prompt/system.md "Hard rules"; kb/translation-bureau.md "How a price is formed" repeats it in-domain
 
-24. [REQ-DLG-19] `langOf(text)` — used only to select the fixed handoff /
-    apology line — returns `"uk"` if the text contains any Cyrillic rune, else
-    `"en"`. The *conversation* language is the model's responsibility
-    (REQ-DLG-05), not this function's.
-    -> [FUN-DLG-19] dialog.langOf(text string) string
+24. [REQ-DLG-19] `langOf(text)` returns `"uk"` for any Cyrillic rune, `"en"`
+    for a Latin letter with no Cyrillic, `""` when neither (digits/punctuation
+    only). `dialog.Handle` locks `Session.Lang` from the first turn where
+    `langOf` is non-empty; the fixed handoff / apology lines use
+    `sessLang(sess)` = `Session.Lang` or `"en"`. So a mid-conversation STT
+    failure still yields a line in the conversation's language. The
+    *conversation* language stays the model's responsibility (REQ-DLG-05).
+    -> [FUN-DLG-19] dialog.langOf(text string) string; dialog.sessLang(sess *Session) string
 
 ### 4.5 Knowledge base
 
@@ -314,47 +326,60 @@ named constants are `@schema RetrieveParams` in §1.
 
 28. [REQ-UX-02] The bot's first message in a chat (on `/start` or the first
     inbound message) must state that this is a demo and that the conversation
-    is logged. It is fixed bilingual text, not LLM-generated.
-    -> [FUN-UX-02] cmd/bot sends prompt/greeting.md verbatim once per chat, gated on Update.IsStart or an unseen chat id
+    is logged. Fixed bilingual text, not LLM-generated.
+    -> [FUN-UX-02] cmd/bot sends the body of prompt/greeting.md once per chat, gated on Update.IsStart or an unseen chat id @constraint(rule: "the sent text is the file content after the first line that is exactly '---', with further '---' lines dropped and the result trimmed — the header is never sent")
 
 ### 4.8 Logging
 
 29. [REQ-LOG-01] Every turn must be appended to a JSONL log as a TurnRecord
-    (user text, reply text, signal, matched section titles, latency).
-    -> [FUN-LOG-01] store.AppendTurn(dataDir, TurnRecord) after each dialog.Handle
+    (user text, reply text, signal, matched section titles, slot snapshot,
+    latency). A lead record is appended to a second JSONL file iff the turn's
+    signal is `lead_ready`.
+    -> [FUN-LOG-01] store.AppendTurn(dataDir, TurnRecord) after each dialog.Handle; store.AppendLead(dataDir, LeadRecord) on lead_ready
+
+### 4.9 Tests
+
+30. [REQ-TST-01] The pure functions must have table-driven unit tests that run
+    with no network and no API keys: `retrieve` (scoring order, floor, empty
+    query, stopword filtering, title weighting), `groundingGate` (all four
+    input combinations), `isSlotAnswer`, `parseTrailer` (each fence spelling,
+    JSON error, unknown signal, no trailer), the 6-way slot merge (non-nil
+    overwrite, nil never clears), `QuoteSlots.Complete`, `langOf`, `sessLang`,
+    and the `prompt/greeting.md` body-extraction rule.
+    -> [LOG-TST-01] internal/dialog/*_test.go, internal/kb/*_test.go; `go test ./... -race` in the build order after each step (AGENTS.md)
 
 ---
 
 ## 5. Non-functional requirements
 
-30. [REQ-NFR-01] Voice output must sound natural, not robotic — this is the
+31. [REQ-NFR-01] Voice output must sound natural, not robotic — this is the
     single evaluation criterion. The two configured voices must read Ukrainian
     cleanly, including Latin surnames and EUR amounts. Azure Neural is the
     free fallback, a notch below ElevenLabs.
     -> [LOG-NFR-01] tts_backend default "elevenlabs" with model eleven_multilingual_v2; voice IDs chosen and checked per .engage/inventory.md I-4
 
-31. [REQ-NFR-02] Voice-in to voice-out latency should target under ~10 s; the
+32. [REQ-NFR-02] Voice-in to voice-out latency should target under ~10 s; the
     recording chat action (REQ-TG-04) must be shown while the chain runs.
     -> [LOG-NFR-02] no streaming; the chain is STT then one Generator call then one Speak call; SendRecordingAction precedes it
 
-32. [REQ-NFR-03] Any single upstream failure (STT, Generator, Synthesizer,
+33. [REQ-NFR-03] Any single upstream failure (STT, Generator, Synthesizer,
     Telegram) must degrade to a text apology and the loop must keep serving
     other chats — never crash.
     -> [LOG-NFR-03] cmd/bot recovers a panic per handler goroutine; dialog/tts errors return a Reply/handoff text, not a process exit; see docs/architecture.md §8
 
-33. [REQ-NFR-04] No real personal data anywhere: the KB is fictional; the only
+34. [REQ-NFR-04] No real personal data anywhere: the KB is fictional; the only
     personal data in the logs is the client's own test messages.
     -> [LOG-NFR-04] kb/translation-bureau.md is invented ("FromToBridge"); no ingestion of external data; TurnRecord stores only what the tester typed
 
-34. [REQ-NFR-05] Secrets must come only from the environment (or a local
+35. [REQ-NFR-05] Secrets must come only from the environment (or a local
     `.env`); never in code, logs, or git.
     -> [LOG-NFR-05] Config populated by cmd/bot.LoadConfig from env; .env is gitignored; log statements never print a full key
 
-35. [REQ-NFR-06] All bot-authored copy must be in the user's language
+36. [REQ-NFR-06] All bot-authored copy must be in the user's language
     (Ukrainian by default); code, identifiers and comments in English.
     -> [LOG-NFR-06] prompt/system.md and prompt/greeting.md are UA/EN; Go source is English per S5
 
-36. [REQ-NFR-07] The bot must be reachable by the client while they evaluate
+37. [REQ-NFR-07] The bot must be reachable by the client while they evaluate
     it. It runs locally for now; an always-on host is a step before an
     unattended client link.
     -> [PHY-NFR-07] cmd/bot is a long-poll process with no inbound port; deployment target deferred (see .engage/inventory.md I-9)

@@ -73,15 +73,15 @@ stdlib. **Default path uses no OpenAI** — the OpenAI key is a rollback only;
 2. `dialog.Handle(chatID, text)`:
    a. **Retrieve** — lowercase + tokenize the text; score each KB section by
       term overlap (BM25-lite); keep sections above a score floor.
-   b. **Grounding gate** —
-      - if the turn is answering a pending slot question (short, matches an
-        expected parameter) → skip the gate, proceed;
-      - else if no section cleared the floor → **force `escalate`** without
-        calling the LLM (this is the anti-waffle stop);
+   b. **Grounding gate** (`groundingGate(topScore, slotAnswer)`) —
+      - `slotAnswer` (message ≤ SlotAnswerMaxTok tokens AND a slot is still
+        nil) → skip the gate, proceed;
+      - else if `topScore < ScoreFloor` → **force `escalate`** with the fixed
+        handoff line, without calling the LLM (the anti-waffle stop);
       - else → proceed with the retrieved sections.
    c. **LLM call** — system prompt = `prompt/system.md` (persona,
       conversation playbook, hard rules, output format) + the retrieved
-      sections verbatim + the current slot state; messages = last ~10 turns +
+      sections verbatim + the current slot state; messages = the last 20 Msg entries (about 10 turns) +
       this one. Temperature 0.2–0.3.
    d. **Parse** the response into `{ spoken_reply, slot_updates, signal }`
       where `signal ∈ {continue, lead_ready, escalate}`. Format: the reply
@@ -89,9 +89,11 @@ stdlib. **Default path uses no OpenAI** — the OpenAI key is a rollback only;
    e. **Merge** `slot_updates` into the session slots — validate types,
       never clear an already-filled slot unless the user explicitly corrected
       it (the LLM is told to send a slot only when newly learned).
-   f. If `signal == escalate` → replace `spoken_reply` with the handoff line
-      (I-6), mark the session escalated.
-      If `signal == lead_ready` → append a lead record (Zoho-field shape).
+   f. Every `escalate` path (gate, parse failure, Generator error, or the
+      model's own `signal`) → `spoken_reply` becomes the fixed handoff line,
+      session marked escalated. No `continue`->`lead_ready` upgrade — the model
+      owns `lead_ready` and only emits it after the read-back summary.
+      `lead_ready` → the caller appends a lead record (Zoho-field shape).
 3. `tts` the final reply with the session's current voice → OGG.
 4. Telegram: send the voice note, and the text as a normal message (so the
    client can read what was said).
@@ -105,7 +107,7 @@ deferred, D-7).
 
 ```
 Session
-  History  []Turn        // last 20, trimmed
+  History  []Msg          // last 20 entries (about 10 turns), trimmed
   Slots    QuoteSlots     // 6 optional fields (FR-7)
   Voice    string         // "a" | "b" (FR-11)
   Escalated bool
@@ -122,7 +124,7 @@ about exactly those.
 The model is prevented from waffling by four layers, cheapest first:
 
 1. **Bounded context.** The LLM never sees more than: `prompt/system.md`,
-   ≤3 retrieved KB sections, the slot state, ~10 turns. It cannot drift into
+   ≤3 retrieved KB sections (## Title + body), the slot state, the last 20 Msg entries. It cannot drift into
    territory it was never given.
 2. **Pre-LLM escalation.** If retrieval finds nothing relevant and the turn is
    a content question, the code answers with the handoff line and never calls
