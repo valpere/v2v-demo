@@ -33,8 +33,8 @@ repo is public).
   whisper_bin:      String @constraint(default: "whisper-cli", rule: "used only when stt_backend=local"),
   whisper_model:    String @constraint(rule: "ggml model path; required when stt_backend=local"),
   whisper_lang:     Enum["auto","uk","en"] @constraint(default: "auto"),
-  dialog_backend:   Enum["gemini","ollama","openai"] @constraint(default: "gemini"),
-  dialog_model:     String @constraint(default: "gemini-flash-latest"),
+  dialog_backend:   Enum["ollama","openai","gemini"] @constraint(default: "ollama", rule: "gemini was the intended default but needs a $25 prepay on the AI Studio project (429 'prepayment credits depleted', 2026-08-29) — demoted to last resort; ollama gemma4:cloud is the verified default"),
+  dialog_model:     String @constraint(default: "gemma4:cloud"),
   gemini_key:       String @constraint(rule: "required when dialog_backend=gemini"),
   ollama_base_url:  String @constraint(default: "http://localhost:11434"),
   openai_key:       String @constraint(rule: "required for the default STT path (whisper-1); and when dialog_backend=openai"),
@@ -119,8 +119,8 @@ Kept generic here; full references in `.engage/sources.md`.
   timeline, credited toward a later build; plus the explicit "not in the demo"
   list.
 - **S4** — the chosen stack: Go, Telegram long-polling, `whisper-1` STT +
-  Gemini Flash + ElevenLabs multilingual v2, with config-flag alternates
-  (local Whisper, Ollama `gemma4:cloud` / `gpt-4o-mini`, Azure Neural). See
+  Ollama `gemma4:cloud` + ElevenLabs multilingual v2, with config-flag
+  alternates (local Whisper, `gpt-4o-mini` / Gemini Flash, Azure Neural). See
   `docs/architecture.md`.
 - **S5** — the project's coding conventions: Go for user-facing tools, GDPR
   awareness, never commit secrets, Ukrainian for user-facing copy.
@@ -205,10 +205,10 @@ dialogue. Out: everything in §6.
     -> [FUN-DLG-06] dialog.Signal == SignalEscalate path in dialog.Handle sets sess.Escalated, substitutes the handoff line; escalate list enumerated in prompt/system.md "Hard rules"
 
 12. [REQ-DLG-07] The LLM call must go through a `Generator` interface with
-    three interchangeable implementations — `gemini` (default), `ollama`,
-    `openai` — selected by `dialog_backend`; switching must need no code
+    three interchangeable implementations — `ollama` (default), `openai`,
+    `gemini` — selected by `dialog_backend`; switching must need no code
     change.
-    -> [FUN-DLG-07] dialog.Generator.Generate(ctx, systemPrompt, history); impls dialog.NewGemini, dialog.NewOllama, dialog.NewOpenAI chosen by Config.dialog_backend
+    -> [FUN-DLG-07] dialog.Generator.Generate(ctx, systemPrompt, history); impls dialog.NewOllama, dialog.NewOpenAI, dialog.NewGemini chosen by Config.dialog_backend
 
 13. [REQ-DLG-08] The model response must be parsed as spoken reply text
     followed by one fenced ```json Trailer; the trailer must be stripped
@@ -452,12 +452,16 @@ Accounts, keys and authored assets (I-1 … I-15) with status are in
 
 ## 8. Open questions
 
-None blocking implementation. Verification still pending: confirm Gemini Flash
-on a Ukrainian dialogue test before it stays the default (fall back to
-`gemma4:cloud` if it regresses).
+None blocking implementation. Verification still pending: none — the Gemini
+test that was pending is closed as *blocked* (the AI Studio project returns
+429 "prepayment credits are depleted" on every model, 2026-08-29). Gemini
+stays a last-resort config-flag alternate (needs a $25 prepay on the AI Studio
+project); revisit as the default only if that is paid and a Ukrainian dialogue
+test then passes.
 
-**Resolved:** dialogue default Gemini Flash with `gemma4:cloud` / `gpt-4o-mini`
-alternates; local Whisper with the `whisper-1` rollback; ElevenLabs Free
+**Resolved:** dialogue default Ollama `gemma4:cloud` (verified on a Ukrainian
+dialogue test), with `gpt-4o-mini` then Gemini Flash as alternates; local Whisper
+with the `whisper-1` rollback; ElevenLabs Free
 during build then Starter before the client link, Azure the free fallback;
 fictional bureau "FromToBridge"; Ukrainian + English, no Russian; host local
 for now.

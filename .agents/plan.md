@@ -19,8 +19,8 @@ file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
    `dialog.Handle(ctx, sess, kb, gen, systemPrompt, transcript)`.
 3. `dialog.Handle` runs the sequence in **§"Behavioural spec (pseudocode)"**
    below — that section is authoritative; every step, constant, and edge case
-   is spelled out there. LLM default `gemini` (`gemini-flash-latest`);
-   `DIALOG_BACKEND` switches to `ollama` / `openai` (D-13).
+   is spelled out there. LLM default `ollama` (`gemma4:cloud`);
+   `DIALOG_BACKEND` switches to `openai` / `gemini` (D-13).
 4. `Reply.Text` → `tts.Speak` (session voice) → OGG/Opus (default ElevenLabs
    `eleven_multilingual_v2`; `TTS_BACKEND=azure` — D-15).
 5. Telegram: `SendVoice` (no caption) then one `SendText(Reply.Text)`.
@@ -54,7 +54,7 @@ internal/dialog/    gate.go (kbOverlap + hardEscalate + isSlotAnswer +
                     groundingGate) · dialog.go
                     (loads prompt/system.md, builds the prompt, parses the
                     trailer, merges slots) · generator.go (Generator interface)
-                    · ollama.go + openai.go + gemini.go (DIALOG_BACKEND)
+                    · ollama.go (default) + openai.go + gemini.go (DIALOG_BACKEND)
 internal/store/     append-only JSONL: turn records + lead records (DATA_DIR)
 
 prompt/system.md   the assistant persona + conversation playbook + hard rules
@@ -155,9 +155,9 @@ type Session struct {
 type Generator interface {
 	Generate(ctx context.Context, systemPrompt string, history []Msg) (string, error)
 }
-// NewGemini(apiKey, model string) Generator
-// NewOllama(baseURL, model string) Generator
+// NewOllama(baseURL, model string) Generator   // default
 // NewOpenAI(apiKey, model string) Generator
+// NewGemini(apiKey, model string) Generator    // last resort — $25 prepay
 
 type Reply struct {
 	Text    string   // spoken text, trailer stripped (or the fixed handoff/apology line)
@@ -226,7 +226,7 @@ type Config struct {
 	WhisperModel string
 	WhisperLang  string // "auto" | "uk" | "en"
 
-	DialogBackend string // "gemini" | "ollama" | "openai"
+	DialogBackend string // "ollama" (default) | "openai" | "gemini"
 	DialogModel   string
 	GeminiKey     string
 	OllamaBaseURL string
@@ -263,7 +263,7 @@ const (
 ```
 
 **B1 decision (2026-08-29):** the KB is ~6 KB — the *whole* KB goes into every
-system prompt (Gemini Flash / gemma4 / gpt-4o-mini all have the headroom).
+system prompt (gemma4:cloud / Gemini Flash / gpt-4o-mini all have the headroom).
 There is **no retrieval-for-context**. A keyword-overlap score is computed
 *only* to feed the grounding gate. If exact-match overlap proves too weak for
 inflected Ukrainian in testing, add a stemmer (B1 fallback — candidates:
@@ -507,15 +507,22 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
   **not** auto-switch backends — only the `STT_BACKEND` env does.
 - **Dialogue Generator (D-13):** `Generate(ctx, systemPrompt, msgs) (string, error)`,
   three impls, `DIALOG_BACKEND` picks:
-  - `gemini` (default) → native `POST generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`,
+  - `ollama` (default) → `POST $OLLAMA_BASE_URL/v1/chat/completions` (OpenAI-compatible),
+    `DIALOG_MODEL` default `gemma4:cloud`. Request `"think": false` if supported.
+    Needs `ollama` logged in to a Pro/Max account. Verified on a UA dialogue
+    test (~5 s, fluent Ukrainian, correct grounding, valid JSON trailer).
+  - `openai` → `api.openai.com`, `DIALOG_MODEL` default `gpt-4o-mini`. First
+    alternate; one OpenAI key already covers the default STT path (B2).
+  - `gemini` (last resort) → native `POST generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`,
     header `x-goog-api-key: $GEMINI_API_KEY`, body `{systemInstruction, contents,
     generationConfig:{temperature}}`, `DIALOG_MODEL` default `gemini-flash-latest`.
-    Covered by a Google AI Pro subscription's API credits. Confirm on a UA
-    dialogue test before it stays default; fall back to `ollama` if it regresses.
-  - `ollama` → `POST $OLLAMA_BASE_URL/v1/chat/completions` (OpenAI-compatible),
-    `DIALOG_MODEL` default `gemma4:cloud`. Request `"think": false` if supported.
-  - `openai` → `api.openai.com`, `DIALOG_MODEL` default `gpt-4o-mini`.
-  Build `gemini` first (step 3); `ollama` + `openai` in the alternates batch (step 6).
+    Was the intended default (assumed covered by Google AI Pro) but the AI
+    Studio project returns 429 "prepayment credits are depleted" on every model
+    (2026-08-29) and needs a **$25 prepay** to enable — demoted to last resort.
+    Promote back only if that is paid and a UA test then passes. Current
+    concrete Flash model is `gemini-3.6-flash`; `gemini-flash-latest` is a
+    maintained alias.
+  Build `ollama` first (step 3); `openai` + `gemini` in the alternates batch (step 6).
 - **KB in the prompt (B1):** the whole KB (~6 KB) is in every system prompt.
   No retrieval-for-context. `kbOverlap` is a keyword-overlap score used **only**
   by the grounding gate. Design lineage: `ragline`'s `Decide` (retrieve →
@@ -575,11 +582,11 @@ substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
 1. config + `kb` (load & split) + `store` + `go build` — no external calls
 2. `telegram` long-poll loop, echo text back
 3. `dialog`: `gate.go` (kbOverlap + hardEscalate + isSlotAnswer + gate) +
-   `Generator` (`gemini` first) + trailer parse + slot merge; onto text messages
-4. `stt`: `local` impl (ffmpeg + whisper-cli) — voice in
+   `Generator` (`ollama` first) + trailer parse + slot merge; onto text messages
+4. `stt`: `openai` impl (`whisper-1` API — the B2 default) — voice in
 5. `tts`: `elevenlabs` impl — voice out; `/voice` command
-6. alternates batch: `ollama` + `openai` impls for `dialog.Generator`,
-   `openai` for `stt`, `azure` for `tts`; verify `STT_BACKEND` /
+6. alternates batch: `openai` + `gemini` impls for `dialog.Generator`,
+   `local` for `stt`, `azure` for `tts`; verify `STT_BACKEND` /
    `DIALOG_BACKEND` / `TTS_BACKEND` switch cleanly
 7. README refresh + `.env.example` check + a short smoke-test doc
 

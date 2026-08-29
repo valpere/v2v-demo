@@ -36,7 +36,7 @@ flowchart TD
     subgraph CORE [internal/dialog — the grounding core]
         R[kbOverlap + hardEscalate] --> G{gate: overlap >= floor?\nor a slot answer?}
         G -->|no| ESC[handoff line, no LLM]
-        G -->|yes / slot answer| LLM[LLM call\ngemini-flash\n· gemma4:cloud · gpt-4o-mini]
+        G -->|yes / slot answer| LLM[LLM call\ngemma4:cloud\n· gpt-4o-mini · gemini-flash]
         LLM --> P[parse: spoken_reply + slot_updates + signal]
         P --> M[merge slots\nvalidate, never silently unset]
     end
@@ -56,15 +56,16 @@ flowchart TD
 | `internal/telegram` | Transport only: long-poll `getUpdates`, download voice files, `SendVoice`/`SendText`/`SendRecordingAction`. No command or session logic. | FR-1, FR-3, FR-10, NFR-2 |
 | `internal/stt` | `Transcriber` interface, two impls: **`local`** (ogg→wav via `ffmpeg`, then shell out to `whisper-cli` with a ggml model) and **`openai`** (`whisper-1` API). `STT_BACKEND` selects. | FR-2, D-13 |
 | `internal/kb` | Load `KB_PATH`, split on `##` into titled sections — passed to the LLM in full, and to `kbOverlap` | FR-6, NFR-9 |
-| `internal/dialog` | `hardEscalate` + `kbOverlap` + grounding gate, LLM orchestration, trailer parse, slot merge, fixed lines. **The core.** LLM call goes through a `Generator` interface: **`gemini`** (native Gemini API, `gemini-flash-latest`, default), **`ollama`** (`gemma4:cloud`), **`openai`** (`gpt-4o-mini`). `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13 |
+| `internal/dialog` | `hardEscalate` + `kbOverlap` + grounding gate, LLM orchestration, trailer parse, slot merge, fixed lines. **The core.** LLM call goes through a `Generator` interface: **`ollama`** (Ollama OpenAI-compat, `gemma4:cloud`, default), **`openai`** (`gpt-4o-mini`), **`gemini`** (native Gemini API, `gemini-flash-latest`; last resort — needs a $25 prepay). `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13 |
 | `internal/tts` | `Synthesizer` interface, two impls: **`elevenlabs`** (`eleven_multilingual_v2`) and **`azure`** (`uk-UA-*Neural`). `TTS_BACKEND` selects. Both emit opus-in-ogg. Google is a documented third impl, not built (D-15). | FR-10, NFR-1, D-15 |
 | `internal/store` | Append-only JSONL: one record per turn; one lead record on `lead_ready` | FR-8, FR-13 |
 | `cmd/bot` | Wiring, config, the update loop (per-chat goroutine + locks), `/voice`, the greeting, the recording ticker, STT, store calls | FR-11, NFR-3, NFR-4, NFR-6 |
 
 Runtime dependencies (default path): a Telegram bot library (Go); an OpenAI
-key (`whisper-1` STT, B2); a Gemini key (dialogue); an ElevenLabs key (TTS).
+key (`whisper-1` STT, B2); a running Ollama logged in to a Pro/Max account
+(`gemma4:cloud` dialogue); an ElevenLabs key (TTS).
 `ffmpeg` + `whisper-cli` + a ggml model are needed only for `STT_BACKEND=local`;
-a running Ollama with `gemma4:cloud` only for `DIALOG_BACKEND=ollama`; an Azure
+a Gemini key only for `DIALOG_BACKEND=gemini`; an Azure
 Speech key only for `TTS_BACKEND=azure`. All HTTP is stdlib.
 
 ## 3. Turn data flow
