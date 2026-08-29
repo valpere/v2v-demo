@@ -20,8 +20,8 @@
 .agents/test-report.md
 .agents/summary.md
 
+# throwaway scratch (dev helpers live in minions/, which IS tracked)
 tmp/
-minions/
 
 # engagement-specific notes — local only, never published
 .engage/

@@ -14,6 +14,9 @@ neutral scenario, fabricated data. **Not production, not a framework.** See
 - No secrets in code or logs. Config comes from env (`.env.example`).
 - Keep it simple. This code is thrown away after the client decides. Do not
   add abstraction, config surface, or features beyond the plan.
+- `tmp/` — throwaway scratch (gitignored). `minions/` — dev helper scripts
+  that get reused (tracked; Bash, not Python). Promote a script from `tmp/` to
+  `minions/` once it's clearly reusable.
 
 ## Non-goals
 
