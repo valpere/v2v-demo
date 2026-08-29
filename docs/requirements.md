@@ -55,7 +55,7 @@ Out: everything in §6.
 |---|---|---|
 | **NFR-1** | Voice output sounds natural, not robotic — **the** evaluation criterion. ElevenLabs multilingual v2; the two voices must read Ukrainian cleanly, including Latin names and EUR amounts | S2 |
 | **NFR-2** | Voice-in → voice-out latency target < ~10 s; send the "recording voice…" chat action while the chain runs | S1 (must be usable), S4 |
-| **NFR-3** | The bot stays reachable by the client for the whole evaluation window (~1 week) → deployed to an **always-on host**, not Val's laptop | S3 (client drives it themselves, on their schedule) |
+| **NFR-3** | The bot must be reachable by the client while they evaluate it. **For now it runs locally** (Val, 2026-08-29); moving to an always-on host is a step before the client gets the link for an unattended window | S3 (client drives it themselves, on their schedule) |
 | **NFR-4** | Any single upstream failure (STT / LLM / TTS / Telegram) degrades to a text apology and the loop keeps serving — never crash | S4 |
 | **NFR-5** | No real personal data anywhere — KB is fictional; the only personal data in logs is the client's own test messages | S1 (GDPR), S5 |
 | **NFR-6** | Secrets only via env / `.env` (gitignored) — never in code, logs, or git | S5 |
@@ -88,7 +88,7 @@ Out: everything in §6.
 | **I-6** | Handoff wording | the exact line the bot says on escalation (UA/RU/EN) | Claude drafts → Val approves tone | pending |
 | **I-7** | Consent/demo line (FR-14) | first-message disclaimer text | Claude drafts | pending |
 | **I-8** | System-prompt persona | assistant name, tone, do/don't rules, language policy | Claude drafts from KB + S1 → Val approves | pending |
-| **I-9** | Always-on host | somewhere to run the long-polling bot for ~1 week | Val's Hetzner box / Fly.io / small VPS | **Val decides** · ≈ €0–4 |
+| **I-9** | Host | run the long-polling bot | **local for now** (Val, 2026-08-29); an always-on host (Hetzner / Fly.io) is deferred until the client gets an unattended link | ≈ €0 now |
 | **I-10** | Sample recorded dialogue | a 2–3 min realistic UA conversation with the deployed bot, exported as audio, to attach in `chat.md` | Val records himself talking to the bot | after the bot works |
 
 ## 8. Open questions
@@ -96,7 +96,7 @@ Out: everything in §6.
 | # | Question | Note |
 |---|---|---|
 | **Q1** | Dialogue LLM: `gpt-4o-mini` (recommended — reliable multilingual dialogue, cheap) vs Ollama cloud (≈ free, quality risk on a client-facing demo) vs Claude Haiku | blocks I-2 |
-| **Q2** | Always-on host choice (I-9) | blocks deploy |
+| ~~Q2~~ | ~~Always-on host choice~~ — **resolved: local for now** (I-9) | |
 | **Q3** | Does Val already hold the OpenAI (I-2) and ElevenLabs (I-3) keys, or create fresh? | |
 | **Q4** | Keep the fictional bureau name "LinguaBridge" or rename? | cosmetic |
 | **Q5** | RU in the demo — full uk/ru/en per FR-9, or UA primary + EN, RU only if it appears? (MVP tier was UA+EN, MMP was all three) | affects system-prompt + voice tests |
