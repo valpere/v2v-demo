@@ -19,3 +19,6 @@
 .agents/changes.md
 .agents/test-report.md
 .agents/summary.md
+
+tmp/
+minions/
