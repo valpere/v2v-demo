@@ -566,8 +566,11 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
   rollback batch (step 6).
 - **Voices:** `VOICE_A` / `VOICE_B` per backend
   (`ELEVENLABS_VOICE_A`/`_B`, `AZURE_VOICE_A`/`_B`); `/voice b` swaps for that
-  chat only. ElevenLabs Free plan during build → Starter before the client
-  link.
+  chat only. ElevenLabs Free during build → Starter before the client link.
+  **Free API caveat:** library voices (incl. the Ukrainian ones) 402 on Free —
+  dev uses premade Sarah (F) `EXAVITQu4vr4xnSDxMaL` + George (M)
+  `JBFqnCBsd6RMkjVDRZzb`; the UA library pair is swapped in with the Starter
+  upgrade for the client recording (D-15, same pattern as the STT flip).
 - **Latency:** "recording voice" chat action while the STT→LLM→TTS chain runs
   (NFR-2). No streaming.
 - **Config:** env only (`.env.example`); load `.env` if present with a small

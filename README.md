@@ -22,15 +22,18 @@ second voice for comparison.
 ## Run
 
 ```bash
-cp .env.example .env      # TELEGRAM_BOT_TOKEN, ELEVENLABS_API_KEY + two voice IDs
+cp .env.example .env      # fill TELEGRAM_BOT_TOKEN and ELEVENLABS_API_KEY
 # dev path needs: the `openai-whisper` CLI + ffmpeg on PATH (local STT — first
 # run downloads the model to ~/.cache/whisper), and `ollama` logged in to a
-# Pro/Max account (gemma4:cloud)
+# Pro/Max account (gemma4:cloud). The default voice IDs (premade Sarah/George)
+# work on the ElevenLabs Free plan.
 go run ./cmd/bot
 ```
 
-For the client-facing sample recording, flip `STT_BACKEND=openai` (+ an
-`OPENAI_API_KEY`) — local CPU transcription is too slow for a live demo.
+For the client-facing sample recording: flip `STT_BACKEND=openai`
+(+ `OPENAI_API_KEY`) — local CPU transcription is too slow for a live demo —
+and upgrade ElevenLabs to Starter to swap in the Ukrainian library voices
+(Free rejects library voices via the API).
 
 Other alternates (config only, no code change):
 `DIALOG_BACKEND=openai|gemini` (+ `OPENAI_API_KEY` / `GEMINI_API_KEY`),

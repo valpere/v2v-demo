@@ -398,9 +398,11 @@ named constants are `@schema GateParams` in §1.
 
 36. [REQ-NFR-01] Voice output must sound natural, not robotic — this is the
     single evaluation criterion. The two configured voices must read Ukrainian
-    cleanly, including Latin surnames and EUR amounts. Azure Neural is the
-    free fallback, a notch below ElevenLabs.
-    -> [LOG-NFR-01] tts_backend default "elevenlabs" with model eleven_multilingual_v2; voice IDs chosen and checked per .engage/inventory.md I-4
+    cleanly, including Latin surnames and EUR amounts. The Ukrainian library
+    voices are used for the client-facing recording (needs ElevenLabs Starter —
+    Free rejects library voices via API); dev runs on premade Sarah/George.
+    Azure Neural is the free fallback, a notch below ElevenLabs.
+    -> [LOG-NFR-01] tts_backend default "elevenlabs" with model eleven_multilingual_v2; dev voice IDs premade (Sarah/George), UA library IDs per .engage/inventory.md I-4 swapped in on Starter
 
 37. [REQ-NFR-02] Voice-in to voice-out latency should target under ~10 s; the
     recording chat action (REQ-TG-04) must be shown while the chain runs.
@@ -465,6 +467,7 @@ test then passes.
 dialogue test), with `gpt-4o-mini` then Gemini Flash as alternates; STT
 dual-mode — local Whisper for dev, `whisper-1` a mandatory flip for the I-10
 client recording; ElevenLabs Free
-during build then Starter before the client link, Azure the free fallback;
+during build (premade Sarah/George — library/UA voices need Starter) then
+Starter + UA library voices before the client link, Azure the free fallback;
 fictional bureau "FromToBridge"; Ukrainian + English, no Russian; host local
 for now.
