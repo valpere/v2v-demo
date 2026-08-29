@@ -80,9 +80,10 @@ stdlib. **Default path uses no OpenAI** — the OpenAI key is rollback-only.
       - else if no section cleared the floor → **force `escalate`** without
         calling the LLM (this is the anti-waffle stop);
       - else → proceed with the retrieved sections.
-   c. **LLM call** — system prompt = persona + the hard grounding rule +
-      the retrieved sections verbatim + the current slot state; messages =
-      last ~10 turns + this one. Temperature 0.2–0.3.
+   c. **LLM call** — system prompt = `prompt/system.md` (persona,
+      conversation playbook, hard rules, output format) + the retrieved
+      sections verbatim + the current slot state; messages = last ~10 turns +
+      this one. Temperature 0.2–0.3.
    d. **Parse** the response into `{ spoken_reply, slot_updates, signal }`
       where `signal ∈ {continue, lead_ready, escalate}`. Format: the reply
       text, then a fenced JSON trailer the code strips before speaking.
@@ -121,18 +122,17 @@ about exactly those.
 
 The model is prevented from waffling by four layers, cheapest first:
 
-1. **Bounded context.** The LLM never sees more than: persona, the grounding
-   rule, ≤3 retrieved KB sections, the slot state, ~10 turns. It cannot drift
-   into territory it was never given.
+1. **Bounded context.** The LLM never sees more than: `prompt/system.md`,
+   ≤3 retrieved KB sections, the slot state, ~10 turns. It cannot drift into
+   territory it was never given.
 2. **Pre-LLM escalation.** If retrieval finds nothing relevant and the turn is
    a content question, the code answers with the handoff line and never calls
    the LLM. No input → no hallucinated output.
-3. **The rule in the prompt.** *"Answer only from the KNOWLEDGE BASE section
-   below. If the user asks something it does not cover, do not improvise — set
-   `signal: escalate`. Never state a final price; say a manager will confirm."*
-   (NFR-7, NFR-9.)
-4. **Low temperature + a fixed persona.** 0.2–0.3, and a short, specific
-   persona so tone doesn't wander.
+3. **The rules in `prompt/system.md`.** "Answer only from the KNOWLEDGE BASE.
+   If it's not covered, set `signal: escalate`. Never state a final price."
+   Plus the explicit escalate list. (NFR-7, NFR-9.)
+4. **Low temperature + a fixed persona.** 0.2–0.3, and the specific persona +
+   playbook in `prompt/system.md` so tone and flow don't wander.
 
 This is the same discipline as `ragline`'s `Decide` function (retrieve →
 score → answer-or-escalate); reimplemented here at demo scale, in memory, no

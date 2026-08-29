@@ -25,8 +25,10 @@ file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
    c. **LLM call** via `dialog.Generator` (temp 0.2–0.3) — default =
       Ollama **`gemma4:cloud`** at `localhost:11434`; `DIALOG_BACKEND=openai`
       + `DIALOG_MODEL=gpt-4o-mini` is the rollback (D-13). System prompt =
-      persona + the hard grounding rule + retrieved sections verbatim +
-      current slot state; messages = last ~10 turns + this one.
+      **`prompt/system.md`** (persona + conversation playbook + hard rules +
+      output format) + `--- KNOWLEDGE BASE ---` + retrieved sections verbatim
+      + `--- COLLECTED SO FAR ---` + slot-state JSON; messages = last ~10
+      turns + this one.
    d. **Parse** the response: spoken reply text + a fenced JSON trailer
       `{ "slots": {…}, "signal": "continue" | "lead_ready" | "escalate" }`.
       Strip the trailer before speaking.
@@ -57,9 +59,17 @@ internal/stt/       Transcriber interface; local.go (ffmpeg ogg->wav + shell
 internal/tts/       ElevenLabs multilingual v2: (text, voiceID) -> ogg bytes
 internal/kb/        load KB_PATH, split on "##" into titled sections
 internal/dialog/    retrieve.go (BM25-lite + grounding gate) · dialog.go
-                    (prompt build, trailer parse, slot merge) · generator.go
-                    (Generator interface: ollama.go + openai.go, DIALOG_BACKEND)
+                    (loads prompt/system.md, builds the prompt, parses the
+                    trailer, merges slots) · generator.go (Generator
+                    interface: ollama.go + openai.go, DIALOG_BACKEND)
 internal/store/     append-only JSONL: turn records + lead records (DATA_DIR)
+
+prompt/system.md   the assistant persona + conversation playbook + hard rules
+                   + output format (authored, not generated — do not rewrite)
+examples/dialogues.md  worked example conversations — test material and the
+                   recorded-sample script; optionally one short example as
+                   few-shot if output consistency is poor
+kb/translation-bureau.md  the fictional FromToBridge knowledge base
 ```
 
 ## Details / decisions
@@ -86,16 +96,19 @@ internal/store/     append-only JSONL: turn records + lead records (DATA_DIR)
   and to keep the LLM's context tight (NFR-9); it is deliberately minimal.
   Design reference: `ragline`'s `internal/answer/decision.go` (not a
   dependency — see `docs/architecture.md` §6).
-- **Grounding rule (in the system prompt):** "Answer only from the KNOWLEDGE
-  BASE below. If the user asks something it does not cover, do not improvise —
-  return `signal: escalate`. Never state a final price; say a manager will
-  confirm." (NFR-7, NFR-9.)
+- **Persona + playbook + grounding rule:** all in `prompt/system.md` —
+  authored, load it verbatim, do not paraphrase into code. The six quote
+  slots, the intake order, "never a final price", the escalate list, and the
+  JSON-trailer spec all live there (NFR-7, NFR-9).
 - **LLM output format:** single chat call, no function-calling. Reply text,
-  then a fenced ```json trailer with `slots` + `signal`. If the trailer is
-  missing or unparseable → treat as `signal: escalate`, log it.
-- **Slots:** `*string` (or small enums where the KB constrains values —
-  e.g. certification ∈ {none, certified, notarized}). Merge only keys the LLM
-  sent; log every slot change in the turn record.
+  then a fenced ```json trailer with `slots` (all six keys, `null` when
+  unknown) + `signal` (`continue` | `lead_ready` | `escalate`). If the trailer
+  is missing or unparseable → treat as `signal: escalate`, log it.
+- **Slots:** the six keys from `prompt/system.md`
+  (`language_pair, doc_type, volume, deadline, certification, delivery`) as
+  `*string`. Merge only keys the model filled with a non-null value this turn;
+  never clear a filled slot unless the user corrected it; log every change in
+  the turn record.
 - **History:** in-memory per chat ID, last 20 turns, dropped on restart.
 - **Languages:** Ukrainian + English only (Q5 — no RU). System prompt tells the
   model to detect uk / en from the first message and stay in it, switching if

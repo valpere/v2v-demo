@@ -103,6 +103,32 @@ Office: Mon–Fri 09:00–18:00 EET. The assistant works 24/7 and hands off to a
 human manager during office hours; outside them it collects the request and
 promises a manager reply the next business morning.
 
+## Common questions
+
+- **"How much does it cost?"** — the price depends on the language pair, the
+  subject area, the volume, and the deadline. General UA⇄EN/DE/PL text is
+  about 12–16 EUR per standard page; specialised text is 18–24. A manager
+  gives the exact figure after seeing the document.
+- **"What is a page?"** — 1800 characters including spaces. A one-page
+  certificate is usually one standard page; a contract can be several.
+- **"How fast can you do it?"** — up to 10 pages in 2–3 business days; a
+  single standard document often in 1 day; same-day is possible with a
+  surcharge if a translator is free.
+- **"Do I need it certified or notarized?"** — depends on who receives it.
+  Universities and employers usually accept a certified translation (bureau
+  stamp). Courts, migration offices and registry offices usually need
+  notarization. Some German and Polish authorities need a sworn translation.
+- **"Can you translate the file I send?"** — yes; send it and a manager
+  confirms the volume and price.
+- **"Is my document confidential?"** — yes. It's used only to do the order,
+  kept for 6 months then deleted, and shared only with the translator,
+  editor, and notary if one is involved. An NDA is signed on request.
+- **"Do you work on weekends?"** — the assistant takes requests any time; a
+  manager replies during office hours (Mon–Fri 09:00–18:00 EET) or the next
+  business morning.
+- **"How do I pay?"** — bank transfer with or without VAT, card, Privat24,
+  EUR/USD wire, or cryptocurrency.
+
 ## Escalate to a human when
 
 - the client asks for a person or is unhappy with the assistant
