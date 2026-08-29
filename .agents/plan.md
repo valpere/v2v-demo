@@ -78,6 +78,173 @@ examples/dialogues.md  worked example conversations — test material and the
 kb/translation-bureau.md  the fictional FromToBridge knowledge base
 ```
 
+## Type surface
+
+The exact Go shape. Implement these signatures verbatim; the `@schema` blocks
+in `docs/requirements.md` §1 mirror the data structs.
+
+```go
+// ── internal/telegram ────────────────────────────────────────────
+type Update struct {
+	ChatID      int64
+	Text        string // empty for a voice-only message
+	VoiceFileID string // empty for a text message
+	IsStart     bool   // /start, or the first message in this chat
+}
+
+type Client interface {
+	Updates(ctx context.Context) (<-chan Update, error)      // long-poll loop
+	DownloadVoice(ctx context.Context, fileID string) (oggPath string, err error)
+	SendVoice(ctx context.Context, chatID int64, ogg []byte, text string) error
+	SendText(ctx context.Context, chatID int64, text string) error
+	SendRecordingAction(ctx context.Context, chatID int64) error
+}
+
+// ── internal/stt ─────────────────────────────────────────────────
+type Transcriber interface {
+	// langHint is "" | "uk" | "en"; oggPath is a local file.
+	Transcribe(ctx context.Context, oggPath, langHint string) (string, error)
+}
+// NewLocal(bin, ggmlModel, lang string) Transcriber   // ffmpeg + whisper-cli
+// NewOpenAI(apiKey, model string) Transcriber          // whisper-1
+
+// ── internal/tts ─────────────────────────────────────────────────
+type Synthesizer interface {
+	// returns OGG/Opus mono, ready for Telegram sendVoice.
+	Speak(ctx context.Context, text, voiceID, lang string) ([]byte, error)
+}
+// NewElevenLabs(apiKey string) Synthesizer
+// NewAzure(key, region string) Synthesizer
+
+// ── internal/kb ──────────────────────────────────────────────────
+type Section struct {
+	Title string // the "## " heading text
+	Body  string // everything until the next "## "
+}
+func Load(path string) ([]Section, error) // split KB_PATH on "## "
+
+// ── internal/dialog ──────────────────────────────────────────────
+type Msg struct {
+	Role string // "user" | "assistant"
+	Text string
+}
+
+type QuoteSlots struct {
+	LanguagePair  *string `json:"language_pair"`
+	DocType       *string `json:"doc_type"`
+	Volume        *string `json:"volume"`
+	Deadline      *string `json:"deadline"`
+	Certification *string `json:"certification"`
+	Delivery      *string `json:"delivery"`
+}
+func (s QuoteSlots) Complete() bool // all six non-nil
+
+type Signal string
+
+const (
+	SignalContinue  Signal = "continue"
+	SignalLeadReady Signal = "lead_ready"
+	SignalEscalate  Signal = "escalate"
+)
+
+// the fenced JSON block the model appends after the spoken reply
+type trailer struct {
+	Slots  QuoteSlots `json:"slots"`
+	Signal Signal     `json:"signal"`
+}
+
+type Session struct {
+	Slots     QuoteSlots
+	History   []Msg  // trimmed to the last historyLimit (20) turns
+	Voice     string // "a" | "b"; default "a"
+	Escalated bool
+}
+
+type Generator interface {
+	Generate(ctx context.Context, systemPrompt string, history []Msg) (string, error)
+}
+// NewGemini(apiKey, model string) Generator
+// NewOllama(baseURL, model string) Generator
+// NewOpenAI(apiKey, model string) Generator
+
+type Reply struct {
+	Text    string   // spoken text, trailer stripped
+	Signal  Signal   // continue | lead_ready | escalate
+	Matched []string // titles of the KB sections used this turn
+}
+
+// the core: one user turn -> one reply, mutating sess.
+func Handle(
+	ctx context.Context,
+	sess *Session,
+	kb []Section,
+	gen Generator,
+	systemPrompt string,
+	userText string,
+) (Reply, error)
+
+// retrieve.go
+func retrieve(query string, kb []Section) (hits []Section, topScore float64) // BM25-lite
+func groundingGate(topScore float64, isSlotAnswer bool) (forceEscalate bool)
+
+// ── internal/store ──────────────────────────────────────────────
+type TurnRecord struct {
+	Time      time.Time `json:"time"`
+	ChatID    int64     `json:"chat_id"`
+	UserText  string    `json:"user_text"`
+	ReplyText string    `json:"reply_text"`
+	Signal    string    `json:"signal"`
+	Matched   []string  `json:"matched"`
+	LatencyMS int64     `json:"latency_ms"`
+}
+
+// the shape a Zoho lead would take — written to the log, not sent anywhere
+type LeadRecord struct {
+	Time          time.Time `json:"time"`
+	ChatID        int64     `json:"chat_id"`
+	LanguagePair  string    `json:"language_pair"`
+	DocType       string    `json:"doc_type"`
+	Volume        string    `json:"volume"`
+	Deadline      string    `json:"deadline"`
+	Certification string    `json:"certification"`
+	Delivery      string    `json:"delivery"`
+}
+
+func AppendTurn(dir string, r TurnRecord) error // dir/turns.jsonl
+func AppendLead(dir string, r LeadRecord) error // dir/leads.jsonl
+
+// ── cmd/bot ─────────────────────────────────────────────────────
+type Config struct {
+	TelegramToken string
+
+	TTSBackend   string // "elevenlabs" | "azure"
+	ElevenKey    string
+	ElevenVoiceA string
+	ElevenVoiceB string
+	AzureKey     string
+	AzureRegion  string
+	AzureVoiceA  string
+	AzureVoiceB  string
+
+	STTBackend   string // "local" | "openai"
+	WhisperBin   string
+	WhisperModel string
+	WhisperLang  string // "auto" | "uk" | "en"
+
+	DialogBackend string // "gemini" | "ollama" | "openai"
+	DialogModel   string
+	GeminiKey     string
+	OllamaBaseURL string
+	OpenAIKey     string
+
+	KBPath           string
+	SystemPromptPath string
+	GreetingPath     string
+	DataDir          string
+}
+func LoadConfig() (Config, error) // env + optional .env via a tiny hand parser
+```
+
 ## Details / decisions
 
 - **Telegram:** long-polling (`getUpdates`), no webhook / public URL. Use
