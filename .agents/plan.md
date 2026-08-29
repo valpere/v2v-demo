@@ -36,7 +36,9 @@ file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
       slot unless the user explicitly corrected it.
    f. `escalate` → replace reply with the handoff line, mark session.
       `lead_ready` → append a lead record (Zoho-field shape).
-4. Reply text → ElevenLabs multilingual v2 (session's current voice) → OGG.
+4. Reply text → `tts.Speak` (session's current voice) → OGG/Opus. Default =
+   **ElevenLabs `eleven_multilingual_v2`**; `TTS_BACKEND=azure` switches to
+   Azure Neural (`uk-UA-*Neural`) (D-15).
 5. Telegram: `sendVoice` + `sendMessage` with the same text (so it's readable).
 6. Append a turn record to the JSONL log: transcript, reply, signal, matched
    section titles, latency (FR-13).
@@ -56,7 +58,9 @@ internal/telegram/  long-poll getUpdates, file download, sendVoice/sendMessage,
                     "recording voice" chat action, /voice a|b
 internal/stt/       Transcriber interface; local.go (ffmpeg ogg->wav + shell
                     whisper-cli) · openai.go (whisper-1 API). STT_BACKEND picks.
-internal/tts/       ElevenLabs multilingual v2: (text, voiceID) -> ogg bytes
+internal/tts/       Synthesizer interface; elevenlabs.go (eleven_multilingual_v2,
+                    output_format opus) · azure.go (SSML + ogg-opus header).
+                    TTS_BACKEND picks. Google = documented, not built.
 internal/kb/        load KB_PATH, split on "##" into titled sections
 internal/dialog/    retrieve.go (BM25-lite + grounding gate) · dialog.go
                     (loads prompt/system.md, builds the prompt, parses the
@@ -112,10 +116,19 @@ kb/translation-bureau.md  the fictional FromToBridge knowledge base
 - **History:** in-memory per chat ID, last 20 turns, dropped on restart.
 - **Languages:** Ukrainian + English only (Q5 — no RU). System prompt tells the
   model to detect uk / en from the first message and stay in it, switching if
-  the user does. One ElevenLabs multilingual voice ID covers both. A RU message
+  the user does. One multilingual voice per provider covers both. A RU message
   is not tested or prompted for (the model will likely still answer).
-- **Voices:** `ELEVENLABS_VOICE_A` default; `/voice b` swaps to
-  `ELEVENLABS_VOICE_B` for that chat only.
+- **TTS (D-15):** `elevenlabs` impl → `POST /v1/text-to-speech/{voice_id}`,
+  `model_id: eleven_multilingual_v2`, `output_format: opus_48000_128`, header
+  `xi-api-key`. `azure` impl → `POST {region}.tts.speech.microsoft.com/...v1`,
+  SSML body, `X-Microsoft-OutputFormat: ogg-48khz-16bit-mono-opus`, key or
+  10-min token. Same `Speak(ctx, text, voiceID, lang) ([]byte, error)`.
+  Build ElevenLabs first (that's the demo path); Azure with the openai
+  rollback batch (step 6).
+- **Voices:** `VOICE_A` / `VOICE_B` per backend
+  (`ELEVENLABS_VOICE_A`/`_B`, `AZURE_VOICE_A`/`_B`); `/voice b` swaps for that
+  chat only. ElevenLabs Free plan during build → Starter before the client
+  link.
 - **Latency:** "recording voice" chat action while the STT→LLM→TTS chain runs
   (NFR-2). No streaming.
 - **Config:** env only (`.env.example`); load `.env` if present with a small
@@ -130,8 +143,9 @@ kb/translation-bureau.md  the fictional FromToBridge knowledge base
 
 Real Zoho connection · telephony / phone numbers · real-time full-duplex voice
 · any database (Postgres, SQLite, pgvector, FTS) · multi-tenant · persistence
-across restart · auth · the ragivka framework. The MVP substrate (SQLite etc.)
-is in `docs/architecture.md` §7 — **not** this demo.
+across restart · auth · the ragivka framework · **Google Cloud TTS** (the
+`Synthesizer` interface should accept it, but don't build the impl). The MVP
+substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
 
 ## Build order
 
@@ -140,9 +154,10 @@ is in `docs/architecture.md` §7 — **not** this demo.
 3. `dialog`: `retrieve` + grounding gate + `Generator` (ollama impl first) +
    trailer parse + slot merge + turn log; wire onto text messages
 4. `stt`: `local` impl (ffmpeg + whisper-cli) — voice in
-5. `tts` — voice out; `/voice` command
-6. `openai` impls for `stt` + `dialog.Generator` (the rollback path); verify
-   `STT_BACKEND` / `DIALOG_BACKEND` switch cleanly
+5. `tts`: `elevenlabs` impl — voice out; `/voice` command
+6. rollback batch: `openai` impls for `stt` + `dialog.Generator`, `azure` impl
+   for `tts`; verify `STT_BACKEND` / `DIALOG_BACKEND` / `TTS_BACKEND` switch
+   cleanly
 7. README refresh + `.env.example` check + a short smoke-test doc
 
 After each step: `go build ./...`, `go vet ./...`, `go test ./... -race`.

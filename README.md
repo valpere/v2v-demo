@@ -9,7 +9,7 @@ not production code, not a framework.
 
 ```
 Telegram voice msg ─► local Whisper STT ─► retrieve KB + grounding gate ─► gemma4:cloud (Ollama) ─► ElevenLabs TTS ─► Telegram voice reply
-                      rollback: whisper-1 API                             rollback: gpt-4o-mini
+                      rollback: whisper-1 API                             rollback: gpt-4o-mini    rollback: Azure Neural
                                              │
                                              ├─ collects: language pair, doc type, volume,
                                              │            deadline, certification, delivery
@@ -28,8 +28,9 @@ cp .env.example .env      # TELEGRAM_BOT_TOKEN, ELEVENLABS_API_KEY + two voice I
 go run ./cmd/bot
 ```
 
-Rollback to the OpenAI path: set `STT_BACKEND=openai` and/or
-`DIALOG_BACKEND=openai` and fill `OPENAI_API_KEY`.
+Rollbacks (config only, no code change): `STT_BACKEND=openai` /
+`DIALOG_BACKEND=openai` (+ `OPENAI_API_KEY`), `TTS_BACKEND=azure`
+(+ `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION`).
 
 Then message the bot on Telegram.
 

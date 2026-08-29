@@ -16,7 +16,8 @@ The client judges the demo on whether the assistant **sounds natural** — and
 they mean two things by it (chat 20260828, S2):
 
 1. **Voice** — not robotic. Solved by the TTS choice (ElevenLabs multilingual
-   v2, NFR-1). Not architecturally interesting.
+   v2 primary, Azure Neural rollback — NFR-1, D-15). Not architecturally
+   interesting.
 2. **Content** — clear, connected, on-topic sentences; not vague waffle or
    invented facts (NFR-9). This *is* architecturally interesting, and it is
    the reason this document exists.
@@ -46,7 +47,7 @@ flowchart TD
     KB[internal/kb\nload + split KB into ~12 sections] --> R
     S[(session state\nper chat id: history, slots, voice)] <--> CORE
 
-    M -->|spoken_reply| TTS[internal/tts\nElevenLabs multilingual v2]
+    M -->|spoken_reply| TTS[internal/tts\nElevenLabs multilingual v2\n· rollback: Azure Neural]
     ESC -->|handoff line| TTS
     TTS -->|ogg| TG
     CORE -->|turn record / lead record| LOG[internal/store\nappend-only JSONL]
@@ -58,14 +59,15 @@ flowchart TD
 | `internal/stt` | `Transcriber` interface, two impls: **`local`** (ogg→wav via `ffmpeg`, then shell out to `whisper-cli` with a ggml model) and **`openai`** (`whisper-1` API). `STT_BACKEND` selects. | FR-2, D-13 |
 | `internal/kb` | Load `KB_PATH`, split on `##` headings into titled sections; expose them for scoring | FR-6, NFR-9 |
 | `internal/dialog` | Retrieval, grounding gate, LLM orchestration, signal + slot parsing, slot merge. **The core.** LLM call goes through a `Generator` interface: **`ollama`** (`gemma4:cloud` via `localhost:11434`) and **`openai`** (`gpt-4o-mini`). `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13 |
-| `internal/tts` | ElevenLabs multilingual v2: text + voiceID → ogg | FR-10, NFR-1 |
+| `internal/tts` | `Synthesizer` interface, two impls: **`elevenlabs`** (`eleven_multilingual_v2`) and **`azure`** (`uk-UA-*Neural`). `TTS_BACKEND` selects. Both emit opus-in-ogg. Google is a documented third impl, not built (D-15). | FR-10, NFR-1, D-15 |
 | `internal/store` | Append-only JSONL: one record per turn; one lead record on `lead_ready` | FR-8, FR-13 |
 | `cmd/bot` | Wiring, config load, the update loop, per-chat session map | NFR-4, NFR-6 |
 
 Runtime dependencies: a Telegram bot library (Go); `ffmpeg` + a `whisper-cli`
 binary + a ggml model (local STT); a running Ollama with `gemma4:cloud`
-reachable. HTTP to ElevenLabs (and to OpenAI only on the rollback path) is
-stdlib. **Default path uses no OpenAI** — the OpenAI key is rollback-only.
+reachable. HTTP to ElevenLabs / Azure (and to OpenAI only on the rollback
+path) is stdlib. **Default path uses no OpenAI** — the OpenAI key is
+rollback-only.
 
 ## 3. Turn data flow
 
