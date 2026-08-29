@@ -64,8 +64,8 @@ internal/tts/       Synthesizer interface; elevenlabs.go (eleven_multilingual_v2
 internal/kb/        load KB_PATH, split on "##" into titled sections
 internal/dialog/    retrieve.go (BM25-lite + grounding gate) · dialog.go
                     (loads prompt/system.md, builds the prompt, parses the
-                    trailer, merges slots) · generator.go (Generator
-                    interface: ollama.go + openai.go, DIALOG_BACKEND)
+                    trailer, merges slots) · generator.go (Generator interface)
+                    · ollama.go + openai.go + gemini.go (DIALOG_BACKEND)
 internal/store/     append-only JSONL: turn records + lead records (DATA_DIR)
 
 prompt/system.md   the assistant persona + conversation playbook + hard rules
@@ -88,12 +88,17 @@ kb/translation-bureau.md  the fictional FromToBridge knowledge base
   `Transcribe(ctx, oggPath, langHint) (string, error)`; a `local` failure does
   **not** auto-fallback to `openai` — the switch is the `STT_BACKEND` env only
   (keep it predictable for a demo).
-- **Dialogue Generator (D-13):** `ollama` impl → `POST localhost:11434/v1/chat/completions`
-  (OpenAI-compatible), model `DIALOG_MODEL` (default `gemma4:cloud`); `openai`
-  impl → `api.openai.com`, `DIALOG_MODEL` (default `gpt-4o-mini`). Same
-  `Generate(ctx, systemPrompt, msgs) (string, error)`. `DIALOG_BACKEND` picks.
-  For Ollama, request `"think": false` if the model supports it — keep latency
-  down; the grounding rule carries the discipline, not the thinking trace.
+- **Dialogue Generator (D-13):** `Generate(ctx, systemPrompt, msgs) (string, error)`,
+  three impls, `DIALOG_BACKEND` picks:
+  - `ollama` (default) → `POST $OLLAMA_BASE_URL/v1/chat/completions` (OpenAI-
+    compatible), `DIALOG_MODEL` default `gemma4:cloud`. Request `"think": false`
+    if supported — keep latency down; the grounding rule carries the discipline.
+  - `openai` → `api.openai.com`, `DIALOG_MODEL` default `gpt-4o-mini`.
+  - `gemini` → native `POST generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`,
+    header `x-goog-api-key: $GEMINI_API_KEY`, body `{systemInstruction, contents,
+    generationConfig:{temperature}}`, `DIALOG_MODEL` default `gemini-flash-latest`.
+    Covered by Val's Google AI Pro credits; candidate for default pending a UA test.
+  Build `ollama` first (step 3); `openai` + `gemini` in the rollback batch (step 6).
 - **Retrieval:** in memory, no DB. Lowercase + tokenize; score each section by
   term frequency / overlap (BM25-lite is fine — ~12 short sections). Keep top
   ≤3 above a tuned floor. This exists mainly to *drive the escalate decision*
@@ -155,9 +160,9 @@ substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
    trailer parse + slot merge + turn log; wire onto text messages
 4. `stt`: `local` impl (ffmpeg + whisper-cli) — voice in
 5. `tts`: `elevenlabs` impl — voice out; `/voice` command
-6. rollback batch: `openai` impls for `stt` + `dialog.Generator`, `azure` impl
-   for `tts`; verify `STT_BACKEND` / `DIALOG_BACKEND` / `TTS_BACKEND` switch
-   cleanly
+6. rollback batch: `openai` + `gemini` impls for `dialog.Generator`, `openai`
+   for `stt`, `azure` for `tts`; verify `STT_BACKEND` / `DIALOG_BACKEND` /
+   `TTS_BACKEND` switch cleanly
 7. README refresh + `.env.example` check + a short smoke-test doc
 
 After each step: `go build ./...`, `go vet ./...`, `go test ./... -race`.

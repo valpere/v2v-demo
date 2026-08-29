@@ -23,7 +23,7 @@ unscripted*. Everything else exists only to make that judgeable.
 | **S1** | `task.md` — client's full brief: system description, the 8 application questions, the "Preferred approach / prototype" list (`task.md:99-107`), and the GDPR section (`task.md:62-74`) |
 | **S2** | `chat.md` — the pre-engagement chat: client 20260828T1547 (wants to hear sound + dialogue, not a past-work sample), client 20260828T1915 (any topic is fine), our reply 20260828T1930 (agreed format: Telegram bot, voice messages, + a sample recording) |
 | **S3** | the agreed deal terms — commercial scope: neutral scenario, 2 voice options, structured lead in Zoho field shape (no real connection), a short fixed timeline, credited toward the MVP; and the explicit "not in the demo" list |
-| **S4** | Val's stack decisions this session — see `10-decisions.md` D-05/D-13/D-15: Go, Telegram long-polling, **local Whisper + Ollama `gemma4:cloud` + ElevenLabs multilingual v2** (rollbacks: `whisper-1`, `gpt-4o-mini`, Azure Neural) |
+| **S4** | Val's stack decisions this session — see `10-decisions.md` D-05/D-13/D-15: Go, Telegram long-polling, **local Whisper + Ollama `gemma4:cloud` + ElevenLabs multilingual v2** (alternates behind config flags: `whisper-1`, `gpt-4o-mini`, **Gemini Flash**, Azure Neural) |
 | **S5** | `~/.claude/CLAUDE.md` — Go for user-facing tools, GDPR awareness, never commit secrets, Ukrainian for client-facing copy |
 
 ## 3. Scope
@@ -90,6 +90,7 @@ Out: everything in §6.
 | **I-3** | ElevenLabs API key | multilingual v2 | elevenlabs.io → Profile → API key | **Free plan** during build/testing; **Starter ($6/mo)** before the client link (commercial licence, 30k credits) — D-15 |
 | **I-4** | 2 ElevenLabs voice IDs | two multilingual voices that read Ukrainian cleanly — test each on a UA sentence with a Latin surname and a EUR amount | ElevenLabs Voice Library → filter *multilingual* → preview | Val picks · free |
 | **I-14** | Azure Speech resource (rollback) | region + key; voices `uk-UA-PolinaNeural` / `uk-UA-OstapNeural` | portal.azure.com → Speech service (free tier F0: 500k chars/mo, 12 mo) | Val sets up when the rollback is wired · free |
+| **I-15** | Gemini API key (alternate LLM) | key for `gemini-flash-latest` | aistudio.google.com → API keys (bundled with Google AI Pro) | the env `GEMINI_API_KEY` is currently **invalid** — grab a fresh one · free within Pro credits |
 | **I-5** | Neutral KB | services, pricing model, 1800-char page, certified/notarized/sworn, turnaround, retention+NDA, QA chain, payment/delivery, common questions — all fictional, generalised from Kyiv-market patterns (`../research/`) | **written**: `kb/translation-bureau.md` ("FromToBridge") | done · Val may adjust numbers/tone |
 | **I-6** | Handoff wording | the line the bot says on escalation, UA + EN | in `prompt/system.md` + `examples/dialogues.md` (cases 3–5) | done · tone approved 2026-08-29 |
 | **I-7** | Consent/demo line (FR-14) | first-message disclaimer text | Claude drafts | pending |

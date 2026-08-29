@@ -39,7 +39,7 @@ flowchart TD
     subgraph CORE [internal/dialog — the grounding core]
         R[retrieve\nscore KB sections] --> G{grounding gate\nbest score >= floor?}
         G -->|no, and it's a content question| ESC[signal: escalate]
-        G -->|yes / or slot-answer turn| LLM[LLM call\nOllama gemma4:cloud\n· rollback: gpt-4o-mini]
+        G -->|yes / or slot-answer turn| LLM[LLM call\nOllama gemma4:cloud\n· gpt-4o-mini · gemini-flash]
         LLM --> P[parse: spoken_reply + slot_updates + signal]
         P --> M[merge slots\nvalidate, never silently unset]
     end
@@ -58,7 +58,7 @@ flowchart TD
 | `internal/telegram` | Long-poll `getUpdates`; download voice files to temp; `sendVoice` + `sendMessage`; "recording voice…" chat action; `/voice a\|b` | FR-1, FR-3, FR-10, FR-11, NFR-2 |
 | `internal/stt` | `Transcriber` interface, two impls: **`local`** (ogg→wav via `ffmpeg`, then shell out to `whisper-cli` with a ggml model) and **`openai`** (`whisper-1` API). `STT_BACKEND` selects. | FR-2, D-13 |
 | `internal/kb` | Load `KB_PATH`, split on `##` headings into titled sections; expose them for scoring | FR-6, NFR-9 |
-| `internal/dialog` | Retrieval, grounding gate, LLM orchestration, signal + slot parsing, slot merge. **The core.** LLM call goes through a `Generator` interface: **`ollama`** (`gemma4:cloud` via `localhost:11434`) and **`openai`** (`gpt-4o-mini`). `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13 |
+| `internal/dialog` | Retrieval, grounding gate, LLM orchestration, signal + slot parsing, slot merge. **The core.** LLM call goes through a `Generator` interface: **`ollama`** (`gemma4:cloud`, default), **`openai`** (`gpt-4o-mini`), **`gemini`** (native Gemini API, `gemini-flash-latest`). `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13 |
 | `internal/tts` | `Synthesizer` interface, two impls: **`elevenlabs`** (`eleven_multilingual_v2`) and **`azure`** (`uk-UA-*Neural`). `TTS_BACKEND` selects. Both emit opus-in-ogg. Google is a documented third impl, not built (D-15). | FR-10, NFR-1, D-15 |
 | `internal/store` | Append-only JSONL: one record per turn; one lead record on `lead_ready` | FR-8, FR-13 |
 | `cmd/bot` | Wiring, config load, the update loop, per-chat session map | NFR-4, NFR-6 |

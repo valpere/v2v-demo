@@ -28,9 +28,9 @@ cp .env.example .env      # TELEGRAM_BOT_TOKEN, ELEVENLABS_API_KEY + two voice I
 go run ./cmd/bot
 ```
 
-Rollbacks (config only, no code change): `STT_BACKEND=openai` /
-`DIALOG_BACKEND=openai` (+ `OPENAI_API_KEY`), `TTS_BACKEND=azure`
-(+ `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION`).
+Rollbacks / alternates (config only, no code change): `STT_BACKEND=openai`,
+`DIALOG_BACKEND=openai|gemini` (+ `OPENAI_API_KEY` / `GEMINI_API_KEY`),
+`TTS_BACKEND=azure` (+ `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION`).
 
 Then message the bot on Telegram.
 
