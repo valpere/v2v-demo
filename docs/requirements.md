@@ -4,6 +4,10 @@ Traced requirements for the throwaway client demo. This is the *what* and
 *why*; `docs/architecture.md` is the *shape*; `.agents/plan.md` is the *how*.
 Every requirement cites a source.
 
+Engagement-level source of truth (phases, decisions, commercial, asset map):
+`<engagement-repo>/docs/00-overview.md`.
+This file governs the demo only.
+
 ## 1. Purpose & primary success criterion
 
 The prospective client (a translation bureau, a freelance engagement)

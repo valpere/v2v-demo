@@ -5,6 +5,10 @@ Companion to `docs/requirements.md` (the *what*) and `.agents/plan.md` (the
 — the part that drove the design — how the agent's speech is kept coherent and
 grounded rather than fluent nonsense.
 
+Engagement-level source of truth:
+`<engagement-repo>/docs/`
+(`00-overview.md`, `10-decisions.md` — §6/§7 here trace to D-04/D-06/D-07).
+
 ## 1. The one hard problem
 
 The client judges the demo on whether the assistant **sounds natural** — and
