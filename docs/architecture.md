@@ -1,0 +1,199 @@
+# ftb-demo — architecture
+
+Companion to `docs/requirements.md` (the *what*) and `.agents/plan.md` (the
+*how*, file by file). This is the *shape*: components, the turn data flow, and
+— the part that drove the design — how the agent's speech is kept coherent and
+grounded rather than fluent nonsense.
+
+## 1. The one hard problem
+
+The client judges the demo on whether the assistant **sounds natural** — and
+they mean two things by it (chat 20260828, S2):
+
+1. **Voice** — not robotic. Solved by the TTS choice (ElevenLabs multilingual
+   v2, NFR-1). Not architecturally interesting.
+2. **Content** — clear, connected, on-topic sentences; not vague waffle or
+   invented facts (NFR-9). This *is* architecturally interesting, and it is
+   the reason this document exists.
+
+A fluent voice reading mushy or subtly-wrong answers fails the demo. So the
+architecture is built around **grounding**: the model only ever speaks from a
+known, retrieved slice of the knowledge base, and when the KB doesn't cover
+the question it hands off instead of guessing.
+
+## 2. Components
+
+```mermaid
+flowchart TD
+    U[User on Telegram] -->|voice / text| TG[internal/telegram\nlong-poll, file dl, sendVoice]
+    TG -->|audio bytes| STT[internal/stt\nOpenAI whisper-1]
+    STT -->|transcript| D[internal/dialog\nCORE]
+    TG -->|text msg| D
+
+    subgraph CORE [internal/dialog — the grounding core]
+        R[retrieve\nscore KB sections] --> G{grounding gate\nbest score >= floor?}
+        G -->|no, and it's a content question| ESC[signal: escalate]
+        G -->|yes / or slot-answer turn| LLM[LLM call\npersona + rule + sections + slot state + history]
+        LLM --> P[parse: spoken_reply + slot_updates + signal]
+        P --> M[merge slots\nvalidate, never silently unset]
+    end
+
+    KB[internal/kb\nload + split KB into ~12 sections] --> R
+    S[(session state\nper chat id: history, slots, voice)] <--> CORE
+
+    M -->|spoken_reply| TTS[internal/tts\nElevenLabs multilingual v2]
+    ESC -->|handoff line| TTS
+    TTS -->|ogg| TG
+    CORE -->|turn record / lead record| LOG[internal/store\nappend-only JSONL]
+```
+
+| Package | Responsibility | Requirements |
+|---|---|---|
+| `internal/telegram` | Long-poll `getUpdates`; download voice files to temp; `sendVoice` + `sendMessage`; "recording voice…" chat action; `/voice a\|b` | FR-1, FR-3, FR-10, FR-11, NFR-2 |
+| `internal/stt` | OpenAI `whisper-1`: audio bytes → transcript | FR-2 |
+| `internal/kb` | Load `KB_PATH`, split on `##` headings into titled sections; expose them for scoring | FR-6, NFR-9 |
+| `internal/dialog` | Retrieval, grounding gate, LLM orchestration, signal + slot parsing, slot merge. **The core.** | FR-4…FR-9, FR-12, NFR-7, NFR-9 |
+| `internal/tts` | ElevenLabs multilingual v2: text + voiceID → ogg | FR-10, NFR-1 |
+| `internal/store` | Append-only JSONL: one record per turn; one lead record on `lead_ready` | FR-8, FR-13 |
+| `cmd/bot` | Wiring, config load, the update loop, per-chat session map | NFR-4, NFR-6 |
+
+One external dependency: a Telegram bot library. Everything else (OpenAI,
+ElevenLabs) is plain HTTP with stdlib.
+
+## 3. Turn data flow
+
+1. Telegram update arrives. If voice: download OGG to a temp file (path
+   validated), transcribe, delete the file. If text: use it directly.
+2. `dialog.Handle(chatID, text)`:
+   a. **Retrieve** — lowercase + tokenize the text; score each KB section by
+      term overlap (BM25-lite); keep sections above a score floor.
+   b. **Grounding gate** —
+      - if the turn is answering a pending slot question (short, matches an
+        expected parameter) → skip the gate, proceed;
+      - else if no section cleared the floor → **force `escalate`** without
+        calling the LLM (this is the anti-waffle stop);
+      - else → proceed with the retrieved sections.
+   c. **LLM call** — system prompt = persona + the hard grounding rule +
+      the retrieved sections verbatim + the current slot state; messages =
+      last ~10 turns + this one. Temperature 0.2–0.3.
+   d. **Parse** the response into `{ spoken_reply, slot_updates, signal }`
+      where `signal ∈ {continue, lead_ready, escalate}`. Format: the reply
+      text, then a fenced JSON trailer the code strips before speaking.
+   e. **Merge** `slot_updates` into the session slots — validate types,
+      never clear an already-filled slot unless the user explicitly corrected
+      it (the LLM is told to send a slot only when newly learned).
+   f. If `signal == escalate` → replace `spoken_reply` with the handoff line
+      (I-6), mark the session escalated.
+      If `signal == lead_ready` → append a lead record (Zoho-field shape).
+3. `tts` the final reply with the session's current voice → OGG.
+4. Telegram: send the voice note, and the text as a normal message (so the
+   client can read what was said).
+5. `store` appends the turn record: transcript, reply, signal, matched
+   section titles, latency.
+
+## 4. Session & slot state
+
+In-memory `map[chatID]*Session`, dropped on restart (NFR: persistence is
+deferred, D-7).
+
+```
+Session
+  History  []Turn        // last 20, trimmed
+  Slots    QuoteSlots     // 6 optional fields (FR-7)
+  Voice    string         // "a" | "b" (FR-11)
+  Escalated bool
+```
+
+`QuoteSlots`: `LanguagePair, DocType, Volume, Deadline, Certification,
+Delivery` — all `*string` (or small typed enums where the KB constrains the
+values). "Lead ready" = all six non-nil. There is no elaborate FSM; the
+"state machine" is *which slots are still nil*, and the LLM is prompted to ask
+about exactly those.
+
+## 5. Grounding — the mechanism in full (NFR-9)
+
+The model is prevented from waffling by four layers, cheapest first:
+
+1. **Bounded context.** The LLM never sees more than: persona, the grounding
+   rule, ≤3 retrieved KB sections, the slot state, ~10 turns. It cannot drift
+   into territory it was never given.
+2. **Pre-LLM escalation.** If retrieval finds nothing relevant and the turn is
+   a content question, the code answers with the handoff line and never calls
+   the LLM. No input → no hallucinated output.
+3. **The rule in the prompt.** *"Answer only from the KNOWLEDGE BASE section
+   below. If the user asks something it does not cover, do not improvise — set
+   `signal: escalate`. Never state a final price; say a manager will confirm."*
+   (NFR-7, NFR-9.)
+4. **Low temperature + a fixed persona.** 0.2–0.3, and a short, specific
+   persona so tone doesn't wander.
+
+This is the same discipline as `ragline`'s `Decide` function (retrieve →
+score → answer-or-escalate); reimplemented here at demo scale, in memory, no
+database. `ragline` is the public reference implementation of the pattern at
+"real" scale — it is **not** a code dependency (its core lives in `internal/`,
+coupled to Postgres, not importable). See §6.
+
+## 6. Dependency decision — settled
+
+| Option | Verdict |
+|---|---|
+| Depend on `ragline` as a Go module | **No.** Its reusable core is under `internal/` — not importable across modules — and coupled to Postgres repos + JWT + HTTP handlers. Not cleanly extractable without a real refactor of a repo that is "done". |
+| Build the demo on `ragivka` (L1 flow) | **No, not for the demo.** Multi-tenant, River queue, prompt registry — overkill for a throwaway. Its runtime state is unverified (`README` says routes 503, `CLAUDE.md` says fully wired). Risk to the 3–5 day timeline. |
+| Self-contained demo, pattern reimplemented | **Yes.** ~5 small packages, one dependency. The retrieve→gate→ground pattern is ~120 LOC, informed by `ragline` (and its `decision.go` may be copied verbatim with attribution if it saves time). |
+
+`ragline` stays the **client-facing proof artifact** — a public GitHub repo
+showing the same "knows when it doesn't know" + audit-queue + cache-
+invalidation pattern, verified running. `ragivka` stays the **MVP target**.
+
+## 7. How this becomes the MVP (not throwaway thinking)
+
+The demo validates the *conversation design*; the MVP swaps the *substrate*.
+
+| Demo | MVP |
+|---|---|
+| `dialog.Handle` (transcript + state + KB → reply + state + signal) | L1 orchestrator + a confidence/HITL gate (ragivka's `pkg/orchestrator` + `pkg/tools.HITLGate`, or the equivalent) |
+| in-memory BM25-lite over 12 sections | SQLite FTS5 + vector search (see §7.1) |
+| `map[chatID]*Session`, lost on restart | SQLite `session` table + FSM |
+| JSONL turn log | SQLite `message` + `audit_log` tables |
+| lead record written to the log | real Zoho lead via REST (`.eu` base) |
+| Telegram voice glue in `internal/telegram` | a reusable `channel/voice` adapter |
+| gpt-4o-mini, single provider | model router + multi-provider failover |
+
+### 7.1 Datastore (MVP) — SQLite by default
+
+For this project's scale (a translation bureau: tens–hundreds of
+conversations/day, a KB in the hundreds–low-thousands of chunks) **SQLite is a
+full replacement for Postgres/pgvector, not a compromise.**
+
+| Concern | SQLite approach |
+|---|---|
+| Keyword retrieval | **FTS5 + BM25** — a direct equivalent of Postgres FTS |
+| Vector retrieval | `sqlite-vec` extension, **or** embeddings stored as BLOB with cosine done in Go memory — brute-force over a few thousand vectors is sub-millisecond; HNSW only matters past ~1M |
+| Job queue | River is Postgres-only and is dropped. Start **synchronous**; if a specific operation proves too slow, add a `jobs` table + a polling worker |
+| Concurrency | WAL mode — many readers + one writer; adequate for this write volume |
+| Backup / replication | copy the file, or **Litestream** streaming to an S3 bucket |
+
+**Why it also helps the pitch:** no managed-Postgres line in the monthly
+cost; and the GDPR story is simpler — one file, one region, Litestream to an
+EU bucket is easy to explain to the client's German customers.
+
+**Escape hatch:** the data layer stays behind an interface, so Postgres
+remains a drop-in if sustained high-concurrency writes (many simultaneous
+voice calls) ever make the single writer contend. Avoid Postgres-only SQL in
+the schema so the migration stays mechanical.
+
+Prefer the pure-Go `modernc.org/sqlite` driver (no CGO); if `sqlite-vec` is
+needed, either accept CGO (`mattn/go-sqlite3` + load the extension) or keep
+vectors in Go memory and use the pure-Go driver for everything else.
+
+## 8. Failure modes (NFR-4)
+
+| Failure | Behaviour |
+|---|---|
+| STT error / empty transcript | text reply: "не розчув, повторіть, будь ласка"; log; no LLM call |
+| LLM error / unparseable trailer | text reply: apology + "з'єдную з менеджером"; mark escalated; log |
+| TTS error | send the reply as **text only**; log |
+| Telegram send error | retry once, then log and drop the turn |
+| any panic in a handler | recovered in the loop; the bot keeps serving other chats |
+
+The update loop never exits on a per-turn error.

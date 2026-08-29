@@ -1,7 +1,8 @@
 # ftb-demo — requirements
 
-Traced requirements for the throwaway client demo. `.agents/plan.md` is the
-*how*; this is the *what* and *why*. Every requirement cites a source.
+Traced requirements for the throwaway client demo. This is the *what* and
+*why*; `docs/architecture.md` is the *shape*; `.agents/plan.md` is the *how*.
+Every requirement cites a source.
 
 ## 1. Purpose & primary success criterion
 
@@ -60,6 +61,7 @@ Out: everything in §6.
 | **NFR-6** | Secrets only via env / `.env` (gitignored) — never in code, logs, or git | S5 |
 | **NFR-7** | The assistant never states a final price — it collects parameters and defers the quote to a manager | S1 (pricing risk); KB |
 | **NFR-8** | All bot-authored copy in the user's language (UA default); code / identifiers / comments in English | S5 |
+| **NFR-9** | Answers are **grounded** in the KB: the assistant does not volunteer information the KB does not contain, and escalates instead of guessing when the KB does not cover the question. "Natural" means clear and coherent content, not just a natural voice | S2 (Val's clarification — "внятність і природна зрозумілість… а не маячня"), S1 ("use our knowledge base to improve quality"; "not a scripted FAQ bot") |
 
 ## 6. Deferred — explicitly NOT in the demo
 
