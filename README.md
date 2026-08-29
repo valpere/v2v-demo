@@ -8,22 +8,28 @@ not production code, not a framework.
 ## Loop
 
 ```
-Telegram voice msg → Whisper STT → gpt-4o-mini (+ KB + history) → ElevenLabs TTS → Telegram voice reply
-                                          │
-                                          ├─ collects: language pair, doc type, volume,
-                                          │            deadline, certification, delivery
-                                          └─ escalates to a human on out-of-scope / on request
+Telegram voice msg ─► local Whisper STT ─► retrieve KB + grounding gate ─► gemma4:cloud (Ollama) ─► ElevenLabs TTS ─► Telegram voice reply
+                      rollback: whisper-1 API                             rollback: gpt-4o-mini
+                                             │
+                                             ├─ collects: language pair, doc type, volume,
+                                             │            deadline, certification, delivery
+                                             └─ escalates to a human on out-of-scope / on request
 ```
 
-Text messages work too (STT skipped). `/voice b` swaps to the second voice for
-comparison.
+UK + EN only. Text messages work too (STT skipped). `/voice b` swaps to the
+second voice for comparison.
 
 ## Run
 
 ```bash
-cp .env.example .env      # fill TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, ELEVENLABS_API_KEY, two voice IDs
+cp .env.example .env      # TELEGRAM_BOT_TOKEN, ELEVENLABS_API_KEY + two voice IDs, WHISPER_MODEL
+# default path needs: ffmpeg, a whisper.cpp `whisper-cli` binary + a ggml model,
+# and a running Ollama reachable at OLLAMA_BASE_URL with gemma4:cloud
 go run ./cmd/bot
 ```
+
+Rollback to the OpenAI path: set `STT_BACKEND=openai` and/or
+`DIALOG_BACKEND=openai` and fill `OPENAI_API_KEY`.
 
 Then message the bot on Telegram.
 

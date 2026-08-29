@@ -23,7 +23,7 @@ unscripted*. Everything else exists only to make that judgeable.
 | **S1** | `task.md` — client's full brief: system description, the 8 application questions, the "Preferred approach / prototype" list (`task.md:99-107`), and the GDPR section (`task.md:62-74`) |
 | **S2** | `chat.md` — the pre-engagement chat: client 20260828T1547 (wants to hear sound + dialogue, not a past-work sample), client 20260828T1915 (any topic is fine), our reply 20260828T1930 (agreed format: Telegram bot, voice messages, + a sample recording) |
 | **S3** | the agreed deal terms — commercial scope: neutral scenario, 2 voice options, structured lead in Zoho field shape (no real connection), a short fixed timeline, credited toward the MVP; and the explicit "not in the demo" list |
-| **S4** | Val's stack decisions this session: Go, Telegram long-polling, OpenAI `whisper-1` + `gpt-4o-mini`, ElevenLabs multilingual v2 |
+| **S4** | Val's stack decisions this session — see `10-decisions.md` D-05/D-13: Go, Telegram long-polling, **local Whisper + Ollama `gemma4:cloud`** (rollback: `whisper-1` + `gpt-4o-mini`), ElevenLabs multilingual v2 |
 | **S5** | `~/.claude/CLAUDE.md` — Go for user-facing tools, GDPR awareness, never commit secrets, Ukrainian for client-facing copy |
 
 ## 3. Scope
@@ -40,7 +40,7 @@ Out: everything in §6.
 | ID | Requirement | Source |
 |---|---|---|
 | **FR-1** | Accept a Telegram **voice message** from the user | S2, S3 |
-| **FR-2** | Transcribe the voice message to text (STT, `whisper-1`) | S1 (natural voice interaction), S4 |
+| **FR-2** | Transcribe the voice message to text. Default: **local `whisper-cli`** (uk/en). Rollback: `whisper-1` API via `STT_BACKEND=openai` | S1 (natural voice interaction), S4, D-13 |
 | **FR-3** | Accept a plain **text** message equivalently (STT skipped) — lets the client test without recording | S4 (pragmatic) |
 | **FR-4** | Generate a natural, non-scripted reply from an LLM with the KB **and** rolling conversation history in context | S1 ("communicate naturally, without sounding like a scripted chatbot"; "understand context") |
 | **FR-5** | Ask relevant clarifying questions that move toward a quote | S1 ("ask relevant follow-up questions"; prototype list) |
@@ -86,7 +86,7 @@ Out: everything in §6.
 | # | Item | What exactly | Where to get it | Status / cost |
 |---|---|---|---|---|
 | **I-1** | Telegram bot | a throwaway bot + token | Telegram → @BotFather → `/newbot` | Val creates · free |
-| **I-2** | OpenAI API key | key with `whisper-1` + `gpt-4o-mini` | platform.openai.com → API keys | **confirm Val has one** · pay-as-you-go, demo ≈ $1–3 total |
+| **I-2** | OpenAI API key | **rollback only** (`STT_BACKEND=openai` or `DIALOG_BACKEND=openai`) — `whisper-1` + `gpt-4o-mini` | platform.openai.com → API keys | not needed for the default path · pay-as-you-go if used |
 | **I-3** | ElevenLabs API key | key with multilingual v2 | elevenlabs.io → Profile → API key | **confirm Val has one** · Free 10k chars/mo may cover it; Starter $5 |
 | **I-4** | 2 voice IDs | two ElevenLabs voices that read Ukrainian cleanly — test each on a UA sentence containing a Latin surname and a EUR amount | ElevenLabs Voice Library → filter *multilingual* → preview | Val picks · free |
 | **I-5** | Neutral KB | services, pairs, turnaround, indicative pricing, certified-vs-notarized, delivery, hours, escalation rules — all fictional | **written**: `kb/translation-bureau.md` (fictional "FromToBridge") | done · Val may adjust numbers/tone |
@@ -95,12 +95,13 @@ Out: everything in §6.
 | **I-8** | System-prompt persona | assistant name, tone, do/don't rules, language policy | Claude drafts from KB + S1 → Val approves | pending |
 | **I-9** | Host | run the long-polling bot | **local for now** (Val, 2026-08-29); an always-on host (Hetzner / Fly.io) is deferred until the client gets an unattended link | ≈ €0 now |
 | **I-10** | Sample recorded dialogue | a 2–3 min realistic UA conversation with the deployed bot, exported as audio, to attach in `chat.md` | Val records himself talking to the bot | after the bot works |
+| **I-11** | Local STT prerequisites | `ffmpeg`, a `whisper.cpp` `whisper-cli` binary, and a ggml model file (medium or large-v3 for Ukrainian) | build whisper.cpp / download a ggml model | Val sets up · free; large-v3 ≈ 3 GB |
+| **I-12** | Ollama | a running Ollama reachable at `OLLAMA_BASE_URL` with `gemma4:cloud` (Pro subscription) | already present on Val's machine | ready |
 
 ## 8. Open questions
 
 | # | Question | Note |
 |---|---|---|
-| **Q1** | Dialogue LLM: `gpt-4o-mini` (recommended — reliable dialogue, cheap) vs Ollama cloud (≈ free, quality risk on a client-facing demo) vs Claude Haiku | blocks I-2 |
-| **Q3** | Does Val already hold the OpenAI (I-2) and ElevenLabs (I-3) keys, or create fresh? | |
+| **Q3** | ElevenLabs key (I-3) on hand? OpenAI key (I-2) for the rollback path? | |
 
-**Resolved:** Q2 → host local for now (I-9). Q4 → **"FromToBridge"** ("LinguaBridge" is a real company). Q5 → **Ukrainian + English, no Russian** (RU stays a Phase-1 concern).
+**Resolved:** Q1 → **local Whisper + Ollama `gemma4:cloud`**, rollback to `gpt-4o-mini` + `whisper-1` (D-13; UA dialogue test 2026-08-29). Q2 → host local for now (I-9). Q4 → **"FromToBridge"** ("LinguaBridge" is a real company). Q5 → **Ukrainian + English, no Russian** (RU stays a Phase-1 concern).

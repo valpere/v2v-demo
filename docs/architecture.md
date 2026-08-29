@@ -7,7 +7,8 @@ grounded rather than fluent nonsense.
 
 Engagement-level source of truth:
 `<engagement-repo>/docs/`
-(`00-overview.md`, `10-decisions.md` — §6/§7 here trace to D-04/D-06/D-07).
+(`00-overview.md`, `10-decisions.md` — §2/§6/§7 here trace to
+D-04/D-06/D-07/D-13).
 
 ## 1. The one hard problem
 
@@ -30,14 +31,14 @@ the question it hands off instead of guessing.
 ```mermaid
 flowchart TD
     U[User on Telegram] -->|voice / text| TG[internal/telegram\nlong-poll, file dl, sendVoice]
-    TG -->|audio bytes| STT[internal/stt\nOpenAI whisper-1]
+    TG -->|ogg| STT[internal/stt\nlocal whisper.cpp\n· rollback: whisper-1 API]
     STT -->|transcript| D[internal/dialog\nCORE]
     TG -->|text msg| D
 
     subgraph CORE [internal/dialog — the grounding core]
         R[retrieve\nscore KB sections] --> G{grounding gate\nbest score >= floor?}
         G -->|no, and it's a content question| ESC[signal: escalate]
-        G -->|yes / or slot-answer turn| LLM[LLM call\npersona + rule + sections + slot state + history]
+        G -->|yes / or slot-answer turn| LLM[LLM call\nOllama gemma4:cloud\n· rollback: gpt-4o-mini]
         LLM --> P[parse: spoken_reply + slot_updates + signal]
         P --> M[merge slots\nvalidate, never silently unset]
     end
@@ -54,15 +55,17 @@ flowchart TD
 | Package | Responsibility | Requirements |
 |---|---|---|
 | `internal/telegram` | Long-poll `getUpdates`; download voice files to temp; `sendVoice` + `sendMessage`; "recording voice…" chat action; `/voice a\|b` | FR-1, FR-3, FR-10, FR-11, NFR-2 |
-| `internal/stt` | OpenAI `whisper-1`: audio bytes → transcript | FR-2 |
+| `internal/stt` | `Transcriber` interface, two impls: **`local`** (ogg→wav via `ffmpeg`, then shell out to `whisper-cli` with a ggml model) and **`openai`** (`whisper-1` API). `STT_BACKEND` selects. | FR-2, D-13 |
 | `internal/kb` | Load `KB_PATH`, split on `##` headings into titled sections; expose them for scoring | FR-6, NFR-9 |
-| `internal/dialog` | Retrieval, grounding gate, LLM orchestration, signal + slot parsing, slot merge. **The core.** | FR-4…FR-9, FR-12, NFR-7, NFR-9 |
+| `internal/dialog` | Retrieval, grounding gate, LLM orchestration, signal + slot parsing, slot merge. **The core.** LLM call goes through a `Generator` interface: **`ollama`** (`gemma4:cloud` via `localhost:11434`) and **`openai`** (`gpt-4o-mini`). `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13 |
 | `internal/tts` | ElevenLabs multilingual v2: text + voiceID → ogg | FR-10, NFR-1 |
 | `internal/store` | Append-only JSONL: one record per turn; one lead record on `lead_ready` | FR-8, FR-13 |
 | `cmd/bot` | Wiring, config load, the update loop, per-chat session map | NFR-4, NFR-6 |
 
-One external dependency: a Telegram bot library. Everything else (OpenAI,
-ElevenLabs) is plain HTTP with stdlib.
+Runtime dependencies: a Telegram bot library (Go); `ffmpeg` + a `whisper-cli`
+binary + a ggml model (local STT); a running Ollama with `gemma4:cloud`
+reachable. HTTP to ElevenLabs (and to OpenAI only on the rollback path) is
+stdlib. **Default path uses no OpenAI** — the OpenAI key is rollback-only.
 
 ## 3. Turn data flow
 

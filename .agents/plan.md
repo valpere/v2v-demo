@@ -13,17 +13,20 @@ file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
 ## What it does (one turn)
 
 1. User sends a **voice** (or text) message to the Telegram bot.
-2. Voice → download OGG to a validated temp path → `whisper-1` → transcript.
-   Text → used directly.
+2. Voice → download OGG to a validated temp path → `stt.Transcribe` → transcript.
+   Text → used directly. STT default = **local `whisper-cli`** (ogg→wav via
+   `ffmpeg`); `STT_BACKEND=openai` switches to the `whisper-1` API (D-13).
 3. `dialog.Handle(chatID, text)`:
    a. **Retrieve** — score the ~12 KB sections against the message
       (BM25-lite, in memory); keep those above a floor.
    b. **Grounding gate** — if the turn is a content question and nothing
       cleared the floor → escalate *without calling the LLM* (FR-12, NFR-9).
       If the turn is answering a pending slot question, skip the gate.
-   c. **LLM call** (`gpt-4o-mini`, temp 0.2–0.3) — system prompt = persona +
-      the hard grounding rule + retrieved sections verbatim + current slot
-      state; messages = last ~10 turns + this one.
+   c. **LLM call** via `dialog.Generator` (temp 0.2–0.3) — default =
+      Ollama **`gemma4:cloud`** at `localhost:11434`; `DIALOG_BACKEND=openai`
+      + `DIALOG_MODEL=gpt-4o-mini` is the rollback (D-13). System prompt =
+      persona + the hard grounding rule + retrieved sections verbatim +
+      current slot state; messages = last ~10 turns + this one.
    d. **Parse** the response: spoken reply text + a fenced JSON trailer
       `{ "slots": {…}, "signal": "continue" | "lead_ready" | "escalate" }`.
       Strip the trailer before speaking.
@@ -49,19 +52,34 @@ prompted to ask about exactly those.
 cmd/bot/main.go     wiring: config, clients, per-chat session map, the update loop
 internal/telegram/  long-poll getUpdates, file download, sendVoice/sendMessage,
                     "recording voice" chat action, /voice a|b
-internal/stt/       OpenAI whisper-1: (audio bytes, mime) -> transcript
+internal/stt/       Transcriber interface; local.go (ffmpeg ogg->wav + shell
+                    whisper-cli) · openai.go (whisper-1 API). STT_BACKEND picks.
 internal/tts/       ElevenLabs multilingual v2: (text, voiceID) -> ogg bytes
 internal/kb/        load KB_PATH, split on "##" into titled sections
 internal/dialog/    retrieve.go (BM25-lite + grounding gate) · dialog.go
-                    (prompt build, LLM call, trailer parse, slot merge)
+                    (prompt build, trailer parse, slot merge) · generator.go
+                    (Generator interface: ollama.go + openai.go, DIALOG_BACKEND)
 internal/store/     append-only JSONL: turn records + lead records (DATA_DIR)
 ```
 
 ## Details / decisions
 
 - **Telegram:** long-polling (`getUpdates`), no webhook / public URL. Use
-  `github.com/go-telegram/bot` (maintained, std-context API) — the one
+  `github.com/go-telegram/bot` (maintained, std-context API) — the one Go
   dependency. Everything else is stdlib `net/http`.
+- **STT (D-13):** default `local` — `ffmpeg -i in.ogg -ar 16000 -ac 1 out.wav`
+  then `whisper-cli -m $WHISPER_MODEL -l $lang -otxt -nt -f out.wav`, read the
+  `.txt`. `WHISPER_BIN`, `WHISPER_MODEL` (ggml path), `WHISPER_LANG` (auto|uk|en).
+  `openai` impl posts the ogg to `whisper-1`. Both satisfy
+  `Transcribe(ctx, oggPath, langHint) (string, error)`; a `local` failure does
+  **not** auto-fallback to `openai` — the switch is the `STT_BACKEND` env only
+  (keep it predictable for a demo).
+- **Dialogue Generator (D-13):** `ollama` impl → `POST localhost:11434/v1/chat/completions`
+  (OpenAI-compatible), model `DIALOG_MODEL` (default `gemma4:cloud`); `openai`
+  impl → `api.openai.com`, `DIALOG_MODEL` (default `gpt-4o-mini`). Same
+  `Generate(ctx, systemPrompt, msgs) (string, error)`. `DIALOG_BACKEND` picks.
+  For Ollama, request `"think": false` if the model supports it — keep latency
+  down; the grounding rule carries the discipline, not the thinking trace.
 - **Retrieval:** in memory, no DB. Lowercase + tokenize; score each section by
   term frequency / overlap (BM25-lite is fine — ~12 short sections). Keep top
   ≤3 above a tuned floor. This exists mainly to *drive the escalate decision*
@@ -106,10 +124,12 @@ is in `docs/architecture.md` §7 — **not** this demo.
 
 1. config + `kb` (load & split) + `store` + `go build` — no external calls
 2. `telegram` long-poll loop, echo text back
-3. `dialog`: `retrieve` + grounding gate + LLM call + trailer parse + slot
-   merge + turn log; wire onto text messages
-4. `stt` — voice in
+3. `dialog`: `retrieve` + grounding gate + `Generator` (ollama impl first) +
+   trailer parse + slot merge + turn log; wire onto text messages
+4. `stt`: `local` impl (ffmpeg + whisper-cli) — voice in
 5. `tts` — voice out; `/voice` command
-6. README refresh + `.env.example` check + a short smoke-test doc
+6. `openai` impls for `stt` + `dialog.Generator` (the rollback path); verify
+   `STT_BACKEND` / `DIALOG_BACKEND` switch cleanly
+7. README refresh + `.env.example` check + a short smoke-test doc
 
 After each step: `go build ./...`, `go vet ./...`, `go test ./... -race`.
