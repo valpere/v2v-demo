@@ -52,7 +52,7 @@ Out: everything in §6.
 | **FR-11** | `/voice a` \| `/voice b` — switch between two configured voices for comparison | S3 (2 voice options) |
 | **FR-12** | Escalate to a human on: out-of-scope request, complaint, legal/liability or payment question, or explicit user request — reply with a fixed handoff line and mark the session escalated in the log | S1 ("escalate complex or non-standard requests"; "transfer to a human"); KB escalation list |
 | **FR-13** | Append every turn to a log: user text, reply text, `answered`\|`escalated`\|`lead_ready`, matched KB topic, latency | S1 ("conversation history"; "analytics/logging"; "quality monitoring") — demo scale |
-| **FR-14** | The bot's first message states it is a demo and that messages are logged | S1 (GDPR section) — consent-awareness signal to the client |
+| **FR-14** | The bot's first message (on `/start` or first inbound) states it is a demo and that the conversation is logged — fixed text `prompt/greeting.md` (bilingual), not LLM-generated | S1 (GDPR section) — consent-awareness signal to the client |
 
 ## 5. Non-functional requirements
 
@@ -93,7 +93,7 @@ Out: everything in §6.
 | **I-15** | Gemini API key (alternate LLM) | key for `gemini-flash-latest` | aistudio.google.com → API keys (bundled with Google AI Pro) | the env `GEMINI_API_KEY` is currently **invalid** — grab a fresh one · free within Pro credits |
 | **I-5** | Neutral KB | services, pricing model, 1800-char page, certified/notarized/sworn, turnaround, retention+NDA, QA chain, payment/delivery, common questions — all fictional, generalised from Kyiv-market patterns (`../research/`) | **written**: `kb/translation-bureau.md` ("FromToBridge") | done · Val may adjust numbers/tone |
 | **I-6** | Handoff wording | the line the bot says on escalation, UA + EN | in `prompt/system.md` + `examples/dialogues.md` (cases 3–5) | done · tone approved 2026-08-29 |
-| **I-7** | Consent/demo line (FR-14) | first-message disclaimer text | Claude drafts | pending |
+| **I-7** | Opening / consent message (FR-14) | bilingual first message: who Vira is, type-or-voice, uk/en, "this is a demo, the conversation is logged" | **written**: `prompt/greeting.md` | Val approves tone |
 | **I-8** | System prompt — persona + conversation playbook | name **"Віра"**, tone, intake order for the 6 slots, hard rules, output format | `prompt/system.md` | **done** · name + tone approved 2026-08-29 |
 | **I-13** | Example dialogues | worked UA/EN conversations — recorded-sample script + test cases | **written**: `examples/dialogues.md` (5 cases) | done |
 | **I-9** | Host | run the long-polling bot | **local for now** (Val, 2026-08-29); an always-on host (Hetzner / Fly.io) is deferred until the client gets an unattended link | ≈ €0 now |
@@ -103,8 +103,8 @@ Out: everything in §6.
 
 ## 8. Open questions
 
-Only **I-7** remains (the bot's opening demo/consent line — Val: draft at
-implementation time).
+None blocking. I-7 (opening message) is drafted in `prompt/greeting.md` —
+pending Val's tone sign-off.
 
 **Resolved:** Q1 → local Whisper + Ollama `gemma4:cloud`, rollback
 `gpt-4o-mini` + `whisper-1` (D-13). Q2 → host local for now (I-9). Q3 →

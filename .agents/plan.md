@@ -55,7 +55,8 @@ prompted to ask about exactly those.
 ```
 cmd/bot/main.go     wiring: config, clients, per-chat session map, the update loop
 internal/telegram/  long-poll getUpdates, file download, sendVoice/sendMessage,
-                    "recording voice" chat action, /voice a|b
+                    "recording voice" chat action, /voice a|b, sends
+                    prompt/greeting.md once per chat on /start or first message
 internal/stt/       Transcriber interface; local.go (ffmpeg ogg->wav + shell
                     whisper-cli) · openai.go (whisper-1 API). STT_BACKEND picks.
 internal/tts/       Synthesizer interface; elevenlabs.go (eleven_multilingual_v2,
@@ -70,6 +71,7 @@ internal/store/     append-only JSONL: turn records + lead records (DATA_DIR)
 
 prompt/system.md   the assistant persona + conversation playbook + hard rules
                    + output format (authored, not generated — do not rewrite)
+prompt/greeting.md the fixed bilingual opening message (I-7 / FR-14)
 examples/dialogues.md  worked example conversations — test material and the
                    recorded-sample script; optionally one short example as
                    few-shot if output consistency is poor
