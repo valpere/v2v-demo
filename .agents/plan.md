@@ -245,6 +245,139 @@ type Config struct {
 func LoadConfig() (Config, error) // env + optional .env via a tiny hand parser
 ```
 
+## Behavioural spec (pseudocode)
+
+The type surface pins the *shape*; this pins the *behaviour*. Implement these
+step-for-step. Constants are named here and must be package-level `const`s in
+`internal/dialog`.
+
+```
+const (
+    ScoreFloor       = 0.15   // retrieve: min score to count as "relevant"
+    TopK             = 3      // retrieve: max sections passed to the LLM
+    TitleWeight      = 3.0    // retrieve: a query term in the title counts 3x
+    HistoryLimit     = 20     // Session.History cap, in Msg entries (not turns)
+    SlotAnswerMaxTok = 6      // isSlotAnswer: an answer to a slot question is short
+)
+```
+
+### retrieve(query string, kb []Section) (hits []Section, topScore float64)
+
+```
+qterms  := tokenize(lower(strip_punct(query)))            // whitespace split
+qterms  = drop(qterms, stopwords)                          // uk + en, see below
+if len(qterms) == 0 { return nil, 0 }
+
+for each sec in kb:
+    body  := tokenize(lower(strip_punct(sec.Body)))
+    title := tokenize(lower(strip_punct(sec.Title)))
+    raw   := 0.0
+    for each distinct t in qterms:
+        tf := count(t, body) + TitleWeight*count(t, title)
+        if tf > 0 { raw += 1 + ln(tf) }
+    sec.score := raw / ln(2 + len(body))                   // length normalisation
+sort kb by score desc
+topScore := kb[0].score (or 0 if empty)
+hits     := first min(TopK, n) sections with score >= ScoreFloor
+return hits, topScore
+```
+
+- **stopwords** — a fixed ~40-word list of uk + en function words
+  (`і а але або в на з до що як це так ні the a an of to in on for and or is
+  are …`), a package-level `var stopwords = map[string]bool{…}`. Rationale:
+  ragline found unfiltered stopwords cause any two docs to match on "the"/"of"
+  (see `docs/architecture.md` §5). Keep the list in one place, no config.
+- `count(t, tokens)` is exact-match token count, no stemming.
+- Deterministic: same query + same KB always yields the same ordering (stable
+  sort, ties broken by section index).
+
+### isSlotAnswer(session *Session, userText string) bool
+
+```
+return len(tokenize(userText)) <= SlotAnswerMaxTok
+       && session.Slots has at least one nil field
+```
+
+Cheap heuristic, deliberately loose: a short message while slots are still
+being collected is treated as an answer, not a new content question, so the
+grounding gate does not escalate on "5 pages" or "next week".
+
+### groundingGate(topScore float64, slotAnswer bool) (forceEscalate bool)
+
+```
+if slotAnswer          { return false }   // let the LLM handle it with slot context
+if topScore < ScoreFloor { return true }  // content question, nothing relevant -> escalate pre-LLM
+return false
+```
+
+This is the whole anti-waffle mechanism: a content question the KB cannot
+answer never reaches the Generator.
+
+### parseTrailer(raw string) (spoken string, tr *trailer)
+
+```
+find the LAST ```json … ``` fenced block in raw
+if none:
+    return trimspace(raw), nil
+parse the block body as JSON into a trailer value
+if json error OR trailer.Signal not in {continue, lead_ready, escalate}:
+    return trimspace(raw with that fenced block removed), nil
+spoken := trimspace(raw with that fenced block + trailing whitespace removed)
+return spoken, &trailer
+```
+
+### Handle(ctx, sess, kb, gen, systemPrompt, userText) (Reply, error)
+
+```
+1. slotAnswer     := isSlotAnswer(sess, userText)
+2. hits, topScore := retrieve(userText, kb)
+3. if groundingGate(topScore, slotAnswer):
+       sess.Escalated = true
+       return Reply{Text: handoffLine(langOf(userText)), Signal: SignalEscalate,
+                    Matched: titles(hits)}, nil
+4. sysPrompt := systemPrompt
+              + "\n\n--- KNOWLEDGE BASE ---\n"  + join("\n\n", hit.Body for hit in hits)
+              + "\n\n--- COLLECTED SO FAR ---\n" + jsonCompact(sess.Slots)
+5. hist := trimTail(append(sess.History, Msg{"user", userText}), HistoryLimit)
+6. raw, err := gen.Generate(ctx, sysPrompt, hist)
+   if err != nil:
+       return Reply{Text: apologyLine(langOf(userText)), Signal: SignalEscalate,
+                    Matched: titles(hits)}, nil     // degrade, never bubble the error
+7. spoken, tr := parseTrailer(raw)
+8. if tr == nil:                                    // missing / unparseable trailer
+       sess.Escalated = true
+       return Reply{Text: spoken, Signal: SignalEscalate, Matched: titles(hits)}, nil
+9. for each of the 6 slot keys k:
+       if tr.Slots.k != nil { sess.Slots.k = tr.Slots.k }   // never nil-out a filled slot
+10. signal := tr.Signal
+    if signal == SignalContinue && sess.Slots.Complete() { signal = SignalLeadReady }
+    if signal == SignalEscalate { sess.Escalated = true }
+11. sess.History = trimTail(append(hist, Msg{"assistant", spoken}), HistoryLimit)
+12. return Reply{Text: spoken, Signal: signal, Matched: titles(hits)}, nil
+```
+
+The caller (`cmd/bot` update loop) is responsible for: sending the recording
+chat action before step 1; `tts.Speak` + `telegram.SendVoice`/`SendText` on
+the `Reply`; `store.AppendTurn` always; `store.AppendLead` iff
+`Reply.Signal == SignalLeadReady`.
+
+### langOf(text string) string
+
+```
+if text has any Cyrillic rune -> "uk"   (RU is out of scope; Cyrillic == uk here)
+else -> "en"
+```
+
+Used only to pick the fixed handoff / apology line. The *conversation*
+language is the model's job (REQ-DLG-05), not this function's.
+
+### Fixed lines
+
+`handoffLine(lang)` and `apologyLine(lang)` return a package-level constant
+string per language. The handoff wording is the one in
+`examples/dialogues.md` cases 3–5; the apology is a short "щось пішло не так,
+з'єдную з менеджером" / "something went wrong, connecting you to a manager".
+
 ## Details / decisions
 
 - **Telegram:** long-polling (`getUpdates`), no webhook / public URL. Use
