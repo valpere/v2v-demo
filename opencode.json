@@ -16,7 +16,7 @@
     }
   },
 
-  "instructions": ["AGENTS.md", ".agents/plan.md"],
+  "instructions": ["AGENTS.md", "docs/requirements.md", ".agents/plan.md"],
 
   "permission": {
     "edit": "allow",

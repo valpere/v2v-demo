@@ -5,6 +5,9 @@ them talk to a voice assistant on Telegram and judge conversation quality +
 voice naturalness. **Neutral scenario, fabricated data.** Not production, not a
 framework — the simplest thing that shows the loop.
 
+Requirements (the *what* / *why*, with source traces) live in
+`docs/requirements.md`. FR-/NFR-/D- IDs below refer to that file.
+
 ## What it does
 
 1. User sends a **voice message** to the Telegram bot.
