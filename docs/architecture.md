@@ -5,15 +5,12 @@ Companion to `docs/requirements.md` (the *what*) and `.agents/plan.md` (the
 — the part that drove the design — how the agent's speech is kept coherent and
 grounded rather than fluent nonsense.
 
-Engagement-level source of truth:
-`<engagement-repo>/docs/`
-(`00-overview.md`, `10-decisions.md` — §2/§6/§7 here trace to
-D-04/D-06/D-07/D-13).
+`D-NN` tags refer to the project's decision log (`.engage/`, local only).
 
 ## 1. The one hard problem
 
 The client judges the demo on whether the assistant **sounds natural** — and
-they mean two things by it (chat 20260828, S2):
+they mean two things by it (S2):
 
 1. **Voice** — not robotic. Solved by the TTS choice (ElevenLabs multilingual
    v2 primary, Azure Neural rollback — NFR-1, D-15). Not architecturally
@@ -39,7 +36,7 @@ flowchart TD
     subgraph CORE [internal/dialog — the grounding core]
         R[retrieve\nscore KB sections] --> G{grounding gate\nbest score >= floor?}
         G -->|no, and it's a content question| ESC[signal: escalate]
-        G -->|yes / or slot-answer turn| LLM[LLM call\nOllama gemma4:cloud\n· gpt-4o-mini · gemini-flash]
+        G -->|yes / or slot-answer turn| LLM[LLM call\ngemini-flash\n· gemma4:cloud · gpt-4o-mini]
         LLM --> P[parse: spoken_reply + slot_updates + signal]
         P --> M[merge slots\nvalidate, never silently unset]
     end
@@ -58,16 +55,16 @@ flowchart TD
 | `internal/telegram` | Long-poll `getUpdates`; download voice files to temp; `sendVoice` + `sendMessage`; "recording voice…" chat action; `/voice a\|b` | FR-1, FR-3, FR-10, FR-11, NFR-2 |
 | `internal/stt` | `Transcriber` interface, two impls: **`local`** (ogg→wav via `ffmpeg`, then shell out to `whisper-cli` with a ggml model) and **`openai`** (`whisper-1` API). `STT_BACKEND` selects. | FR-2, D-13 |
 | `internal/kb` | Load `KB_PATH`, split on `##` headings into titled sections; expose them for scoring | FR-6, NFR-9 |
-| `internal/dialog` | Retrieval, grounding gate, LLM orchestration, signal + slot parsing, slot merge. **The core.** LLM call goes through a `Generator` interface: **`ollama`** (`gemma4:cloud`, default), **`openai`** (`gpt-4o-mini`), **`gemini`** (native Gemini API, `gemini-flash-latest`). `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13 |
+| `internal/dialog` | Retrieval, grounding gate, LLM orchestration, signal + slot parsing, slot merge. **The core.** LLM call goes through a `Generator` interface: **`gemini`** (native Gemini API, `gemini-flash-latest`, default), **`ollama`** (`gemma4:cloud`), **`openai`** (`gpt-4o-mini`). `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13 |
 | `internal/tts` | `Synthesizer` interface, two impls: **`elevenlabs`** (`eleven_multilingual_v2`) and **`azure`** (`uk-UA-*Neural`). `TTS_BACKEND` selects. Both emit opus-in-ogg. Google is a documented third impl, not built (D-15). | FR-10, NFR-1, D-15 |
 | `internal/store` | Append-only JSONL: one record per turn; one lead record on `lead_ready` | FR-8, FR-13 |
 | `cmd/bot` | Wiring, config load, the update loop, per-chat session map | NFR-4, NFR-6 |
 
 Runtime dependencies: a Telegram bot library (Go); `ffmpeg` + a `whisper-cli`
-binary + a ggml model (local STT); a running Ollama with `gemma4:cloud`
-reachable. HTTP to ElevenLabs / Azure (and to OpenAI only on the rollback
-path) is stdlib. **Default path uses no OpenAI** — the OpenAI key is
-rollback-only.
+binary + a ggml model (local STT); a Gemini API key (default dialogue). HTTP
+to ElevenLabs / Azure / Gemini (and to OpenAI or Ollama only when selected) is
+stdlib. **Default path uses no OpenAI** — the OpenAI key is a rollback only;
+`DIALOG_BACKEND=ollama` needs a running Ollama with `gemma4:cloud`.
 
 ## 3. Turn data flow
 

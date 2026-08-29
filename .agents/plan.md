@@ -23,8 +23,8 @@ file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
       cleared the floor → escalate *without calling the LLM* (FR-12, NFR-9).
       If the turn is answering a pending slot question, skip the gate.
    c. **LLM call** via `dialog.Generator` (temp 0.2–0.3) — default =
-      Ollama **`gemma4:cloud`** at `localhost:11434`; `DIALOG_BACKEND=openai`
-      + `DIALOG_MODEL=gpt-4o-mini` is the rollback (D-13). System prompt =
+      **`gemini`** (`gemini-flash-latest`); alternates `DIALOG_BACKEND=ollama`
+      (`gemma4:cloud`) and `openai` (`gpt-4o-mini`) (D-13). System prompt =
       **`prompt/system.md`** (persona + conversation playbook + hard rules +
       output format) + `--- KNOWLEDGE BASE ---` + retrieved sections verbatim
       + `--- COLLECTED SO FAR ---` + slot-state JSON; messages = last ~10
@@ -92,15 +92,15 @@ kb/translation-bureau.md  the fictional FromToBridge knowledge base
   (keep it predictable for a demo).
 - **Dialogue Generator (D-13):** `Generate(ctx, systemPrompt, msgs) (string, error)`,
   three impls, `DIALOG_BACKEND` picks:
-  - `ollama` (default) → `POST $OLLAMA_BASE_URL/v1/chat/completions` (OpenAI-
-    compatible), `DIALOG_MODEL` default `gemma4:cloud`. Request `"think": false`
-    if supported — keep latency down; the grounding rule carries the discipline.
-  - `openai` → `api.openai.com`, `DIALOG_MODEL` default `gpt-4o-mini`.
-  - `gemini` → native `POST generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`,
+  - `gemini` (default) → native `POST generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`,
     header `x-goog-api-key: $GEMINI_API_KEY`, body `{systemInstruction, contents,
     generationConfig:{temperature}}`, `DIALOG_MODEL` default `gemini-flash-latest`.
-    Covered by Val's Google AI Pro credits; candidate for default pending a UA test.
-  Build `ollama` first (step 3); `openai` + `gemini` in the rollback batch (step 6).
+    Covered by a Google AI Pro subscription's API credits. Confirm on a UA
+    dialogue test before it stays default; fall back to `ollama` if it regresses.
+  - `ollama` → `POST $OLLAMA_BASE_URL/v1/chat/completions` (OpenAI-compatible),
+    `DIALOG_MODEL` default `gemma4:cloud`. Request `"think": false` if supported.
+  - `openai` → `api.openai.com`, `DIALOG_MODEL` default `gpt-4o-mini`.
+  Build `gemini` first (step 3); `ollama` + `openai` in the alternates batch (step 6).
 - **Retrieval:** in memory, no DB. Lowercase + tokenize; score each section by
   term frequency / overlap (BM25-lite is fine — ~12 short sections). Keep top
   ≤3 above a tuned floor. This exists mainly to *drive the escalate decision*
@@ -158,13 +158,13 @@ substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
 
 1. config + `kb` (load & split) + `store` + `go build` — no external calls
 2. `telegram` long-poll loop, echo text back
-3. `dialog`: `retrieve` + grounding gate + `Generator` (ollama impl first) +
+3. `dialog`: `retrieve` + grounding gate + `Generator` (`gemini` impl first) +
    trailer parse + slot merge + turn log; wire onto text messages
 4. `stt`: `local` impl (ffmpeg + whisper-cli) — voice in
 5. `tts`: `elevenlabs` impl — voice out; `/voice` command
-6. rollback batch: `openai` + `gemini` impls for `dialog.Generator`, `openai`
-   for `stt`, `azure` for `tts`; verify `STT_BACKEND` / `DIALOG_BACKEND` /
-   `TTS_BACKEND` switch cleanly
+6. alternates batch: `ollama` + `openai` impls for `dialog.Generator`,
+   `openai` for `stt`, `azure` for `tts`; verify `STT_BACKEND` /
+   `DIALOG_BACKEND` / `TTS_BACKEND` switch cleanly
 7. README refresh + `.env.example` check + a short smoke-test doc
 
 After each step: `go build ./...`, `go vet ./...`, `go test ./... -race`.

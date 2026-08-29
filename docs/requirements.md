@@ -1,30 +1,29 @@
 # v2v-demo — requirements
 
-Traced requirements for the throwaway client demo. This is the *what* and
-*why*; `docs/architecture.md` is the *shape*; `.agents/plan.md` is the *how*.
-Every requirement cites a source.
-
-Engagement-level source of truth (phases, decisions, commercial, asset map):
-`<engagement-repo>/docs/00-overview.md`.
-This file governs the demo only.
+Traced requirements for this throwaway demo. This is the *what* and *why*;
+`docs/architecture.md` is the *shape*; `.agents/plan.md` is the *how*. Every
+requirement cites a source key (S1–S5); the real references sit in `.engage/`
+(local only — this repo is public).
 
 ## 1. Purpose & primary success criterion
 
-The prospective client (a translation bureau, a freelance engagement)
-asked to **hear how the assistant sounds and how it leads a dialogue**, on any
-topic, before committing to an MVP (S2). So the one criterion the demo is
-judged on is: *does the voice sound natural and does the conversation feel
-unscripted*. Everything else exists only to make that judgeable.
+A prospective translation-bureau client asked to **hear how the assistant
+sounds and how it leads a dialogue**, on any topic, before committing to a
+larger build. So the one criterion the demo is judged on is: *does the voice
+sound natural and does the conversation feel unscripted*. Everything else
+exists only to make that judgeable.
 
 ## 2. Sources (traceability keys)
 
+Kept generic here; full references in `.engage/sources.md`.
+
 | Key | Source |
 |---|---|
-| **S1** | `task.md` — client's full brief: system description, the 8 application questions, the "Preferred approach / prototype" list (`task.md:99-107`), and the GDPR section (`task.md:62-74`) |
-| **S2** | `chat.md` — the pre-engagement chat: client 20260828T1547 (wants to hear sound + dialogue, not a past-work sample), client 20260828T1915 (any topic is fine), our reply 20260828T1930 (agreed format: Telegram bot, voice messages, + a sample recording) |
-| **S3** | the agreed deal terms — commercial scope: neutral scenario, 2 voice options, structured lead in Zoho field shape (no real connection), a short fixed timeline, credited toward the MVP; and the explicit "not in the demo" list |
-| **S4** | Val's stack decisions this session — see `10-decisions.md` D-05/D-13/D-15: Go, Telegram long-polling, **local Whisper + Ollama `gemma4:cloud` + ElevenLabs multilingual v2** (alternates behind config flags: `whisper-1`, `gpt-4o-mini`, **Gemini Flash**, Azure Neural) |
-| **S5** | `~/.claude/CLAUDE.md` — Go for user-facing tools, GDPR awareness, never commit secrets, Ukrainian for client-facing copy |
+| **S1** | the client's written brief — system description, the application questions, the prototype checklist, the GDPR section |
+| **S2** | the pre-engagement chat — the client wants to *hear* the assistant, any topic is fine, agreed format is a Telegram bot with voice messages + a sample recording |
+| **S3** | the agreed demo scope — neutral scenario, 2 voice options, a structured lead in Zoho-field shape (no real connection), a short fixed timeline, credited toward a later build; plus the explicit "not in the demo" list |
+| **S4** | the chosen stack — Go, Telegram long-polling, local Whisper + Ollama `gemma4:cloud` / Gemini Flash + ElevenLabs multilingual v2, with config-flag alternates (`whisper-1`, `gpt-4o-mini`, Azure Neural). See `docs/architecture.md`. |
+| **S5** | the project's coding conventions — Go for user-facing tools, GDPR awareness, never commit secrets, Ukrainian for user-facing copy |
 
 ## 3. Scope
 
@@ -60,54 +59,44 @@ Out: everything in §6.
 |---|---|---|
 | **NFR-1** | Voice output sounds natural, not robotic — **the** evaluation criterion. ElevenLabs `eleven_multilingual_v2` (primary); the two voices must read Ukrainian cleanly, incl. Latin names and EUR amounts. Azure Neural (`uk-UA-*`) is the free fallback, a notch below | S2, D-15 |
 | **NFR-2** | Voice-in → voice-out latency target < ~10 s; send the "recording voice…" chat action while the chain runs | S1 (must be usable), S4 |
-| **NFR-3** | The bot must be reachable by the client while they evaluate it. **For now it runs locally** (Val, 2026-08-29); moving to an always-on host is a step before the client gets the link for an unattended window | S3 (client drives it themselves, on their schedule) |
+| **NFR-3** | The bot must be reachable by the client while they evaluate it. **For now it runs locally**; moving to an always-on host is a step before the client gets the link for an unattended window | S3 (the client drives it themselves, on their schedule) |
 | **NFR-4** | Any single upstream failure (STT / LLM / TTS / Telegram) degrades to a text apology and the loop keeps serving — never crash | S4 |
 | **NFR-5** | No real personal data anywhere — KB is fictional; the only personal data in logs is the client's own test messages | S1 (GDPR), S5 |
 | **NFR-6** | Secrets only via env / `.env` (gitignored) — never in code, logs, or git | S5 |
 | **NFR-7** | The assistant never states a final price — it collects parameters and defers the quote to a manager | S1 (pricing risk); KB |
 | **NFR-8** | All bot-authored copy in the user's language (UA default); code / identifiers / comments in English | S5 |
-| **NFR-9** | Answers are **grounded** in the KB: the assistant does not volunteer information the KB does not contain, and escalates instead of guessing when the KB does not cover the question. "Natural" means clear and coherent content, not just a natural voice | S2 (Val's clarification — "внятність і природна зрозумілість… а не маячня"), S1 ("use our knowledge base to improve quality"; "not a scripted FAQ bot") |
+| **NFR-9** | Answers are **grounded** in the KB: the assistant does not volunteer information the KB does not contain, and escalates instead of guessing when the KB does not cover the question. "Natural" means clear and coherent content, not just a natural voice — clarity and intelligibility, not gibberish | S2, S1 ("use our knowledge base to improve quality"; "not a scripted FAQ bot") |
 
 ## 6. Deferred — explicitly NOT in the demo
 
 | ID | Deferred | Where it lands | Source |
 |---|---|---|---|
 | **D-1** | Real Zoho CRM connection (leads, contacts, history write-back; `.eu` vs `.com` base) | MVP | S3 |
-| **D-2** | Telephony: real inbound calls, call recording, call transcription, warm transfer, phone number | MVP | S1; S3; chat (client has no number) |
+| **D-2** | Telephony: real inbound calls, call recording, call transcription, warm transfer, phone number | MVP | S1; S3 (the client has no phone line to connect) |
 | **D-3** | Real-time full-duplex voice (live-call feel, no record button) | MVP | S3 |
-| **D-4** | Vector DB / real RAG retrieval — the demo puts the whole KB in the prompt | MVP (ragivka) | S3, plan.md |
+| **D-4** | Vector DB / real RAG retrieval — the demo does lightweight in-memory keyword retrieval only | MVP (ragivka) | S3, plan.md |
 | **D-5** | Other channels: web widget, WhatsApp, etc. | MVP | S1 |
 | **D-6** | Self-service knowledge-base editing without a redeploy | MVP | S1 |
 | **D-7** | Persistence across restart, auth, multi-tenant, real analytics/monitoring dashboards | MVP | S1 |
 | **D-8** | GDPR architecture — EU data residency, signed DPAs, retention/erasure policy, provider-side deletion. Demo shows only the consent line (FR-14) and uses no real data; the full design is an MVP deliverable and a proposal talking point | MVP + proposal | S1 (GDPR section) |
 
-## 7. Inputs & materials — what Val provides, and from where
+## 7. Inputs & materials
 
-| # | Item | What exactly | Where to get it | Status / cost |
-|---|---|---|---|---|
-| **I-1** | Telegram bot | a throwaway bot + token | Telegram → @BotFather → `/newbot` | Val creates · free |
-| **I-2** | OpenAI API key | **rollback only** (`STT_BACKEND=openai` or `DIALOG_BACKEND=openai`) — `whisper-1` + `gpt-4o-mini` | platform.openai.com → API keys | not needed for the default path · pay-as-you-go if used |
-| **I-3** | ElevenLabs API key | multilingual v2 | elevenlabs.io → Profile → API key | **Free plan** during build/testing; **Starter ($6/mo)** before the client link (commercial licence, 30k credits) — D-15 |
-| **I-4** | 2 ElevenLabs voice IDs | two multilingual voices that read Ukrainian cleanly — test each on a UA sentence with a Latin surname and a EUR amount | ElevenLabs Voice Library → filter *multilingual* → preview | Val picks · free |
-| **I-14** | Azure Speech resource (rollback) | region + key; voices `uk-UA-PolinaNeural` / `uk-UA-OstapNeural` | portal.azure.com → Speech service (free tier F0: 500k chars/mo, 12 mo) | Val sets up when the rollback is wired · free |
-| **I-15** | Gemini API key (alternate LLM) | key for `gemini-flash-latest` | aistudio.google.com → API keys (bundled with Google AI Pro) | the env `GEMINI_API_KEY` is currently **invalid** — grab a fresh one · free within Pro credits |
-| **I-5** | Neutral KB | services, pricing model, 1800-char page, certified/notarized/sworn, turnaround, retention+NDA, QA chain, payment/delivery, common questions — all fictional, generalised from Kyiv-market patterns (`../research/`) | **written**: `kb/translation-bureau.md` ("FromToBridge") | done · Val may adjust numbers/tone |
-| **I-6** | Handoff wording | the line the bot says on escalation, UA + EN | in `prompt/system.md` + `examples/dialogues.md` (cases 3–5) | done · tone approved 2026-08-29 |
-| **I-7** | Opening / consent message (FR-14) | bilingual first message: who Vira is, type-or-voice, uk/en, "this is a demo, the conversation is logged" | **written**: `prompt/greeting.md` | Val approves tone |
-| **I-8** | System prompt — persona + conversation playbook | name **"Віра"**, tone, intake order for the 6 slots, hard rules, output format | `prompt/system.md` | **done** · name + tone approved 2026-08-29 |
-| **I-13** | Example dialogues | worked UA/EN conversations — recorded-sample script + test cases | **written**: `examples/dialogues.md` (5 cases) | done |
-| **I-9** | Host | run the long-polling bot | **local for now** (Val, 2026-08-29); an always-on host (Hetzner / Fly.io) is deferred until the client gets an unattended link | ≈ €0 now |
-| **I-10** | Sample recorded dialogue | a 2–3 min realistic UA conversation with the deployed bot, exported as audio, to attach in `chat.md` | Val records himself talking to the bot | after the bot works |
-| **I-11** | Local STT prerequisites | `ffmpeg`, a `whisper.cpp` `whisper-cli` binary, and a ggml model file (medium or large-v3 for Ukrainian) | build whisper.cpp / download a ggml model | Val sets up · free; large-v3 ≈ 3 GB |
-| **I-12** | Ollama | a running Ollama reachable at `OLLAMA_BASE_URL` with `gemma4:cloud` (Pro subscription) | already present on Val's machine | ready |
+The list of accounts, keys, and authored assets the demo needs (I-1 … I-15),
+with status, is in `.engage/inventory.md` (local only). Highlights: a throwaway
+Telegram bot; ElevenLabs (Free → Starter); a fresh Gemini API key; `ffmpeg` +
+`whisper.cpp` + a ggml model; a running Ollama. Authored and done:
+`kb/translation-bureau.md`, `prompt/system.md`, `prompt/greeting.md`,
+`examples/dialogues.md`.
 
 ## 8. Open questions
 
-None blocking. I-7 (opening message) is drafted in `prompt/greeting.md` —
-pending Val's tone sign-off.
+None blocking implementation. Verification still pending: confirm Gemini Flash
+on a Ukrainian dialogue test before it stays the default (fall back to
+`gemma4:cloud` if it regresses).
 
-**Resolved:** Q1 → local Whisper + Ollama `gemma4:cloud`, rollback
-`gpt-4o-mini` + `whisper-1` (D-13). Q2 → host local for now (I-9). Q3 →
-ElevenLabs Free during build, **Starter ($6) before the client link**; OpenAI
-keys fine for the rollback (D-15, < $2 total). Q4 → "FromToBridge". Q5 →
-Ukrainian + English, no Russian.
+**Resolved:** Q1 → **Gemini Flash** dialogue default, alternates
+`gemma4:cloud` / `gpt-4o-mini`; local Whisper, rollback `whisper-1` (D-13).
+Q2 → host local for now (I-9). Q3 → ElevenLabs Free during build, Starter
+before the client link; OpenAI keys fine for the rollback (D-15). Q4 →
+"FromToBridge". Q5 → Ukrainian + English, no Russian.

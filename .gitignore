@@ -22,3 +22,6 @@
 
 tmp/
 minions/
+
+# engagement-specific notes — local only, never published
+.engage/
