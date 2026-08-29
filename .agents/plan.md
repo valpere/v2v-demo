@@ -13,8 +13,8 @@ file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
 ## What it does (one turn) — overview
 
 1. Telegram voice (or text) arrives. Voice → OGG to a validated temp path →
-   `stt.Transcribe` → transcript (default local `whisper-cli`, `STT_BACKEND`
-   switches to `whisper-1` — D-13).
+   `stt.Transcribe` → transcript (default `whisper-1` API — B2;
+   `STT_BACKEND=local` for the offline whisper.cpp path).
 2. `cmd/bot` starts the recording-action ticker, then calls
    `dialog.Handle(ctx, sess, kb, gen, systemPrompt, transcript)`.
 3. `dialog.Handle` runs the sequence in **§"Behavioural spec (pseudocode)"**
@@ -50,7 +50,8 @@ internal/tts/       Synthesizer interface; elevenlabs.go (eleven_multilingual_v2
                     output_format opus) · azure.go (SSML + ogg-opus header).
                     TTS_BACKEND picks. Google = documented, not built.
 internal/kb/        load KB_PATH, split on "##" into titled sections
-internal/dialog/    retrieve.go (BM25-lite + grounding gate) · dialog.go
+internal/dialog/    gate.go (kbOverlap + hardEscalate + isSlotAnswer +
+                    groundingGate) · dialog.go
                     (loads prompt/system.md, builds the prompt, parses the
                     trailer, merges slots) · generator.go (Generator interface)
                     · ollama.go + openai.go + gemini.go (DIALOG_BACKEND)
@@ -159,9 +160,9 @@ type Generator interface {
 // NewOpenAI(apiKey, model string) Generator
 
 type Reply struct {
-	Text    string   // spoken text, trailer stripped
+	Text    string   // spoken text, trailer stripped (or the fixed handoff/apology line)
 	Signal  Signal   // continue | lead_ready | escalate
-	Matched []string // titles of the KB sections used this turn
+	Matched []string // log-only: KB section titles that had a query-term hit; nil on an early escalate
 }
 
 // the core: one user turn -> one reply, mutating sess.
@@ -174,9 +175,11 @@ func Handle(
 	userText string,
 ) (Reply, error)
 
-// retrieve.go
-func retrieve(query string, kb []Section) (hits []Section, topScore float64) // BM25-lite
-func groundingGate(topScore float64, isSlotAnswer bool) (forceEscalate bool)
+// gate.go — the whole KB always goes in the prompt; these only feed the gate
+func kbOverlap(query string, kb []Section) float64      // fraction of meaningful query terms found in the whole KB
+func hardEscalate(query string) bool                    // unambiguous handoff triggers (B3)
+func isSlotAnswer(sess *Session, userText string) bool  // short + bot just asked + a slot is nil
+func groundingGate(overlap float64, slotAnswer bool) (forceEscalate bool)
 
 // ── internal/store ──────────────────────────────────────────────
 type TurnRecord struct {
@@ -252,65 +255,74 @@ step-for-step. Constants are named here and must be package-level `const`s in
 
 ```
 const (
-    ScoreFloor       = 0.15   // retrieve: min score to count as "relevant"
-    TopK             = 3      // retrieve: max sections passed to the LLM
-    TitleWeight      = 3.0    // retrieve: a query term in the title counts 3x
+    GateFloor        = 0.25   // kbOverlap below this on a content question -> escalate pre-LLM
     HistoryLimit     = 20     // Session.History cap, in Msg entries ≈ 10 turns (NOT 20 turns)
-    SlotAnswerMaxTok = 6      // isSlotAnswer: an answer to a slot question is short
+    SlotAnswerMaxTok = 6      // isSlotAnswer: max tokens (also requires: bot just asked, a slot is nil)
+    RecordingTick    = 4 * time.Second  // cmd/bot re-sends the recording action at this interval
 )
 ```
 
-### retrieve(query string, kb []Section) (hits []Section, topScore float64)
+**B1 decision (2026-08-29):** the KB is ~6 KB — the *whole* KB goes into every
+system prompt (Gemini Flash / gemma4 / gpt-4o-mini all have the headroom).
+There is **no retrieval-for-context**. A keyword-overlap score is computed
+*only* to feed the grounding gate. If exact-match overlap proves too weak for
+inflected Ukrainian in testing, add a stemmer (B1 fallback — candidates:
+`github.com/amakukha/stemmers_ukrainian`, `github.com/dbklim/Uk_Stemmer`,
+k-centre.uacorpus.org tools) and re-tune `GateFloor`; do not reintroduce
+per-section retrieval.
+
+### kbOverlap(query string, kb []Section) float64
 
 ```
-qterms  := tokenize(lower(strip_punct(query)))            // whitespace split
-qterms  = drop(qterms, stopwords)                          // uk + en, see below
-if len(qterms) == 0 { return nil, 0 }
-
-for each sec in kb:
-    body  := tokenize(lower(strip_punct(sec.Body)))
-    title := tokenize(lower(strip_punct(sec.Title)))
-    raw   := 0.0
-    for each distinct t in qterms:
-        tf := count(t, body) + TitleWeight*count(t, title)
-        if tf > 0 { raw += 1 + ln(tf) }
-    sec.score := raw / ln(2 + len(body))                   // length normalisation
-sort kb by score desc
-topScore := kb[0].score (or 0 if empty)
-hits     := first min(TopK, n) sections with score >= ScoreFloor
-return hits, topScore
+qterms := drop(tokenize(lower(strip_punct(query))), stopwords)   // uk+en stoplist
+if len(qterms) == 0 { return 0 }
+haystack := lower(strip_punct(join(" ", sec.Title + " " + sec.Body for sec in kb)))
+hit := count of DISTINCT qterms that appear as a substring token in haystack
+return float64(hit) / float64(len(qterms))     // fraction of the meaningful query the KB covers
 ```
 
-- **stopwords** — a fixed ~40-word list of uk + en function words
-  (`і а але або в на з до що як це так ні the a an of to in on for and or is
-  are …`), a package-level `var stopwords = map[string]bool{…}`. Rationale:
-  ragline found unfiltered stopwords cause any two docs to match on "the"/"of"
-  (see `docs/architecture.md` §5). Keep the list in one place, no config.
-- `count(t, tokens)` is exact-match token count, no stemming.
-- Deterministic: same query + same KB always yields the same ordering (stable
-  sort, ties broken by section index).
+- **stopwords** — a fixed ~40-word uk+en function-word list, package-level
+  `var stopwords map[string]bool`. Rationale: without it "the"/"of"/"і"/"на"
+  inflate the overlap and the gate never fires (ragline's tsquery lesson).
+- exact-match, no stemming (B1 fallback if this misses inflected forms).
+- deterministic.
 
-### isSlotAnswer(session *Session, userText string) bool
+### hardEscalate(query string) bool   (B3)
 
 ```
-return len(tokenize(userText)) <= SlotAnswerMaxTok
-       && session.Slots has at least one nil field
-```
-
-Cheap heuristic, deliberately loose: a short message while slots are still
-being collected is treated as an answer, not a new content question, so the
-grounding gate does not escalate on "5 pages" or "next week".
-
-### groundingGate(topScore float64, slotAnswer bool) (forceEscalate bool)
-
-```
-if slotAnswer          { return false }   // let the LLM handle it with slot context
-if topScore < ScoreFloor { return true }  // content question, nothing relevant -> escalate pre-LLM
+q := lower(query)
+for kw in escalateKeywords { if q contains kw { return true } }
 return false
 ```
 
-This is the whole anti-waffle mechanism: a content question the KB cannot
-answer never reaches the Generator.
+- **escalateKeywords** — a short fixed list of unambiguous triggers, uk+en:
+  `"повернути гро" "повернення кош" "поверніть гро" "refund" "скарг"
+   "complaint" "суд" "позов" "court" "дайте людину" "з людиною"
+   "справжн" "real person" "talk to a person" "менеджера напряму"`.
+  These force a handoff regardless of message length or slot state. The
+  2-term cases (sworn + non-listed language; interpreting + booking) stay with
+  the model's own `escalate` and the `prompt/system.md` hard rules.
+
+### isSlotAnswer(session *Session, userText string) bool   (B3)
+
+```
+lastAsst := the most recent Msg{Role:"assistant"} in session.History, "" if none
+return len(tokenize(userText)) <= SlotAnswerMaxTok
+       && strings.HasSuffix(trimspace(lastAsst), "?")   // the bot just asked something
+       && session.Slots has at least one nil field
+```
+
+So a short message only bypasses the gate when it is plausibly an answer to
+the bot's own question — "5 pages" after "how many pages?" bypasses; a bare
+"apostille?" out of nowhere does not.
+
+### groundingGate(overlap float64, slotAnswer bool) (forceEscalate bool)
+
+```
+if slotAnswer            { return false }   // answering the bot's question
+if overlap < GateFloor   { return true }    // content question the KB barely covers -> escalate pre-LLM
+return false
+```
 
 ### parseTrailer(raw string) (spoken string, tr *trailer)
 
@@ -332,52 +344,120 @@ output is never spoken.
 
 ### Handle(ctx, sess, kb, gen, systemPrompt, userText) (Reply, error)
 
+`esc(sess)` = shorthand for `{ sess.Escalated = true; return Reply{Text:
+handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil }`.
+
 ```
 0. lang := langOf(userText); if lang != "" && sess.Lang == "" { sess.Lang = lang }
-1. slotAnswer     := isSlotAnswer(sess, userText)
-2. hits, topScore := retrieve(userText, kb)
-3. if groundingGate(topScore, slotAnswer):
-       sess.Escalated = true
-       return Reply{Text: handoffLine(sessLang(sess)), Signal: SignalEscalate,
-                    Matched: nil}, nil                // pre-LLM escalate: no sections were "used"
-4. sysPrompt := systemPrompt
-              + "\n\n--- KNOWLEDGE BASE ---\n"  + join("\n\n", "## "+hit.Title+"\n"+hit.Body for hit in hits)
+1. if hardEscalate(userText):  esc(sess)              // B3: unambiguous handoff trigger
+2. slotAnswer := isSlotAnswer(sess, userText)
+3. overlap    := kbOverlap(userText, kb)
+4. if groundingGate(overlap, slotAnswer):  esc(sess)  // content question the KB barely covers
+5. sysPrompt := systemPrompt
+              + "\n\n--- KNOWLEDGE BASE ---\n"  + join("\n\n", "## "+s.Title+"\n"+s.Body for s in kb)   // WHOLE KB
               + "\n\n--- COLLECTED SO FAR ---\n" + jsonCompact(sess.Slots)
-5. hist := trimTail(append(sess.History, Msg{"user", userText}), HistoryLimit)
-6. raw, err := gen.Generate(ctx, sysPrompt, hist)
+6. hist := trimTail(append(sess.History, Msg{"user", userText}), HistoryLimit)
+7. raw, err := gen.Generate(ctx, sysPrompt, hist)
    if err != nil:
        sess.Escalated = true
-       return Reply{Text: apologyLine(sessLang(sess)), Signal: SignalEscalate,
-                    Matched: titles(hits)}, nil       // degrade, never bubble the error
-7. spoken, tr := parseTrailer(raw)
-8. if tr == nil:                                      // missing / unparseable trailer
-       sess.Escalated = true
-       return Reply{Text: handoffLine(sessLang(sess)), Signal: SignalEscalate,
-                    Matched: titles(hits)}, nil       // NEVER speak untrailered raw output
-9. merge (6 explicit field assignments, not a loop — QuoteSlots is a struct):
+       return Reply{Text: apologyLine(sessLang(sess)), Signal: SignalEscalate}, nil   // degrade, never bubble
+8. spoken, tr := parseTrailer(raw)
+9. if tr == nil:  esc(sess)                           // NEVER speak untrailered raw output
+10. merge — 6 explicit field assignments (QuoteSlots is a struct, no reflection):
        if tr.Slots.LanguagePair  != nil { sess.Slots.LanguagePair  = tr.Slots.LanguagePair }
        if tr.Slots.DocType       != nil { sess.Slots.DocType       = tr.Slots.DocType }
-       … and the other four. Never assign nil (that would clear a filled slot).
-10. signal := tr.Signal                               // trust the model
+       … the other four. Never assign nil (that would clear a filled slot).
+11. signal := tr.Signal
+    if signal == SignalLeadReady && !sess.Slots.Complete():   // B4 guard
+        log.Warn("lead_ready with incomplete slots", slots)
+        signal = SignalContinue
     if signal == SignalEscalate:
         sess.Escalated = true
-        spoken = handoffLine(sessLang(sess))          // A3: replace the spoken text
-    // NOTE: no continue->lead_ready upgrade. The model owns lead_ready and the
-    //       system prompt ties it to the read-back summary (REQ-DLG-04). See B4.
-11. sess.History = trimTail(append(hist, Msg{"assistant", spoken}), HistoryLimit)
-12. return Reply{Text: spoken, Signal: signal, Matched: titles(hits)}, nil
+        spoken = handoffLine(sessLang(sess))          // A3: escalate always speaks the fixed line
+    // No continue->lead_ready upgrade. The model owns lead_ready; system.md
+    // ties it to the read-back summary (REQ-DLG-04).
+12. matched := titles of kb sections whose Body contains a query term   // log-only, informational
+13. sess.History = trimTail(append(hist, Msg{"assistant", spoken}), HistoryLimit)
+14. return Reply{Text: spoken, Signal: signal, Matched: matched}, nil
 ```
 
-`sessLang(sess)` returns `sess.Lang` if set, else `"en"`.
+`sessLang(sess)` returns `sess.Lang` if set, else `"en"`. An `esc(sess)` early
+return has `Matched: nil` — nothing was consulted.
 
-The caller — the `cmd/bot` update loop — owns everything around `Handle`:
-detecting `/start` / an unseen chat and sending `prompt/greeting.md` once;
-the STT step and its error/empty-transcript handling; the recording-action
-ticker; `tts.Speak` + `telegram.SendVoice` then `telegram.SendText` (one
-text, no caption); `store.AppendTurn` **always**; `store.AppendLead` iff
-`Reply.Signal == SignalLeadReady`; `getUpdates` offset management and
-per-chat serialization. **That loop still needs its own pseudocode** —
-flagged by the consilium (B5), pending Val's calls on B1–B5.
+### cmd/bot update loop   (B5)
+
+One goroutine per chat; a `sync.Mutex` guards the `map[chatID]*Session`; each
+chat's goroutine holds a per-chat lock so its turns are strictly serial while
+different chats run concurrently.
+
+```
+sessions  : map[int64]*Session          // guarded by sessMu sync.Mutex
+chatLocks : map[int64]*sync.Mutex        // guarded by sessMu; one lock per chat
+seen      : map[int64]bool               // greeted this chat? guarded by sessMu
+
+main:
+    cfg := LoadConfig()
+    stt := stt.New(cfg); gen := dialog.New(cfg); tts := tts.New(cfg); tg := telegram.New(cfg)
+    kb  := kb.Load(cfg.KBPath); sys := readFile(cfg.SystemPromptPath); greet := greetingBody(cfg.GreetingPath)
+    updates := tg.Updates(ctx)                        // long-poll; the client owns offset advance,
+                                                      //   advancing only after an Update is taken from the channel
+    for u := range updates:
+        go handleUpdate(u)                            // per-chat serialization is inside
+
+handleUpdate(u Update):
+    defer recover-and-log                             // a panic in one turn never kills the loop
+    lock := chatLock(u.ChatID); lock.Lock(); defer lock.Unlock()
+    sess := getOrCreateSession(u.ChatID)
+
+    if u.IsStart || firstMessage(u.ChatID):
+        tg.SendText(ctx, u.ChatID, greet); markSeen(u.ChatID)
+        if u.IsStart { return }                       // /start carries no other content
+
+    // 1. transcript
+    var text string
+    if u.VoiceFileID != "":
+        stopTicker := startRecordingTicker(ctx, tg, u.ChatID)   // re-sends every RecordingTick
+        ogg, err := tg.DownloadVoice(ctx, u.VoiceFileID)
+        if err == nil { text, err = stt.Transcribe(ctx, ogg, cfg.WhisperLang); os.Remove(ogg) }
+        stopTicker()
+        if err != nil || trimspace(text) == "":
+            tg.SendText(ctx, u.ChatID, sttFailLine(sessLang(sess)))   // "не розчув, повторіть / didn't catch that"
+            return                                    // no Handle, no turn record
+    else:
+        text = u.Text
+
+    // 2. /voice command — handled here, never reaches Handle
+    if text == "/voice a" || text == "/voice b":
+        sess.Voice = text[len(text)-1:]; tg.SendText(ctx, u.ChatID, voiceSwitched(sessLang(sess))); return
+
+    // 3. dialogue turn
+    start := now()
+    stopTicker := startRecordingTicker(ctx, tg, u.ChatID)
+    reply, _ := dialog.Handle(ctx, sess, kb, gen, sys, text)     // Handle never returns a non-nil error
+    ogg, terr := tts.Speak(ctx, reply.Text, voiceID(cfg, sess.Voice), sessLang(sess))
+    stopTicker()
+
+    // 4. deliver
+    if terr == nil { tg.SendVoice(ctx, u.ChatID, ogg) }          // no caption
+    tg.SendText(ctx, u.ChatID, reply.Text)                       // text always goes out once
+
+    // 5. log — always
+    store.AppendTurn(cfg.DataDir, TurnRecord{... reply ..., LatencyMS: since(start)})
+    if reply.Signal == SignalLeadReady:
+        store.AppendLead(cfg.DataDir, leadFrom(u.ChatID, sess.Slots))
+```
+
+- **offset / dedup:** `telegram.Client.Updates` advances the `getUpdates`
+  offset only after an update is delivered on the channel and pulled by a
+  goroutine. A crash before that re-delivers the update → the greeting or a
+  turn may repeat. Acceptable for a demo; a duplicate lead in the log is the
+  worst case. Do **not** add persistence (D-7).
+- **`startRecordingTicker`** returns a `stop func()`; it calls
+  `SendRecordingAction` immediately and every `RecordingTick` until `stop()`
+  or `ctx` cancellation.
+- everything the loop calls that talks to a network (`SendText`, `SendVoice`,
+  `Speak`, `Transcribe`) logs its error and continues — never a `panic`, never
+  a process exit (REQ-NFR-03).
 
 ### langOf(text string) string
 
@@ -396,23 +476,35 @@ function's.
 
 ### Fixed lines
 
-`handoffLine(lang)` and `apologyLine(lang)` return a package-level constant
-string per language. The handoff wording is the one in
-`examples/dialogues.md` cases 3–5; the apology is a short "щось пішло не так,
-з'єдную з менеджером" / "something went wrong, connecting you to a manager".
+Package-level constant strings, one per language (`"uk"` / `"en"`), no
+formatting:
+
+| helper | used by | uk / en gist |
+|---|---|---|
+| `handoffLine(lang)` | every escalate path | the handoff wording from `examples/dialogues.md` cases 3–5 |
+| `apologyLine(lang)` | `dialog.Handle` Generator error | "щось пішло не так, з'єдную з менеджером" / "something went wrong, connecting you to a manager" |
+| `sttFailLine(lang)` | cmd/bot, STT error / empty transcript | "не розчув(ла), повторіть, будь ласка" / "sorry, I didn't catch that — could you repeat?" |
+| `voiceSwitched(lang)` | cmd/bot, `/voice` command | "гаразд, тепер інший голос" / "ok, switched voice" |
+
+Helpers the update loop needs: `voiceID(cfg, "a"|"b")` picks the ElevenLabs or
+Azure voice ID for the active `TTS_BACKEND`; `greetingBody(path)` applies the
+`prompt/greeting.md` extraction rule (content after the first `---` line,
+further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
+`LeadRecord` (nil slots become `""`).
 
 ## Details / decisions
 
 - **Telegram:** long-polling (`getUpdates`), no webhook / public URL. Use
   `github.com/go-telegram/bot` (maintained, std-context API) — the one Go
   dependency. Everything else is stdlib `net/http`.
-- **STT (D-13):** default `local` — `ffmpeg -i in.ogg -ar 16000 -ac 1 out.wav`
-  then `whisper-cli -m $WHISPER_MODEL -l $lang -otxt -nt -f out.wav`, read the
-  `.txt`. `WHISPER_BIN`, `WHISPER_MODEL` (ggml path), `WHISPER_LANG` (auto|uk|en).
-  `openai` impl posts the ogg to `whisper-1`. Both satisfy
-  `Transcribe(ctx, oggPath, langHint) (string, error)`; a `local` failure does
-  **not** auto-fallback to `openai` — the switch is the `STT_BACKEND` env only
-  (keep it predictable for a demo).
+- **STT (D-13, default `openai` per B2):** `openai` impl posts the ogg to
+  `whisper-1` (~2–4 s, ~$0.006/min, < $2 for the whole demo). Chosen as the
+  demo default because local Whisper on a CPU-only box is 15–40 s and alone
+  blows NFR-2. `local` impl (`ffmpeg -i in.ogg -ar 16000 -ac 1 out.wav` then
+  `whisper-cli -m $WHISPER_MODEL -l $lang -otxt -nt -f out.wav`, read the
+  `.txt`) stays as the zero-per-use / offline / GPU-box alternate. Both
+  satisfy `Transcribe(ctx, oggPath, langHint) (string, error)`; a failure does
+  **not** auto-switch backends — only the `STT_BACKEND` env does.
 - **Dialogue Generator (D-13):** `Generate(ctx, systemPrompt, msgs) (string, error)`,
   three impls, `DIALOG_BACKEND` picks:
   - `gemini` (default) → native `POST generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`,
@@ -424,12 +516,13 @@ string per language. The handoff wording is the one in
     `DIALOG_MODEL` default `gemma4:cloud`. Request `"think": false` if supported.
   - `openai` → `api.openai.com`, `DIALOG_MODEL` default `gpt-4o-mini`.
   Build `gemini` first (step 3); `ollama` + `openai` in the alternates batch (step 6).
-- **Retrieval:** in memory, no DB. Lowercase + tokenize; score each section by
-  term frequency / overlap (BM25-lite is fine — ~12 short sections). Keep top
-  ≤3 above a tuned floor. This exists mainly to *drive the escalate decision*
-  and to keep the LLM's context tight (NFR-9); it is deliberately minimal.
-  Design reference: `ragline`'s `internal/answer/decision.go` (not a
-  dependency — see `docs/architecture.md` §6).
+- **KB in the prompt (B1):** the whole KB (~6 KB) is in every system prompt.
+  No retrieval-for-context. `kbOverlap` is a keyword-overlap score used **only**
+  by the grounding gate. Design lineage: `ragline`'s `Decide` (retrieve →
+  score → answer-or-escalate) collapsed to "score-for-gate only" because the
+  KB is tiny (not a dependency — see `docs/architecture.md` §6). Fallback if
+  exact-match overlap misses inflected Ukrainian: add a stemmer (see the B1
+  note in the Behavioural spec), do not bring per-section retrieval back.
 - **Persona + playbook + grounding rule:** all in `prompt/system.md` —
   authored, load it verbatim, do not paraphrase into code. The six quote
   slots, the intake order, "never a final price", the escalate list, and the
@@ -481,8 +574,8 @@ substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
 
 1. config + `kb` (load & split) + `store` + `go build` — no external calls
 2. `telegram` long-poll loop, echo text back
-3. `dialog`: `retrieve` + grounding gate + `Generator` (`gemini` impl first) +
-   trailer parse + slot merge + turn log; wire onto text messages
+3. `dialog`: `gate.go` (kbOverlap + hardEscalate + isSlotAnswer + gate) +
+   `Generator` (`gemini` first) + trailer parse + slot merge; onto text messages
 4. `stt`: `local` impl (ffmpeg + whisper-cli) — voice in
 5. `tts`: `elevenlabs` impl — voice out; `/voice` command
 6. alternates batch: `ollama` + `openai` impls for `dialog.Generator`,

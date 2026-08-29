@@ -20,28 +20,29 @@ they mean two things by it (S2):
    the reason this document exists.
 
 A fluent voice reading mushy or subtly-wrong answers fails the demo. So the
-architecture is built around **grounding**: the model only ever speaks from a
-known, retrieved slice of the knowledge base, and when the KB doesn't cover
-the question it hands off instead of guessing.
+architecture is built around **grounding**: the whole KB is in the prompt, a
+keyword gate + a hard-keyword list catch off-topic and liability questions
+before the LLM, and the model is told to hand off rather than guess.
 
 ## 2. Components
 
 ```mermaid
 flowchart TD
     U[User on Telegram] -->|voice / text| TG[internal/telegram\nlong-poll, file dl, sendVoice]
-    TG -->|ogg| STT[internal/stt\nlocal whisper.cpp\n· rollback: whisper-1 API]
+    TG -->|ogg| STT[internal/stt\nwhisper-1 API\n· alt: local whisper.cpp]
     STT -->|transcript| D[internal/dialog\nCORE]
     TG -->|text msg| D
 
     subgraph CORE [internal/dialog — the grounding core]
-        R[retrieve\nscore KB sections] --> G{grounding gate\nbest score >= floor?}
-        G -->|no, and it's a content question| ESC[signal: escalate]
-        G -->|yes / or slot-answer turn| LLM[LLM call\ngemini-flash\n· gemma4:cloud · gpt-4o-mini]
+        R[kbOverlap + hardEscalate] --> G{gate: overlap >= floor?\nor a slot answer?}
+        G -->|no| ESC[handoff line, no LLM]
+        G -->|yes / slot answer| LLM[LLM call\ngemini-flash\n· gemma4:cloud · gpt-4o-mini]
         LLM --> P[parse: spoken_reply + slot_updates + signal]
         P --> M[merge slots\nvalidate, never silently unset]
     end
 
-    KB[internal/kb\nload + split KB into ~12 sections] --> R
+    KB[internal/kb — 12 sections] --> R
+    KB -->|whole KB verbatim| LLM
     S[(session state\nper chat id: history, slots, voice)] <--> CORE
 
     M -->|spoken_reply| TTS[internal/tts\nElevenLabs multilingual v2\n· rollback: Azure Neural]
@@ -52,37 +53,37 @@ flowchart TD
 
 | Package | Responsibility | Requirements |
 |---|---|---|
-| `internal/telegram` | Long-poll `getUpdates`; download voice files to temp; `sendVoice` + `sendMessage`; "recording voice…" chat action; `/voice a\|b` | FR-1, FR-3, FR-10, FR-11, NFR-2 |
+| `internal/telegram` | Transport only: long-poll `getUpdates`, download voice files, `SendVoice`/`SendText`/`SendRecordingAction`. No command or session logic. | FR-1, FR-3, FR-10, NFR-2 |
 | `internal/stt` | `Transcriber` interface, two impls: **`local`** (ogg→wav via `ffmpeg`, then shell out to `whisper-cli` with a ggml model) and **`openai`** (`whisper-1` API). `STT_BACKEND` selects. | FR-2, D-13 |
-| `internal/kb` | Load `KB_PATH`, split on `##` headings into titled sections; expose them for scoring | FR-6, NFR-9 |
-| `internal/dialog` | Retrieval, grounding gate, LLM orchestration, signal + slot parsing, slot merge. **The core.** LLM call goes through a `Generator` interface: **`gemini`** (native Gemini API, `gemini-flash-latest`, default), **`ollama`** (`gemma4:cloud`), **`openai`** (`gpt-4o-mini`). `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13 |
+| `internal/kb` | Load `KB_PATH`, split on `##` into titled sections — passed to the LLM in full, and to `kbOverlap` | FR-6, NFR-9 |
+| `internal/dialog` | `hardEscalate` + `kbOverlap` + grounding gate, LLM orchestration, trailer parse, slot merge, fixed lines. **The core.** LLM call goes through a `Generator` interface: **`gemini`** (native Gemini API, `gemini-flash-latest`, default), **`ollama`** (`gemma4:cloud`), **`openai`** (`gpt-4o-mini`). `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13 |
 | `internal/tts` | `Synthesizer` interface, two impls: **`elevenlabs`** (`eleven_multilingual_v2`) and **`azure`** (`uk-UA-*Neural`). `TTS_BACKEND` selects. Both emit opus-in-ogg. Google is a documented third impl, not built (D-15). | FR-10, NFR-1, D-15 |
 | `internal/store` | Append-only JSONL: one record per turn; one lead record on `lead_ready` | FR-8, FR-13 |
-| `cmd/bot` | Wiring, config load, the update loop, per-chat session map | NFR-4, NFR-6 |
+| `cmd/bot` | Wiring, config, the update loop (per-chat goroutine + locks), `/voice`, the greeting, the recording ticker, STT, store calls | FR-11, NFR-3, NFR-4, NFR-6 |
 
-Runtime dependencies: a Telegram bot library (Go); `ffmpeg` + a `whisper-cli`
-binary + a ggml model (local STT); a Gemini API key (default dialogue). HTTP
-to ElevenLabs / Azure / Gemini (and to OpenAI or Ollama only when selected) is
-stdlib. **Default path uses no OpenAI** — the OpenAI key is a rollback only;
-`DIALOG_BACKEND=ollama` needs a running Ollama with `gemma4:cloud`.
+Runtime dependencies (default path): a Telegram bot library (Go); an OpenAI
+key (`whisper-1` STT, B2); a Gemini key (dialogue); an ElevenLabs key (TTS).
+`ffmpeg` + `whisper-cli` + a ggml model are needed only for `STT_BACKEND=local`;
+a running Ollama with `gemma4:cloud` only for `DIALOG_BACKEND=ollama`; an Azure
+Speech key only for `TTS_BACKEND=azure`. All HTTP is stdlib.
 
 ## 3. Turn data flow
 
 1. Telegram update arrives. If voice: download OGG to a temp file (path
    validated), transcribe, delete the file. If text: use it directly.
-2. `dialog.Handle(chatID, text)`:
-   a. **Retrieve** — lowercase + tokenize the text; score each KB section by
-      term overlap (BM25-lite); keep sections above a score floor.
-   b. **Grounding gate** (`groundingGate(topScore, slotAnswer)`) —
-      - `slotAnswer` (message ≤ SlotAnswerMaxTok tokens AND a slot is still
-        nil) → skip the gate, proceed;
-      - else if `topScore < ScoreFloor` → **force `escalate`** with the fixed
-        handoff line, without calling the LLM (the anti-waffle stop);
-      - else → proceed with the retrieved sections.
-   c. **LLM call** — system prompt = `prompt/system.md` (persona,
-      conversation playbook, hard rules, output format) + the retrieved
-      sections verbatim + the current slot state; messages = the last 20 Msg entries (about 10 turns) +
-      this one. Temperature 0.2–0.3.
+2. `dialog.Handle(ctx, sess, kb, gen, sys, text)` — full pseudocode in
+   `.agents/plan.md` §"Behavioural spec":
+   a. **`hardEscalate(text)`** — keyword list for liability topics; a hit
+      returns the fixed handoff line, no LLM.
+   b. **Grounding gate** — `slotAnswer` (short + the bot just asked + a slot
+      is nil) bypasses it; otherwise `kbOverlap(text, kb) < gate_floor` (few
+      of the message's meaningful terms appear anywhere in the KB) forces the
+      handoff line, no LLM (the anti-waffle stop). B1: no per-section
+      retrieval — the score only feeds this gate.
+   c. **LLM call** — system prompt = `prompt/system.md` + `--- KNOWLEDGE BASE
+      ---` + **the whole KB** (every `## Title` + body) + `--- COLLECTED SO
+      FAR ---` + the slot state; messages = the last 20 Msg entries (≈10
+      turns) + this one. Temperature 0.2–0.3.
    d. **Parse** the response into `{ spoken_reply, slot_updates, signal }`
       where `signal ∈ {continue, lead_ready, escalate}`. Format: the reply
       text, then a fenced JSON trailer the code strips before speaking.
@@ -124,11 +125,13 @@ about exactly those.
 The model is prevented from waffling by four layers, cheapest first:
 
 1. **Bounded context.** The LLM never sees more than: `prompt/system.md`,
-   ≤3 retrieved KB sections (## Title + body), the slot state, the last 20 Msg entries. It cannot drift into
-   territory it was never given.
-2. **Pre-LLM escalation.** If retrieval finds nothing relevant and the turn is
-   a content question, the code answers with the handoff line and never calls
-   the LLM. No input → no hallucinated output.
+   the **whole KB** (~6 KB, every `## Title` + body), the slot state, the
+   last 20 Msg entries. It cannot drift into territory it was never given
+   — and with the KB tiny, there is no retrieval to get wrong (B1).
+2. **Pre-LLM escalation.** `hardEscalate` (a keyword list for liability
+   topics) and the grounding gate (`kbOverlap` below `gate_floor` on a
+   non-slot-answer turn) both reply with the fixed handoff line and never call
+   the LLM.
 3. **The rules in `prompt/system.md`.** "Answer only from the KNOWLEDGE BASE.
    If it's not covered, set `signal: escalate`. Never state a final price."
    Plus the explicit escalate list. (NFR-7, NFR-9.)
@@ -160,7 +163,7 @@ The demo validates the *conversation design*; the MVP swaps the *substrate*.
 | Demo | MVP |
 |---|---|
 | `dialog.Handle` (transcript + state + KB → reply + state + signal) | L1 orchestrator + a confidence/HITL gate (ragivka's `pkg/orchestrator` + `pkg/tools.HITLGate`, or the equivalent) |
-| in-memory BM25-lite over 12 sections | SQLite FTS5 + vector search (see §7.1) |
+| whole KB in the prompt + kbOverlap gate | SQLite FTS5 + vector search (see §7.1) |
 | `map[chatID]*Session`, lost on restart | SQLite `session` table + FSM |
 | JSONL turn log | SQLite `message` + `audit_log` tables |
 | lead record written to the log | real Zoho lead via REST (`.eu` base) |
