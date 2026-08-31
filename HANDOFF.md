@@ -61,7 +61,9 @@ D-18 = the bilingual KB (added at build step 3 — see §3 Grounding).
   build the `gemini` impl but do not expect to run it.
 - **STT is dual-mode:**
   - Dev / default: `STT_BACKEND=local` → the **openai-whisper CLI** (`whisper`
-    on PATH, installed via pipx). `WHISPER_MODEL=medium`, auto-downloads to
+    on PATH, installed via pipx). `WHISPER_MODEL=turbo` (= large-v3-turbo:
+    faster than `medium` on CPU AND better Ukrainian — bench 2026-08-31,
+    Ryzen 7700: turbo 12 s vs medium 15 s on a 4.6 s clip), auto-downloads to
     `~/.cache/whisper` (~1.5 GB) on the first voice message. Ingests `.ogg`
     directly — **no manual ffmpeg ogg→wav step** (ffmpeg is still a system
     dep, used internally by whisper). Command shape is in `.agents/plan.md`
@@ -120,7 +122,7 @@ D-18 = the bilingual KB (added at build step 3 — see §3 Grounding).
 - `TELEGRAM_BOT_TOKEN` — live, bot is **@v2v_demo_bot**
 - `ELEVENLABS_API_KEY` — live, Free plan, "Text to Speech" permission only
 - `ELEVENLABS_VOICE_A/B` — Sarah / George (see §3)
-- `STT_BACKEND=local`, `WHISPER_BIN=whisper`, `WHISPER_MODEL=medium`
+- `STT_BACKEND=local`, `WHISPER_BIN=whisper`, `WHISPER_MODEL=turbo`
 - `DIALOG_BACKEND=ollama`, `DIALOG_MODEL=gemma4:cloud`, `OLLAMA_BASE_URL=http://localhost:11434`
 - `OPENAI_API_KEY` — present but **$0 balance** (key restricted to whisper-1 +
   gpt-4o-mini; only used at the client-recording milestone)
@@ -192,8 +194,11 @@ for a given step. The plan is precise enough for either path.
 
 ## 8. Open items / later milestones
 
-- `WHISPER_MODEL=medium` downloads (~1.5 GB) on the first voice message —
-  expect a long first turn.
+- `WHISPER_MODEL=turbo` downloads (~1.5 GB) on the first voice message —
+  expect a long first turn. On this box it was already pulled (bench
+  2026-08-31). Steady-state ~12 s/short turn — most of it is Python startup
+  + model load, which the CLI shell-out repeats every turn; a warm STT
+  server would kill that but is out of scope (plan shells the CLI).
 - **I-10 client sample recording** (later): flip `STT_BACKEND=openai`
   (+ prepay OpenAI $5), upgrade ElevenLabs to Starter, swap in the UA voice
   IDs, record a 2–3 min conversation, attach to the client thread.

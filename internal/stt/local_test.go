@@ -111,7 +111,7 @@ func TestLocalTranscribeNoOutput(t *testing.T) {
 
 func TestNewLocalDefaults(t *testing.T) {
 	w := NewLocal("", "", "").(*localWhisper)
-	if w.bin != "whisper" || w.model != "medium" || w.lang != "auto" {
+	if w.bin != "whisper" || w.model != "turbo" || w.lang != "auto" {
 		t.Fatalf("defaults not applied: %+v", w)
 	}
 }

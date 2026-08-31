@@ -73,7 +73,7 @@ func LoadConfig() (Config, error) {
 
 		STTBackend:   def("STT_BACKEND", "local"),
 		WhisperBin:   def("WHISPER_BIN", "whisper"),
-		WhisperModel: def("WHISPER_MODEL", "medium"),
+		WhisperModel: def("WHISPER_MODEL", "turbo"),
 		WhisperLang:  def("WHISPER_LANG", "auto"),
 
 		DialogBackend: def("DIALOG_BACKEND", "ollama"),

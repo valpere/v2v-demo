@@ -12,10 +12,10 @@ import (
 // localWhisper shells out to the openai-whisper CLI. It ingests the OGG
 // directly (Whisper decodes it via its own ffmpeg call — no manual
 // conversion). The model name auto-downloads to ~/.cache/whisper on first
-// use, so the first transcription blocks for a while (~1.5 GB for "medium").
+// use, so the first transcription blocks for a while (~1.5 GB for "turbo").
 type localWhisper struct {
 	bin   string // CLI name, default "whisper"
-	model string // model NAME, default "medium"
+	model string // model NAME, default "turbo" (faster than medium on CPU + better Ukrainian)
 	lang  string // "auto" | "uk" | "en" — the config default, overridden by a call's langHint
 }
 
@@ -25,7 +25,7 @@ func NewLocal(bin, model, lang string) Transcriber {
 		bin = "whisper"
 	}
 	if model == "" {
-		model = "medium"
+		model = "turbo"
 	}
 	if lang == "" {
 		lang = "auto"

@@ -97,7 +97,7 @@ type Transcriber interface {
 	// langHint is "" | "uk" | "en"; oggPath is a local file.
 	Transcribe(ctx context.Context, oggPath, langHint string) (string, error)
 }
-// NewLocal(bin, model, lang string) Transcriber        // openai-whisper CLI; bin default "whisper", model default "medium"
+// NewLocal(bin, model, lang string) Transcriber        // openai-whisper CLI; bin default "whisper", model default "turbo"
 // NewOpenAI(apiKey, model string) Transcriber          // whisper-1
 
 // ── internal/tts ─────────────────────────────────────────────────
@@ -224,7 +224,7 @@ type Config struct {
 
 	STTBackend   string // "local" (default) | "openai" (I-10 client recording)
 	WhisperBin   string // openai-whisper CLI; default "whisper"
-	WhisperModel string // openai-whisper model name; default "medium"
+	WhisperModel string // openai-whisper model name; default "turbo"
 	WhisperLang  string // "auto" | "uk" | "en"
 
 	DialogBackend string // "ollama" (default) | "openai" | "gemini"
@@ -511,14 +511,17 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
   --output_dir <tmpdir> --fp16 False --verbose False` (add `--language uk|en`
   only when `WHISPER_LANG != auto`), then read `<tmpdir>/<ogg-stem>.txt`. The
   CLI decodes the ogg with its own internal ffmpeg call — no manual
-  conversion. `$WHISPER_MODEL` is a model NAME (`medium` default;
-  `large-v3` / `turbo` are the quality overrides), auto-downloaded to
-  `~/.cache/whisper` on first use (one-time blocking download). Free, no key.
+  conversion. `$WHISPER_MODEL` is a model NAME (`turbo` default = large-v3-turbo:
+  faster than `medium` on CPU AND better Ukrainian — benchmarked 2026-08-31 on a
+  Ryzen 7700, turbo 12 s vs medium 15 s on a 4.6 s clip; `small` ~5 s but drops
+  UA punctuation; `large-v3` if turbo quality is short), auto-downloaded to
+  `~/.cache/whisper` on first use (one-time blocking download ~1.5 GB). Free, no key.
   **For the I-10 client recording, flip `STT_BACKEND=openai`:** the `openai`
-  impl posts the ogg to `whisper-1` (~2–4 s, ~$0.006/min, < $2 total) — local
-  CPU transcription (tens of seconds to minutes at `medium`) fails NFR-2 in a
-  live setting (B2 substance; its default-flip reverted, option A 2026-08-29 —
-  OpenAI needs a $5 prepay, deferred to that step). Both impls
+  impl posts the ogg to `whisper-1` (~2–4 s, ~$0.006/min, < $2 total) — even at
+  `turbo`, local CPU transcription (~12 s/turn, mostly Python + model load which
+  the shell-out repeats every turn) fails NFR-2 in a live setting (B2 substance;
+  its default-flip reverted, option A 2026-08-29 — OpenAI needs a $5 prepay,
+  deferred to that step). Both impls
   satisfy `Transcribe(ctx, oggPath, langHint) (string, error)`; a failure does
   **not** auto-switch backends — only the `STT_BACKEND` env does.
 - **Dialogue Generator (D-13):** `Generate(ctx, systemPrompt, msgs) (string, error)`,
