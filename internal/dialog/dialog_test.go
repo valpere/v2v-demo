@@ -274,20 +274,33 @@ func TestHandleEscalateSignalSpeaksFixedLine(t *testing.T) {
 	}
 }
 
-// TestHandleCrossLanguageGate documents a known characteristic: kbOverlap is
-// exact-substring, so a Ukrainian content question against an English-only KB
-// scores 0 and the gate escalates it before the LLM. It only passes the gate
-// as a slot answer (short + the bot just asked). Whether the shipped KB must
-// carry Ukrainian text is a content decision tracked in .agents/changes.md.
-func TestHandleCrossLanguageGate(t *testing.T) {
+// TestHandleUkrainianContentQuestionPassesGate — with a bilingual KB a
+// Ukrainian content question whose terms appear in the Ukrainian body clears
+// the grounding gate and reaches the LLM (the cross-language wall is gone;
+// within-Ukrainian inflection is the remaining B1-stemmer concern).
+func TestHandleUkrainianContentQuestionPassesGate(t *testing.T) {
+	gen := &fakeGen{reply: reply("Так, робимо.", "continue", nil)}
+	sess := &Session{}
+	r, _ := dialogHandle(t, sess, gen, "Ви робите присяжний переклад?")
+	if gen.calls != 1 {
+		t.Fatalf("generator calls = %d, want 1 (uk terms match the uk KB body)", gen.calls)
+	}
+	if r.Signal != SignalContinue {
+		t.Fatalf("signal = %q", r.Signal)
+	}
+	if sess.Lang != "uk" {
+		t.Fatalf("Lang = %q, want uk", sess.Lang)
+	}
+}
+
+// TestHandleUkrainianOffTopicStillEscalates — a Ukrainian question the KB
+// does not cover still scores below the floor and escalates pre-LLM.
+func TestHandleUkrainianOffTopicStillEscalates(t *testing.T) {
 	gen := &fakeGen{reply: reply("unused", "continue", nil)}
 	sess := &Session{}
-	r, _ := dialogHandle(t, sess, gen, "Чи можна оплатити криптовалютою?")
-	if r.Signal != SignalEscalate {
-		t.Fatalf("signal = %q, want escalate (uk query vs en KB -> overlap 0)", r.Signal)
-	}
-	if gen.calls != 0 {
-		t.Fatal("generator called")
+	r, _ := dialogHandle(t, sess, gen, "Яка столиця Австралії і скільки років президенту?")
+	if r.Signal != SignalEscalate || gen.calls != 0 {
+		t.Fatalf("r = %+v, calls = %d", r, gen.calls)
 	}
 }
 

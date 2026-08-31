@@ -7,11 +7,13 @@ import (
 	"github.com/valpere/v2v-demo/internal/kb"
 )
 
+// testKB mirrors the shipped KB's bilingual shape (English block + Ukrainian
+// block under one "## " heading) so the gate is exercised in both languages.
 func testKB() []kb.Section {
 	return []kb.Section{
-		{Title: "Services", Body: "Written translation, certified translation, notarized translation, sworn translation for German Polish Italian French Czech."},
-		{Title: "Delivery", Body: "Scanned PDF by email, or a hard copy by courier, or office pickup in Kyiv."},
-		{Title: "Payment", Body: "Bank transfer with or without VAT, card, and cash in the office."},
+		{Title: "Services / Послуги", Body: "Written translation, certified translation, notarized translation, sworn translation for German Polish Italian French Czech. Письмовий переклад, засвідчення печаткою бюро, нотаріальний переклад, присяжний переклад."},
+		{Title: "Delivery / Доставка", Body: "Scanned PDF by email, or a hard copy by courier, or office pickup in Kyiv. Скан на email, паперовий оригінал кур'єром, самовивіз із офісу."},
+		{Title: "Payment / Оплата", Body: "Bank transfer with or without VAT, card, and cryptocurrency. Банківський переказ, картка, криптовалюта."},
 	}
 }
 
@@ -31,6 +33,8 @@ func TestKBOverlap(t *testing.T) {
 		{"none present", "apostille legalization notary abroad", 0},
 		{"stopwords do not count", "is the courier available", 1.0 / 2.0}, // courier ✓, available ✗ (is/the/the dropped)
 		{"distinct terms only", "payment payment payment card", 1.0},      // payment ✓ (once), card ✓
+		{"ukrainian query matches ukrainian body", "присяжний переклад", 1.0},
+		{"ukrainian half present", "нотаріальний апостиль", 0.5}, // нотаріальний ✓, апостиль ✗
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
