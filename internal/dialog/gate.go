@@ -104,29 +104,68 @@ func meaningfulTerms(s string) []string {
 	return out
 }
 
-// kbOverlap is the fraction of the query's meaningful terms that appear
-// anywhere in the concatenated KB. Exact substring match, no stemming
-// (B1 fallback: add a Ukrainian stemmer if inflected forms are missed —
-// do not reintroduce per-section retrieval). Deterministic.
+// kbOverlap is the fraction of the query's meaningful terms that appear in
+// the KB, matched by shared word-stem rather than exact substring — Ukrainian
+// inflection is suffixal, so "університету" hits "університети",
+// "засвідчений" hits "засвідчення" ("контейнер"-style prefix match, ≥5 runes;
+// this is the B1 stemmer fallback, done without a dependency). The и/і/ї/е/є
+// vowel alternations that inflection also produces conveniently break spurious
+// matches ("Києві" ≠ "київського"). Deterministic.
 func kbOverlap(query string, sections []kb.Section) float64 {
 	qterms := meaningfulTerms(query)
 	if len(qterms) == 0 {
 		return 0
 	}
-	var h strings.Builder
-	for _, s := range sections {
-		h.WriteString(lowerStripPunct(s.Title + " " + s.Body))
-		h.WriteByte(' ')
-	}
-	haystack := h.String()
+	kbTokens := kbTokenSet(sections)
 
 	hit := 0
 	for _, t := range qterms {
-		if strings.Contains(haystack, t) {
+		if stemMatch(t, kbTokens) {
 			hit++
 		}
 	}
 	return float64(hit) / float64(len(qterms))
+}
+
+// kbTokenSet is the distinct lowercased word set of the whole KB.
+func kbTokenSet(sections []kb.Section) map[string]bool {
+	set := make(map[string]bool, 512)
+	for _, s := range sections {
+		for _, t := range tokens(s.Title + " " + s.Body) {
+			set[t] = true
+		}
+	}
+	return set
+}
+
+// stemMatch reports whether q shares a word-stem with any KB token: an exact
+// hit, or a common prefix of ≥5 runes, or the shorter token (≥4 runes) being
+// a prefix of the other.
+func stemMatch(q string, kbTokens map[string]bool) bool {
+	if kbTokens[q] {
+		return true
+	}
+	qr := []rune(q)
+	for t := range kbTokens {
+		tr := []rune(t)
+		n := commonPrefix(qr, tr)
+		if n >= 5 {
+			return true
+		}
+		if short := min(len(qr), len(tr)); n == short && short >= 4 {
+			return true
+		}
+	}
+	return false
+}
+
+func commonPrefix(a, b []rune) int {
+	n := min(len(a), len(b))
+	i := 0
+	for i < n && a[i] == b[i] {
+		i++
+	}
+	return i
 }
 
 // hardEscalate reports whether the message contains an unambiguous handoff
@@ -143,15 +182,17 @@ func hardEscalate(query string) bool {
 }
 
 // isSlotAnswer reports whether userText is plausibly an answer to a question
-// the bot just asked: short, the most recent assistant message ends with "?",
-// and a quote slot is still nil (B3 — the "bot just asked" clause stops a
-// bare "apostille?" from bypassing the gate).
+// the bot just asked: short, the most recent assistant message contains a
+// "?", and a quote slot is still nil (B3 — the "bot just asked" clause stops
+// a bare "apostille?" from bypassing the gate). "contains" not "ends with":
+// the model routinely asks "…?" and then adds a clarifying sentence, e.g.
+// "…для якої установи? Це потрібно, щоб підібрати тип засвідчення." (found in
+// live testing 2026-08-31 — "для університету в Берліні" was escalating).
 func isSlotAnswer(sess *Session, userText string) bool {
 	if len(tokens(userText)) > SlotAnswerMaxTok {
 		return false
 	}
-	last := lastAssistant(sess.History)
-	if !strings.HasSuffix(strings.TrimSpace(last), "?") {
+	if !strings.Contains(lastAssistant(sess.History), "?") {
 		return false
 	}
 	return !sess.Slots.Complete()
@@ -178,8 +219,8 @@ func groundingGate(overlap float64, slotAnswer bool) (forceEscalate bool) {
 	return false
 }
 
-// matchedTitles are the KB section titles whose title+body contains a
-// meaningful query term. Log-only, informational.
+// matchedTitles are the KB section titles that share a stem with a meaningful
+// query term. Log-only, informational.
 func matchedTitles(query string, sections []kb.Section) []string {
 	terms := meaningfulTerms(query)
 	if len(terms) == 0 {
@@ -187,9 +228,9 @@ func matchedTitles(query string, sections []kb.Section) []string {
 	}
 	var out []string
 	for _, s := range sections {
-		hay := lowerStripPunct(s.Title + " " + s.Body)
+		secTokens := kbTokenSet([]kb.Section{s})
 		for _, t := range terms {
-			if strings.Contains(hay, t) {
+			if stemMatch(t, secTokens) {
 				out = append(out, s.Title)
 				break
 			}

@@ -28,13 +28,16 @@ func TestKBOverlap(t *testing.T) {
 	}{
 		{"empty", "", 0},
 		{"stopwords only", "the of and на в", 0},
-		{"all terms present", "certified translation delivery", 1.0}, // certified, translation, delivery
-		{"half present", "translation apostille", 0.5},               // translation ✓, apostille ✗
-		{"none present", "apostille legalization notary abroad", 0},
-		{"stopwords do not count", "is the courier available", 1.0 / 2.0}, // courier ✓, available ✗ (is/the/the dropped)
-		{"distinct terms only", "payment payment payment card", 1.0},      // payment ✓ (once), card ✓
-		{"ukrainian query matches ukrainian body", "присяжний переклад", 1.0},
-		{"ukrainian half present", "нотаріальний апостиль", 0.5}, // нотаріальний ✓, апостиль ✗
+		{"all terms present", "certified translation delivery", 1.0},
+		{"half present", "translation weather", 0.5}, // translation ✓, weather ✗
+		{"none present", "weather joke football holiday", 0},
+		{"stopwords do not count", "is the courier weather", 1.0 / 2.0}, // courier ✓, weather ✗
+		{"distinct terms only", "payment payment payment card", 1.0},
+		{"ukrainian exact", "присяжний переклад", 1.0},
+		{"ukrainian half present", "нотаріальний футбол", 0.5}, // нотаріальний ✓, футбол ✗
+		{"ukrainian inflection stem-matches", "нотаріального засвідчення документів", 2.0 / 3.0},
+		// нотаріального ~ нотаріальний ✓, засвідчення exact ✓, документів ✗
+		{"stem: криптовалютою → криптовалюта", "оплата криптовалютою", 1.0},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -43,6 +46,35 @@ func TestKBOverlap(t *testing.T) {
 				t.Fatalf("kbOverlap(%q) = %v, want %v", tc.query, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestStemMatch(t *testing.T) {
+	kb := map[string]bool{
+		"університети": true, "засвідчення": true, "диплом": true,
+		"криптовалюта": true, "київського": true, "переклад": true,
+	}
+	yes := []string{
+		"переклад",      // exact
+		"університету",  // -у vs -и, common prefix "університет" (11) ≥ 5
+		"засвідчений",   // common prefix "засвідч" (7) ≥ 5
+		"диплома",       // "диплом" is a prefix, len 6 ≥ 4
+		"криптовалютою", // common prefix "криптовалют" ≥ 5
+	}
+	no := []string{
+		"погода", // no shared stem
+		"футбол", // no shared stem
+		"києві",  // к-и-є vs к-и-ї (київського) — vowel alternation breaks it at rune 3
+	}
+	for _, w := range yes {
+		if !stemMatch(w, kb) {
+			t.Errorf("stemMatch(%q) = false, want true", w)
+		}
+	}
+	for _, w := range no {
+		if stemMatch(w, kb) {
+			t.Errorf("stemMatch(%q) = true, want false", w)
+		}
 	}
 }
 
@@ -110,6 +142,7 @@ func TestIsSlotAnswer(t *testing.T) {
 		},
 	}
 	noQuestion := &Session{History: []Msg{{Role: "assistant", Text: "Thanks, noted."}}}
+	askedThenClause := &Session{History: []Msg{{Role: "assistant", Text: "Для якої установи ви готуєте документи? Це потрібно, щоб підібрати тип засвідчення."}}}
 	empty := &Session{}
 
 	tests := []struct {
@@ -120,6 +153,7 @@ func TestIsSlotAnswer(t *testing.T) {
 	}{
 		{"short answer after a question", asked, "about 5 pages", true},
 		{"one word after a question", asked, "diploma", true},
+		{"answer after a question + trailing clause", askedThenClause, "для університету в Берліні", true},
 		{"too long after a question", asked, "well it is a diploma with a transcript and also a reference letter", false},
 		{"short but no prior question", noQuestion, "5 pages", false},
 		{"short, question, but slots complete", askedFull, "no thanks", false},
