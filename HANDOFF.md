@@ -215,4 +215,8 @@ for a given step. The plan is precise enough for either path.
 - **I-10 client sample recording** (later): flip `STT_BACKEND=openai`
   (+ prepay OpenAI $5), upgrade ElevenLabs to Starter, swap in the UA voice
   IDs, record a 2–3 min conversation, attach to the client thread.
+- **Before the client demo:** fund the AI Studio project and re-enable
+  `GEMINI_API_KEY` (commented out in `.env` + `~/.bashrc:150` — the `.env`
+  key 429s, no credits). Development runs on `ollama` `gemma4:cloud`; the
+  `gemini` generator is built and wire-verified, just not fundable-yet.
 - Host stays local (D-08) until the client gets an unattended link.
