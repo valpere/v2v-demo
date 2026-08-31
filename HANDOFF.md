@@ -27,7 +27,8 @@ not need it to build.
 
 ## 2. Current status
 
-Snapshot: **2026-08-31** (build-order steps 1–6 done).
+Snapshot: **2026-08-31** (build-order steps 1–7 done — the manual smoke
+round and the I-10 recording are what's left).
 
 | | |
 |--|--|
@@ -41,12 +42,14 @@ Snapshot: **2026-08-31** (build-order steps 1–6 done).
 | Step 5 — `tts` ElevenLabs + greeting + `/voice` | **done** — `Speak` → Ogg/Opus mono (live smoke: HTTP 200 on Free, `opus_48000_128`); `SendVoice` + `SendText`; greeting once per chat; `/voice a\|b`. Full text+voice loop runs. |
 | Step 5 fixes (Val's live test `tmp/test-5_1`) | **done** — per-chat FIFO worker (message-order bug); `isSmallTalk` gate bypass (greetings/thanks no longer escalate); bare/unknown `/…` handled in cmd/bot; `WHISPER_LANG` default → `uk` + system.md "RU → reply uk" (STT was drifting uk→ru); `Session.LeadDone` (no duplicate lead). See `.agents/changes.md`. |
 | Step 6 — alternates | **done** — `dialog` openai + gemini generators (openai_compat.go shared), `stt` whisper-1, `tts` azure. Backend switch = `newGenerator/Transcriber/Synthesizer` + config `validate()`. Wire format live-verified via quota errors (gemini/whisper-1 real keys → 429, not 400); azure build+httptest only (no key). |
-| Step 7 | README refresh + `.env.example` check + smoke-test doc |
+| Step 7 — README + smoke doc | **done** — `README.md` refreshed, `.env.example` checked against `config.go`, `docs/smoke-test.md` written (the scripted manual run). |
+| Left | the `docs/smoke-test.md` manual round · the I-10 client recording (§8) |
 | `make check` (gofmt + vet + `go test -race`) | clean |
 | Deps | `github.com/go-telegram/bot` v1.24.0; `github.com/pemistahl/lingua-go` v1.4.0 (language detection — D-19; +~126 MB binary, accepted) |
 
-**Your task:** continue `.agents/plan.md` "Build order" from step 7 (README +
-smoke-test doc), then the full manual test round.
+**Your task:** the build order is complete. Next is the `docs/smoke-test.md`
+manual round, addressing whatever it turns up, then the I-10 client recording
+(§8).
 After each step: `make check` (`make help` lists all targets). Build-time
 notes / deviations live in `.agents/changes.md` (gitignored).
 

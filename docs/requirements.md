@@ -381,8 +381,11 @@ named constants are `@schema GateParams` in §1.
     B4 + LeadDone guards, `QuoteSlots.Complete`, `detectLang` (uk / en /
     ru→uk / too-short), `sessLang`, `greetingBody`, `voiceID`. `cmd/bot` also
     has a per-chat FIFO-ordering test (a slow fake generator, five queued
-    messages, assert call order).
-    -> [LOG-TST-01] internal/dialog/*_test.go, internal/kb/*_test.go, cmd/bot/*_test.go; `make check` after each build-order step (AGENTS.md)
+    messages, assert call order). The HTTP backend impls (Ollama / OpenAI /
+    Gemini generators, whisper-1 STT, Azure TTS) are covered with `httptest`
+    stubs — request shape, auth header, error paths. The end-to-end
+    conversation is exercised by hand from `docs/smoke-test.md`.
+    -> [LOG-TST-01] internal/*/*_test.go, cmd/bot/*_test.go; `make check` after each build-order step (AGENTS.md); docs/smoke-test.md for the manual round
 
 ### 4.10 The cmd/bot update loop
 

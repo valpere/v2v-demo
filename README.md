@@ -1,53 +1,72 @@
 # v2v-demo
 
 A throwaway demo: a **Telegram voice assistant for a translation bureau**.
-Neutral scenario, fabricated data (`kb/translation-bureau.md`). Built to let a
-prospective client hear how the assistant sounds and holds a conversation —
-not production code, not a framework.
+Neutral scenario, fabricated data (`kb/translation-bureau.md`, bilingual
+UK/EN). Built to let a prospective client hear how the assistant sounds and
+holds a conversation — not production code, not a framework. Design notes:
+`docs/`, `.agents/plan.md`.
 
 ## Loop
 
 ```
-Telegram voice msg ─► local openai-whisper STT ─► whole KB + grounding gate ─► gemma4:cloud ─► ElevenLabs TTS ─► Telegram voice reply
-                      alt: whisper-1 API (for the client recording)               alt: gpt-4o-mini / Gemini Flash   alt: Azure Neural
-                                          │
-                                          ├─ collects: language pair, doc type, volume,
-                                          │            deadline, certification, delivery
-                                          └─ escalates to a human on out-of-scope / on request
+Telegram voice / text ─► STT ─► whole KB + grounding gate ─► LLM ─► TTS ─► voice + text reply
+                         │      │                            │        │
+                    whisper CLI │  hardEscalate / kbOverlap   gemma4   ElevenLabs
+                    (whisper-1) │  / small-talk / slot bypass  :cloud   (Azure)
+                                │
+                                ├─ collects 6 quote params: language pair, doc type,
+                                │  volume, deadline, certification, delivery
+                                ├─ lead_ready → one JSONL LeadRecord (Zoho-shaped, sent nowhere)
+                                └─ hands off to a human on out-of-scope / liability / on request
 ```
 
-UK + EN only (the KB carries both languages under each heading). Text
-messages work too (STT skipped). `/voice b` swaps to the second voice for
-comparison.
+UK + EN only. `detectLang` (lingua-go) tracks the conversation language and
+feeds it to STT, the prompt, and the fixed lines; a mid-dialogue switch is
+followed. Text messages skip STT. `/voice a|b` swaps the TTS voice.
 
 ## Run
 
 ```bash
-make env                  # cp .env.example .env — then fill TELEGRAM_BOT_TOKEN and ELEVENLABS_API_KEY
-# dev path needs: the `openai-whisper` CLI + ffmpeg on PATH (local STT — first
-# run downloads the model to ~/.cache/whisper), and `ollama` logged in to a
-# Pro/Max account (gemma4:cloud). The default voice IDs (premade Sarah/George)
-# work on the ElevenLabs Free plan.
-go run ./cmd/bot
+make env      # cp .env.example .env
+# then set TELEGRAM_BOT_TOKEN and ELEVENLABS_API_KEY (Text-to-Speech permission)
+make run      # go run ./cmd/bot — long-poll, no webhook; then DM the bot
 ```
 
-For the client-facing sample recording: flip `STT_BACKEND=openai`
-(+ `OPENAI_API_KEY`) — local CPU transcription is too slow for a live demo —
-and upgrade ElevenLabs to Starter to swap in the Ukrainian library voices
-(Free rejects library voices via the API).
+Dev path needs:
+- `whisper` (openai-whisper CLI) + `ffmpeg` on PATH — first voice message
+  downloads `~/.cache/whisper/large-v3-turbo.pt` (~1.5 GB), so the first turn
+  is slow;
+- `ollama` logged in to a Pro/Max account (`gemma4:cloud`);
+- ElevenLabs **Free** is enough — the default voice IDs are premade Sarah /
+  George (Free rejects library voices, incl. the Ukrainian ones, with 402).
 
-Other alternates (config only, no code change):
-`DIALOG_BACKEND=openai|gemini` (+ `OPENAI_API_KEY` / `GEMINI_API_KEY`),
-`TTS_BACKEND=azure` (+ `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION`).
+## Backends (config only, no code change)
 
-Then message the bot on Telegram.
+| Concern | Env | Default | Alternate |
+|--|--|--|--|
+| Dialogue LLM | `DIALOG_BACKEND` | `ollama` (`gemma4:cloud`) | `openai` (`gpt-4o-mini`), `gemini` (`gemini-flash-latest`) |
+| STT | `STT_BACKEND` | `local` (whisper CLI) | `openai` (`whisper-1` API) |
+| TTS | `TTS_BACKEND` | `elevenlabs` | `azure` (`uk-UA-*Neural`) |
+
+Each alternate needs its credential (`OPENAI_API_KEY`, `GEMINI_API_KEY`,
+`AZURE_SPEECH_KEY` + `AZURE_SPEECH_REGION`); the bot refuses to start
+otherwise. `gemini` is built but not fundable yet (429), `openai` is $0
+balance — both are for the client-recording milestone.
+
+**Client sample recording** (`docs/` I-10): `STT_BACKEND=openai` (+ prepay
+OpenAI), ElevenLabs → Starter + UA library voice IDs, then record 2–3 min.
+
+## Testing
+
+- `make check` — gofmt + `go vet` + `go test ./... -race` (run after each change).
+- `make audition ARGS="a"` — synthesise a UA test phrase, play it.
+- **Manual smoke test:** `docs/smoke-test.md` — a scripted run through the
+  quote flow, voice, `/voice`, escalation, and language switching. Turn and
+  lead logs land in `data/*.jsonl`.
 
 ## Status
 
-In progress — build-order steps 1–5 done: the full text+voice loop runs
-(Telegram long-poll; local `openai-whisper` STT; grounding gate + Ollama
-`gemma4:cloud`; ElevenLabs TTS; greeting; `/voice a|b`; JSONL turn/lead
-log). The config-flag alternates (`openai`/`gemini`/`azure`, `whisper-1`)
-and the README/smoke-doc pass are steps 6–7. Tracked in `.agents/plan.md`;
-`make help` for dev tasks. Not connected to Zoho, telephony, or any real RAG
-store; see the plan's "Out of scope".
+Build-order steps 1–7 complete (`.agents/plan.md`). Full text+voice loop,
+all backends wired, `make check` green. Pending: the manual smoke round and
+the I-10 client recording. Not connected to Zoho, telephony, or any real RAG
+store — see the plan's "Out of scope".

@@ -669,6 +669,7 @@ substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
    + config `validate()` gate each backend. Wire format live-verified via
    the real keys' quota errors (gemini 429, whisper-1 429 — not 400);
    azure is build + httptest only (no key in `.env`).
-7. README refresh + `.env.example` check + a short smoke-test doc
+7. **[done]** README refresh + `.env.example` check + a short smoke-test doc
+   (`docs/smoke-test.md`).
 
 After each step: `make check` (gofmt + `go vet ./...` + `go test ./... -race`).
