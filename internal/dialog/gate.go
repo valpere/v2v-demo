@@ -197,32 +197,3 @@ func matchedTitles(query string, sections []kb.Section) []string {
 	}
 	return out
 }
-
-// langOf returns "uk" for any Cyrillic rune, "en" for a Latin letter with no
-// Cyrillic, "" when neither (digits/punctuation only). RU is out of scope —
-// Cyrillic means uk here. (REQ-DLG-19)
-func langOf(text string) string {
-	latin := false
-	for _, r := range text {
-		if unicode.Is(unicode.Cyrillic, r) {
-			return "uk"
-		}
-		if unicode.Is(unicode.Latin, r) {
-			latin = true
-		}
-	}
-	if latin {
-		return "en"
-	}
-	return ""
-}
-
-// sessLang is Session.Lang if set, else "en" — used only to pick the fixed
-// handoff / apology lines, so a mid-conversation failure still answers in the
-// conversation's language.
-func sessLang(sess *Session) string {
-	if sess.Lang != "" {
-		return sess.Lang
-	}
-	return "en"
-}

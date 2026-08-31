@@ -71,7 +71,7 @@ repo is public).
   slots:     QuoteSlots,
   history:   List<Msg> @constraint(rule: "trimmed to the last 20 Msg entries (about 10 turns); lost on restart"),
   voice:     Enum["a","b"] @constraint(default: "a"),
-  lang:      Enum["uk","en"] @constraint(rule: "locked from the first non-empty user turn; the fallback for handoff/apology lines when the current turn's language is undetermined"),
+  lang:      Enum["uk","en"] @constraint(rule: "set by detectLang (lingua-go) every turn it is confident — a mid-dialogue switch propagates; feeds STT langHint + the prompt language line + the fallback for handoff/apology lines (D-19)"),
   escalated: Bool @constraint(default: false),
   lead_done: Bool @constraint(default: false, rule: "a lead_ready already fired this session; a later lead_ready is downgraded to continue (no duplicate LeadRecord)")
 }
@@ -311,14 +311,19 @@ named constants are `@schema GateParams` in §1.
     the KB are allowed; a computed or committed total is not.
     -> [LOG-DLG-18] prompt/system.md "Hard rules"; kb/translation-bureau.md "How a price is formed" repeats it in-domain
 
-24. [REQ-DLG-19] `langOf(text)` returns `"uk"` for any Cyrillic rune, `"en"`
-    for a Latin letter with no Cyrillic, `""` when neither (digits/punctuation
-    only). `dialog.Handle` locks `Session.Lang` from the first turn where
-    `langOf` is non-empty; the fixed handoff / apology lines use
-    `sessLang(sess)` = `Session.Lang` or `"en"`. So a mid-conversation STT
-    failure still yields a line in the conversation's language. The
-    *conversation* language stays the model's responsibility (REQ-DLG-05).
-    -> [FUN-DLG-19] dialog.langOf(text string) string; dialog.sessLang(sess *Session) string
+24. [REQ-DLG-19] `detectLang(text)` (lingua-go over {Ukrainian, English,
+    Russian}) returns `"uk"` | `"en"` | `""` — Russian maps to `"uk"` (out of
+    scope; Whisper also mis-hears Ukrainian as Russian), `""` when the text
+    is too short to classify. `dialog.Handle` step 0 updates `Session.Lang`
+    on **every turn `detectLang` is confident**, so a mid-dialogue uk↔en
+    switch propagates (D-19). `Session.Lang` feeds: the STT `langHint`
+    (`cmd/bot`), a soft `--- CONVERSATION LANGUAGE ---` line in the system
+    prompt, and `sessLang(sess)` (= `Session.Lang` or `"en"`) for the fixed
+    handoff / apology / stt-fail / voice-switch lines. So a mid-conversation
+    STT failure still yields a line in the conversation's language. The
+    *conversation* language stays the model's responsibility (REQ-DLG-05);
+    the prompt line only nudges and explicitly permits a clear switch.
+    -> [FUN-DLG-19] dialog.detectLang(text string) string (github.com/pemistahl/lingua-go); dialog.sessLang(sess *Session) string
 
 25. [REQ-DLG-20] `hardEscalate(query)` returns true when the lowercased message
     contains any entry of a short fixed keyword list (uk+en) for unambiguous
@@ -373,9 +378,10 @@ named constants are `@schema GateParams` in §1.
     (greeting/thanks/farewell vs. embedded question vs. content),
     `parseTrailer` (each fence spelling, JSON error, unknown signal, no
     trailer), the 6-way slot merge (non-nil overwrite, nil never clears), the
-    B4 + LeadDone guards, `QuoteSlots.Complete`, `langOf`, `sessLang`,
-    `greetingBody`, `voiceID`. `cmd/bot` also has a per-chat FIFO-ordering
-    test (a slow fake generator, five queued messages, assert call order).
+    B4 + LeadDone guards, `QuoteSlots.Complete`, `detectLang` (uk / en /
+    ru→uk / too-short), `sessLang`, `greetingBody`, `voiceID`. `cmd/bot` also
+    has a per-chat FIFO-ordering test (a slow fake generator, five queued
+    messages, assert call order).
     -> [LOG-TST-01] internal/dialog/*_test.go, internal/kb/*_test.go, cmd/bot/*_test.go; `make check` after each build-order step (AGENTS.md)
 
 ### 4.10 The cmd/bot update loop

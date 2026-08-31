@@ -42,7 +42,7 @@ Snapshot: **2026-08-31** (build-order steps 1–5 done).
 | Step 5 fixes (Val's live test `tmp/test-5_1`) | **done** — per-chat FIFO worker (message-order bug); `isSmallTalk` gate bypass (greetings/thanks no longer escalate); bare/unknown `/…` handled in cmd/bot; `WHISPER_LANG` default → `uk` + system.md "RU → reply uk" (STT was drifting uk→ru); `Session.LeadDone` (no duplicate lead). See `.agents/changes.md`. |
 | Steps 6–7 | alternates batch (openai/gemini/azure, whisper-1) · README/smoke doc |
 | `make check` (gofmt + vet + `go test -race`) | clean |
-| Deps | `github.com/go-telegram/bot` v1.24.0 (the one dependency) |
+| Deps | `github.com/go-telegram/bot` v1.24.0; `github.com/pemistahl/lingua-go` v1.4.0 (language detection — D-19; +~126 MB binary, accepted) |
 
 **Your task:** continue `.agents/plan.md` "Build order" from step 6.
 After each step: `make check` (`make help` lists all targets). Build-time
@@ -97,6 +97,11 @@ D-18 = the bilingual KB (added at build step 3 — see §3 Grounding).
   channel — strict arrival order (a per-chat mutex serialised but didn't order;
   fixed test-5_1). Any `/…` message is handled in `cmd/bot`, never `Handle`.
   All spelled out in `.agents/plan.md`.
+- **Language (D-19):** `dialog.detectLang` (`lingua-go`, uk/en/ru → ru maps
+  to uk) sets `sess.Lang` **every turn it's confident** (mid-dialogue switch
+  works). `sess.Lang` feeds: the STT `langHint` (`cmd/bot`), a soft
+  `--- CONVERSATION LANGUAGE ---` hint in the prompt, and the fixed
+  handoff/apology lines. First voice turn (no `sess.Lang` yet) → `WHISPER_LANG`.
 - **Package layout is fixed by `.agents/plan.md`.** Do not restructure. One
   dependency only (`go-telegram/bot`); everything else is stdlib `net/http`.
 
@@ -105,7 +110,8 @@ D-18 = the bilingual KB (added at build step 3 — see §3 Grounding).
 - Prepay OpenAI, prepay Gemini, or upgrade ElevenLabs to Starter. All three
   are deferred to the client-recording milestone.
 - Reintroduce KB retrieval (B1).
-- Restructure packages or add dependencies beyond `go-telegram/bot`.
+- Restructure packages. Add dependencies beyond `go-telegram/bot` and
+  `lingua-go` (D-19) without asking.
 - Commit `.env`. Add anything under `~/.claude/` or `<repo>/.claude/` without
   asking Val first (stated Причина/Ціль/Проблеми, then wait).
 - Delete or weaken a test to make it pass.

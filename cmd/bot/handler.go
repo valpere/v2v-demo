@@ -152,10 +152,17 @@ func (a *app) resolveText(ctx context.Context, sess *dialog.Session, u telegram.
 	stop := a.startRecordingTicker(ctx, u.ChatID)
 	defer stop()
 
+	// pin STT to the conversation's language once it's known (lingua-detected
+	// from earlier turns); fall back to the config default on first contact.
+	langHint := sess.Lang
+	if langHint == "" {
+		langHint = a.cfg.WhisperLang
+	}
+
 	ogg, err := a.tg.DownloadVoice(ctx, u.VoiceFileID)
 	var text string
 	if err == nil {
-		text, err = a.stt.Transcribe(ctx, ogg, a.cfg.WhisperLang)
+		text, err = a.stt.Transcribe(ctx, ogg, langHint)
 		os.Remove(ogg)
 	}
 	if err != nil || strings.TrimSpace(text) == "" {

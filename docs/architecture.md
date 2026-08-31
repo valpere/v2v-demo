@@ -113,7 +113,7 @@ Session
   History  []Msg          // last 20 entries (about 10 turns), trimmed
   Slots    QuoteSlots     // 6 optional fields (FR-7)
   Voice    string         // "a" | "b" (FR-11)
-  Lang     string         // "uk" | "en", locked from turn 1
+  Lang     string         // "uk" | "en" — detectLang (lingua-go) each confident turn; feeds STT + prompt + fixed lines
   Escalated bool
   LeadDone  bool          // a lead_ready already fired -> no duplicate LeadRecord
 ```
@@ -162,7 +162,7 @@ coupled to Postgres, not importable). See §6.
 |---|---|
 | Depend on `ragline` as a Go module | **No.** Its reusable core is under `internal/` — not importable across modules — and coupled to Postgres repos + JWT + HTTP handlers. Not cleanly extractable without a real refactor of a repo that is "done". |
 | Build the demo on `ragivka` (L1 flow) | **No, not for the demo.** Multi-tenant, River queue, prompt registry — overkill for a throwaway. Its runtime state is unverified (`README` says routes 503, `CLAUDE.md` says fully wired). Risk to the 3–5 day timeline. |
-| Self-contained demo, pattern reimplemented | **Yes.** ~5 small packages, one dependency. The retrieve→gate→ground pattern is ~120 LOC, informed by `ragline` (and its `decision.go` may be copied verbatim with attribution if it saves time). |
+| Self-contained demo, pattern reimplemented | **Yes.** ~7 small packages, two dependencies (`go-telegram/bot`; `lingua-go` for language detection — D-19). The retrieve→gate→ground pattern is ~120 LOC, informed by `ragline` (and its `decision.go` may be copied verbatim with attribution if it saves time). |
 
 `ragline` stays the **client-facing proof artifact** — a public GitHub repo
 showing the same "knows when it doesn't know" + audit-queue + cache-

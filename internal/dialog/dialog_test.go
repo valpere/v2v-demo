@@ -227,13 +227,22 @@ func TestHandleNilTrailerEscalates(t *testing.T) {
 
 func TestHandleGeneratorError(t *testing.T) {
 	gen := &fakeGen{err: errors.New("boom")}
-	sess := &Session{Lang: "uk"}
+	sess := &Session{}
 	r, err := dialogHandle(t, sess, gen, "certified translation, tell me about delivery options")
 	if err != nil {
 		t.Fatalf("Handle returned error: %v (must degrade, never bubble)", err)
 	}
-	if r.Signal != SignalEscalate || r.Text != apologyUK {
+	if r.Signal != SignalEscalate || r.Text != apologyEN { // text is English -> English apology
 		t.Fatalf("r = %+v", r)
+	}
+}
+
+func TestHandleGeneratorErrorUkrainian(t *testing.T) {
+	gen := &fakeGen{err: errors.New("boom")}
+	sess := &Session{}
+	r, _ := dialogHandle(t, sess, gen, "розкажіть, будь ласка, про засвідчення печаткою бюро та доставку")
+	if r.Signal != SignalEscalate || r.Text != apologyUK {
+		t.Fatalf("uk turn should degrade to the uk apology: %+v", r)
 	}
 }
 
@@ -264,8 +273,8 @@ func TestHandleLeadReadyGuardedWhenIncomplete(t *testing.T) {
 
 func TestHandleEscalateSignalSpeaksFixedLine(t *testing.T) {
 	gen := &fakeGen{reply: reply("Це вам краще підкаже менеджер, з'єдную.", "escalate", nil)}
-	sess := &Session{Lang: "uk"}
-	r, _ := dialogHandle(t, sess, gen, "certified translation, what about delivery")
+	sess := &Session{}
+	r, _ := dialogHandle(t, sess, gen, "розкажіть про засвідчення печаткою бюро та доставку документів")
 	if r.Signal != SignalEscalate || r.Text != handoffUK {
 		t.Fatalf("r = %+v (escalate must replace spoken text with the fixed handoff line)", r)
 	}

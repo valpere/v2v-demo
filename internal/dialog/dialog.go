@@ -142,8 +142,10 @@ func Handle(
 		return Reply{Text: handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil
 	}
 
-	// 0 — lock the session language from the first turn it can be detected
-	if l := langOf(userText); l != "" && sess.Lang == "" {
+	// 0 — track the conversation language (lingua: uk/en, ru→uk). Updates
+	// whenever this turn is confidently classified, so a mid-dialogue switch
+	// propagates; an inconclusive turn ("ok", "5 сторінок") leaves it as-is.
+	if l := detectLang(userText); l != "" {
 		sess.Lang = l
 	}
 
@@ -174,6 +176,12 @@ func Handle(
 	}
 	b.WriteString("\n\n--- COLLECTED SO FAR ---\n")
 	b.WriteString(compactSlots(sess.Slots))
+	if sess.Lang != "" {
+		// soft steer — the model still follows a clear mid-dialogue switch
+		b.WriteString("\n\n--- CONVERSATION LANGUAGE ---\n")
+		b.WriteString(langName(sess.Lang))
+		b.WriteString(" so far; stay in it unless the client clearly switches. Never reply in Russian.")
+	}
 	sysPrompt := b.String()
 
 	// 6 — append the user message, trim to the history limit

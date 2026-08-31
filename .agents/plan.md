@@ -52,10 +52,11 @@ internal/tts/       Synthesizer interface; elevenlabs.go (eleven_multilingual_v2
                     TTS_BACKEND picks. Google = documented, not built.
 internal/kb/        load KB_PATH, split on "##" into titled sections
 internal/dialog/    gate.go (kbOverlap + hardEscalate + isSlotAnswer +
-                    groundingGate) · dialog.go
-                    (loads prompt/system.md, builds the prompt, parses the
-                    trailer, merges slots) · generator.go (Generator interface)
-                    · ollama.go (default) + openai.go + gemini.go (DIALOG_BACKEND)
+                    isSmallTalk + groundingGate) · lang.go (detectLang —
+                    lingua-go) · dialog.go (loads prompt/system.md, builds the
+                    prompt, parses the trailer, merges slots) · generator.go
+                    (Generator interface) · ollama.go (default) + openai.go +
+                    gemini.go (DIALOG_BACKEND)
 internal/store/     append-only JSONL: turn records + lead records (DATA_DIR)
 
 prompt/system.md   the assistant persona + conversation playbook + hard rules
@@ -149,7 +150,7 @@ type Session struct {
 	Slots     QuoteSlots
 	History   []Msg  // trimmed to the last HistoryLimit (20) Msg entries ≈ 10 turns
 	Voice     string // "a" | "b"; default "a"
-	Lang      string // "uk" | "en"; set from the first non-empty user turn, langOf fallback
+	Lang      string // "uk" | "en"; last turn detectLang was confident (mid-switch propagates); "" until then
 	Escalated bool
 	LeadDone  bool   // a lead_ready already fired — later ones downgrade to continue (test-5_1)
 }
@@ -183,6 +184,10 @@ func hardEscalate(query string) bool                    // unambiguous handoff t
 func isSlotAnswer(sess *Session, userText string) bool  // short + bot just asked + a slot is nil
 func isSmallTalk(userText string) bool                  // greeting / thanks / farewell — bypasses the gate (test-5_1)
 func groundingGate(overlap float64, slotAnswer bool) (forceEscalate bool)
+
+// lang.go — language detection (lingua-go; D-19)
+func detectLang(text string) string    // "uk" | "en" | "" — lingua over {uk,en,ru}; ru maps to "uk"
+func sessLang(sess *Session) string    // sess.Lang or "en"; only feeds the fixed lines
 
 // ── internal/store ──────────────────────────────────────────────
 type TurnRecord struct {
@@ -372,7 +377,7 @@ output is never spoken.
 handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil }`.
 
 ```
-0. lang := langOf(userText); if lang != "" && sess.Lang == "" { sess.Lang = lang }
+0. if l := detectLang(userText); l != "" { sess.Lang = l }   // updates every confident turn (mid-switch)
 1. if hardEscalate(userText):  esc(sess)              // B3: unambiguous handoff trigger
 2. slotAnswer := isSlotAnswer(sess, userText)
 3. overlap    := kbOverlap(userText, kb)
@@ -380,6 +385,8 @@ handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil }`.
 5. sysPrompt := systemPrompt
               + "\n\n--- KNOWLEDGE BASE ---\n"  + join("\n\n", "## "+s.Title+"\n"+s.Body for s in kb)   // WHOLE KB
               + "\n\n--- COLLECTED SO FAR ---\n" + jsonCompact(sess.Slots)
+              + (sess.Lang != "" ?  "\n\n--- CONVERSATION LANGUAGE ---\n<Ukrainian|English> so far; "
+                                    + "stay in it unless the client clearly switches. Never reply in Russian."  : "")
 6. hist := trimTail(append(sess.History, Msg{"user", userText}), HistoryLimit)
 7. raw, err := gen.Generate(ctx, sysPrompt, hist)
    if err != nil:
@@ -498,20 +505,32 @@ handleUpdate(u Update):
   `Speak`, `Transcribe`) logs its error and continues — never a `panic`, never
   a process exit (REQ-NFR-03).
 
-### langOf(text string) string
+### detectLang(text string) string   (lingua-go; D-19)
 
 ```
-if text has any Cyrillic rune -> "uk"   (RU is out of scope; Cyrillic == uk here)
-else if text has any Latin letter -> "en"
-else -> ""                               (digits/punctuation only: undetermined)
+if trimspace(text) == "" -> ""
+lang, ok := lingua{Ukrainian, English, Russian}.DetectLanguageOf(text)
+if !ok                          -> ""            // not enough signal ("ok", "5")
+if lang == English              -> "en"
+if lang in {Ukrainian, Russian} -> "uk"          // RU is out of scope + Whisper mis-hears uk as ru
+else                            -> ""
 ```
 
-Used only to pick the fixed handoff / apology line, via `sessLang(sess)`
-which prefers `Session.Lang` (locked from the first non-empty turn, step 0)
-and falls back to `"en"` only when nothing was ever detected. So an STT
-failure on turn 3 of a Ukrainian chat still gets a Ukrainian handoff line.
-The *conversation* language is the model's job (REQ-DLG-05), not this
-function's.
+`Handle` step 0 sets `sess.Lang` to this **on every confident turn**, so a
+mid-dialogue uk↔en switch propagates; an inconclusive turn leaves it. It
+feeds three things: the STT `langHint` (`cmd/bot` — voice follows the
+conversation language once known), a soft `--- CONVERSATION LANGUAGE ---`
+line in the system prompt (step 5), and `sessLang(sess)` for the fixed
+handoff / apology / stt-fail / voice-switch lines (`sess.Lang` or `"en"`).
+So an STT failure on turn 3 of a Ukrainian chat still gets a Ukrainian
+handoff line. The *conversation* language stays the model's job (REQ-DLG-05);
+the prompt hint only nudges and explicitly allows a clear switch.
+
+**Why lingua-go and not the old Cyrillic/Latin heuristic (D-19):** for the
+uk↔en case the two agree on every realistic message (we fold RU→uk anyway),
+but lingua is right on mixed-script and abstains on too-short input. Cost:
+lingua-go embeds all 75 language models unconditionally → **binary 10 MB →
+136 MB**. Accepted — local demo, disk is cheap.
 
 ### Fixed lines
 
@@ -534,8 +553,10 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
 ## Details / decisions
 
 - **Telegram:** long-polling (`getUpdates`), no webhook / public URL. Use
-  `github.com/go-telegram/bot` (maintained, std-context API) — the one Go
-  dependency. Everything else is stdlib `net/http`.
+  `github.com/go-telegram/bot` (maintained, std-context API). Two
+  dependencies total — this and `lingua-go` (D-19, language detection);
+  every HTTP client (Ollama / OpenAI / Gemini / ElevenLabs / Azure / the
+  Telegram file download) is stdlib `net/http`.
 - **STT (D-13, dual-mode):** dev / code default is `local` — shell out to the
   `openai-whisper` CLI (Val installed it via pipx, `whisper` on `PATH`):
   `whisper <ogg> --model $WHISPER_MODEL --task transcribe --output_format txt

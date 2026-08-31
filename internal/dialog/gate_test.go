@@ -134,22 +134,6 @@ func TestIsSlotAnswer(t *testing.T) {
 	}
 }
 
-func TestLangOf(t *testing.T) {
-	tests := map[string]string{
-		"Доброго дня":      "uk",
-		"Hello there":      "en",
-		"5 pages, uk->de":  "en", // Latin letters present
-		"123 456 !!!":      "",
-		"":                 "",
-		"diploma переклад": "uk", // any Cyrillic wins
-	}
-	for in, want := range tests {
-		if got := langOf(in); got != want {
-			t.Errorf("langOf(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestIsSmallTalk(t *testing.T) {
 	yes := []string{
 		"Привіт!", "Добрий день", "Доброго дня ще раз",
