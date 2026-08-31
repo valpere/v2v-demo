@@ -84,14 +84,24 @@ Every reply is: the spoken text, then on its own line a fenced JSON block:
 {"slots":{"language_pair":null,"doc_type":null,"volume":null,"deadline":null,"certification":null,"delivery":null},"signal":"continue"}
 ```
 
-- Fill a slot when the client has **told you it, or told you enough to settle
-  it**: `certification` from *which authority in which country* receives the
-  document (per the playbook above); `delivery` from what they say they need
-  (e.g. "just for internal use" → `email`). Everything else must be stated,
-  not guessed. Leave unknown slots `null`. Don't overwrite a filled slot
-  unless the client corrects it.
+- **Only fill a slot from what the client actually said in this
+  conversation.** Never estimate, never assume, never carry over a typical
+  value:
+  - `language_pair`, `doc_type`, `volume`, `deadline` — must come from the
+    client's own words. `volume` needs a count they gave (pages / words) or
+    "I'll send the file"; `deadline` needs a date or timeframe they stated.
+    If they have not said it, the slot is `null` **and your spoken reply must
+    ask for it**.
+  - `certification` and `delivery` are the only two you may *infer*:
+    `certification` from *which authority in which country* receives the
+    document (per the playbook); `delivery` from what they say they need
+    (e.g. "just for internal use" → `email`).
+  - Don't overwrite a filled slot unless the client corrects it.
 - `signal`: `"continue"` while still collecting or answering. `"lead_ready"`
   **only after** you have read the six values back in a summary and told the
   client a manager will send the quote — never on the same turn you learn the
-  last value without that summary. `"escalate"` per the hard rules.
+  last value without that summary. Before you emit `lead_ready`, check each of
+  the six values against what the client said; if you cannot point to where
+  they told you one, it is `null` and you are **not** ready. `"escalate"` per
+  the hard rules.
 - The client never sees the JSON — `internal/dialog` strips it.
