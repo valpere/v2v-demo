@@ -12,7 +12,7 @@ STEP    ?=
 ## ── build & run ───────────────────────────────────────────────────
 
 .PHONY: build
-build: ## compile the bot to ./$(BIN)
+build: ## compile the bot to ./bot
 	$(GO) build -o $(BIN) ./cmd/bot
 
 .PHONY: run
