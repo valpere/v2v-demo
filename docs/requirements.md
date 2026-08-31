@@ -34,7 +34,7 @@ repo is public).
   whisper_model:    String @constraint(default: "turbo", rule: "openai-whisper model NAME (tiny|base|small|medium|large-v3|turbo), auto-downloaded to ~/.cache/whisper on first use; used only when stt_backend=local. turbo = large-v3-turbo: faster than medium on CPU AND better Ukrainian (benchmarked 2026-08-31, Ryzen 7700: turbo 12s vs medium 15s on a 4.6s clip)"),
   whisper_lang:     Enum["auto","uk","en"] @constraint(default: "uk", rule: "pins Whisper's language; default uk because auto-detect drifts short Ukrainian clips to Russian and the model then mirrors it (2026-08-31 test-5_1). auto/en only to test English voice messages"),
   dialog_backend:   Enum["ollama","openai","gemini"] @constraint(default: "ollama", rule: "gemini was the intended default but needs a $25 prepay on the AI Studio project (429 'prepayment credits depleted', 2026-08-29) — demoted to last resort; ollama gemma4:cloud is the verified default"),
-  dialog_model:     String @constraint(default: "gemma4:cloud"),
+  dialog_model:     String @constraint(rule: "blank → the backend's default: ollama gemma4:cloud, openai gpt-4o-mini, gemini gemini-flash-latest; set explicitly to override"),
   gemini_key:       String @constraint(rule: "required when dialog_backend=gemini"),
   ollama_base_url:  String @constraint(default: "http://localhost:11434"),
   openai_key:       String @constraint(rule: "required when stt_backend=openai (the I-10 client recording) or dialog_backend=openai; not needed for the dev default"),

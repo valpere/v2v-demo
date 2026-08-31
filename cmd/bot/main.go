@@ -1,8 +1,8 @@
-// Command bot is the v2v-demo Telegram voice assistant. Build-order step 5:
-// the full loop on text and voice — STT (local Whisper) → grounding gate +
-// Ollama generator → ElevenLabs TTS → voice + text reply, plus the greeting
-// and the /voice command. Config-flag alternates (openai/gemini/azure,
-// whisper-1) land in step 6.
+// Command bot is the v2v-demo Telegram voice assistant: the full loop on
+// text and voice — STT (local Whisper / whisper-1) → grounding gate +
+// generator (ollama / openai / gemini) → TTS (ElevenLabs / Azure) → voice +
+// text reply, plus the greeting and the /voice command. Backends are picked
+// by the *_BACKEND env vars.
 package main
 
 import (
@@ -95,8 +95,12 @@ func main() {
 		log.Fatal(err)
 	}
 
+	dialogModel := cfg.DialogModel
+	if dialogModel == "" {
+		dialogModel = "(backend default)"
+	}
 	log.Printf("v2v-demo: listening — dialog=%s/%s tts=%s stt=%s; %d KB sections",
-		cfg.DialogBackend, cfg.DialogModel, cfg.TTSBackend, cfg.STTBackend, len(sections))
+		cfg.DialogBackend, dialogModel, cfg.TTSBackend, cfg.STTBackend, len(sections))
 
 	for u := range updates {
 		a.dispatch(ctx, u)
@@ -135,37 +139,40 @@ func (a *app) chatWorker(ctx context.Context, ch <-chan telegram.Update) {
 	}
 }
 
-// newGenerator selects the dialogue backend. openai / gemini land in step 6.
+// newGenerator selects the dialogue backend (DIALOG_BACKEND). An empty
+// DIALOG_MODEL lets each impl pick its own default.
 func newGenerator(cfg Config) (dialog.Generator, error) {
 	switch cfg.DialogBackend {
 	case "ollama":
 		return dialog.NewOllama(cfg.OllamaBaseURL, cfg.DialogModel), nil
-	case "openai", "gemini":
-		return nil, fmt.Errorf("DIALOG_BACKEND=%s lands in build-order step 6", cfg.DialogBackend)
+	case "openai":
+		return dialog.NewOpenAI(cfg.OpenAIKey, cfg.DialogModel), nil
+	case "gemini":
+		return dialog.NewGemini(cfg.GeminiKey, cfg.DialogModel), nil
 	default:
 		return nil, fmt.Errorf("unknown DIALOG_BACKEND %q", cfg.DialogBackend)
 	}
 }
 
-// newTranscriber selects the STT backend. openai (whisper-1) lands in step 6.
+// newTranscriber selects the STT backend (STT_BACKEND).
 func newTranscriber(cfg Config) (stt.Transcriber, error) {
 	switch cfg.STTBackend {
 	case "local":
 		return stt.NewLocal(cfg.WhisperBin, cfg.WhisperModel, cfg.WhisperLang), nil
 	case "openai":
-		return nil, fmt.Errorf("STT_BACKEND=openai lands in build-order step 6")
+		return stt.NewOpenAI(cfg.OpenAIKey, ""), nil
 	default:
 		return nil, fmt.Errorf("unknown STT_BACKEND %q", cfg.STTBackend)
 	}
 }
 
-// newSynthesizer selects the TTS backend. azure lands in step 6.
+// newSynthesizer selects the TTS backend (TTS_BACKEND).
 func newSynthesizer(cfg Config) (tts.Synthesizer, error) {
 	switch cfg.TTSBackend {
 	case "elevenlabs":
 		return tts.NewElevenLabs(cfg.ElevenKey), nil
 	case "azure":
-		return nil, fmt.Errorf("TTS_BACKEND=azure lands in build-order step 6")
+		return tts.NewAzure(cfg.AzureKey, cfg.AzureRegion), nil
 	default:
 		return nil, fmt.Errorf("unknown TTS_BACKEND %q", cfg.TTSBackend)
 	}

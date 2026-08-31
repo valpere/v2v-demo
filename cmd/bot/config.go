@@ -77,7 +77,8 @@ func LoadConfig() (Config, error) {
 		WhisperLang:  def("WHISPER_LANG", "uk"),
 
 		DialogBackend: def("DIALOG_BACKEND", "ollama"),
-		DialogModel:   def("DIALOG_MODEL", "gemma4:cloud"),
+		DialogModel:   get("DIALOG_MODEL"), // "" → the generator picks its backend default
+
 		GeminiKey:     get("GEMINI_API_KEY"),
 		OllamaBaseURL: def("OLLAMA_BASE_URL", "http://localhost:11434"),
 		OpenAIKey:     get("OPENAI_API_KEY"),

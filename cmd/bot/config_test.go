@@ -6,9 +6,24 @@ import (
 	"testing"
 )
 
-// chdir into a temp dir holding the given .env, restoring afterwards.
+// every env var LoadConfig looks at — blanked so a value in the dev
+// environment (e.g. an exported GEMINI_API_KEY) never leaks into a test.
+var configEnvKeys = []string{
+	"TELEGRAM_BOT_TOKEN",
+	"TTS_BACKEND", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_A", "ELEVENLABS_VOICE_B",
+	"AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION", "AZURE_VOICE_A", "AZURE_VOICE_B",
+	"STT_BACKEND", "WHISPER_BIN", "WHISPER_MODEL", "WHISPER_LANG",
+	"DIALOG_BACKEND", "DIALOG_MODEL", "GEMINI_API_KEY", "OLLAMA_BASE_URL", "OPENAI_API_KEY",
+	"KB_PATH", "SYSTEM_PROMPT_PATH", "GREETING_PATH", "DATA_DIR",
+}
+
+// chdirWithEnv chdirs into a temp dir holding the given .env and blanks every
+// config env var (t.Setenv restores them afterwards).
 func chdirWithEnv(t *testing.T, dotenv string) {
 	t.Helper()
+	for _, k := range configEnvKeys {
+		t.Setenv(k, "")
+	}
 	dir := t.TempDir()
 	if dotenv != "" {
 		if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(dotenv), 0o644); err != nil {
@@ -53,20 +68,25 @@ func TestReadDotEnvMalformed(t *testing.T) {
 
 func TestLoadConfigDefaults(t *testing.T) {
 	chdirWithEnv(t, "TELEGRAM_BOT_TOKEN=t\nELEVENLABS_API_KEY=k\n")
-	// ensure the process env doesn't shadow the file
-	for _, k := range []string{"TELEGRAM_BOT_TOKEN", "ELEVENLABS_API_KEY", "TTS_BACKEND", "STT_BACKEND", "DIALOG_BACKEND", "DIALOG_MODEL", "DATA_DIR"} {
-		t.Setenv(k, "")
-		os.Unsetenv(k)
-	}
 	cfg, err := LoadConfig()
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
-	if cfg.TTSBackend != "elevenlabs" || cfg.STTBackend != "local" ||
-		cfg.DialogBackend != "ollama" || cfg.DialogModel != "gemma4:cloud" ||
-		cfg.OllamaBaseURL != "http://localhost:11434" || cfg.DataDir != "./data" ||
-		cfg.KBPath != "kb/translation-bureau.md" {
-		t.Fatalf("defaults not applied: %+v", cfg)
+	checks := map[string][2]string{
+		"TTSBackend":    {cfg.TTSBackend, "elevenlabs"},
+		"STTBackend":    {cfg.STTBackend, "local"},
+		"WhisperModel":  {cfg.WhisperModel, "turbo"},
+		"WhisperLang":   {cfg.WhisperLang, "uk"},
+		"DialogBackend": {cfg.DialogBackend, "ollama"},
+		"DialogModel":   {cfg.DialogModel, ""}, // "" → the generator picks its backend default
+		"OllamaBaseURL": {cfg.OllamaBaseURL, "http://localhost:11434"},
+		"DataDir":       {cfg.DataDir, "./data"},
+		"KBPath":        {cfg.KBPath, "kb/translation-bureau.md"},
+	}
+	for field, cw := range checks {
+		if cw[0] != cw[1] {
+			t.Errorf("%s = %q, want %q", field, cw[0], cw[1])
+		}
 	}
 }
 
@@ -78,7 +98,7 @@ func TestLoadConfigEnvOverridesFile(t *testing.T) {
 		t.Fatalf("LoadConfig: %v", err)
 	}
 	if cfg.TelegramToken != "fromenv" {
-		t.Fatalf("env should win: got %q", cfg.TelegramToken)
+		t.Fatalf("env should win over file")
 	}
 }
 
@@ -89,13 +109,11 @@ func TestLoadConfigValidation(t *testing.T) {
 		"bad tts backend":    "TELEGRAM_BOT_TOKEN=t\nTTS_BACKEND=festival\n",
 		"gemini without key": "TELEGRAM_BOT_TOKEN=t\nELEVENLABS_API_KEY=k\nDIALOG_BACKEND=gemini\n",
 		"openai stt no key":  "TELEGRAM_BOT_TOKEN=t\nELEVENLABS_API_KEY=k\nSTT_BACKEND=openai\n",
+		"azure no key":       "TELEGRAM_BOT_TOKEN=t\nTTS_BACKEND=azure\n",
 	}
 	for name, dotenv := range cases {
 		t.Run(name, func(t *testing.T) {
 			chdirWithEnv(t, dotenv)
-			for _, k := range []string{"TELEGRAM_BOT_TOKEN", "ELEVENLABS_API_KEY", "TTS_BACKEND", "STT_BACKEND", "DIALOG_BACKEND", "GEMINI_API_KEY", "OPENAI_API_KEY"} {
-				os.Unsetenv(k)
-			}
 			if _, err := LoadConfig(); err == nil {
 				t.Fatal("want validation error")
 			}

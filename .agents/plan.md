@@ -55,7 +55,8 @@ internal/dialog/    gate.go (kbOverlap + hardEscalate + isSlotAnswer +
                     isSmallTalk + groundingGate) · lang.go (detectLang —
                     lingua-go) · dialog.go (loads prompt/system.md, builds the
                     prompt, parses the trailer, merges slots) · generator.go
-                    (Generator interface) · ollama.go (default) + openai.go +
+                    (Generator interface) · openai_compat.go (shared
+                    OpenAI-compat client) + ollama.go / openai.go /
                     gemini.go (DIALOG_BACKEND)
 internal/store/     append-only JSONL: turn records + lead records (DATA_DIR)
 
@@ -662,10 +663,12 @@ substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
    `cmd/bot`: recording-action ticker around STT + the dialogue turn.
 5. **[done]** `tts`: `elevenlabs` impl — voice out; `/voice` command.
    Also: the greeting (`greeting.md` body once per chat, REQ-UX-02).
-6. alternates batch: `openai` + `gemini` impls for `dialog.Generator`,
-   `openai` (`whisper-1`) for `stt` — needed for the I-10 recording,
-   `azure` for `tts`; verify `STT_BACKEND` /
-   `DIALOG_BACKEND` / `TTS_BACKEND` switch cleanly
+6. **[done]** alternates batch: `openai` + `gemini` for `dialog.Generator`
+   (ollama + openai share `openai_compat.go`), `openai` (`whisper-1`) for
+   `stt`, `azure` for `tts`. `newGenerator`/`newTranscriber`/`newSynthesizer`
+   + config `validate()` gate each backend. Wire format live-verified via
+   the real keys' quota errors (gemini 429, whisper-1 429 — not 400);
+   azure is build + httptest only (no key in `.env`).
 7. README refresh + `.env.example` check + a short smoke-test doc
 
 After each step: `make check` (gofmt + `go vet ./...` + `go test ./... -race`).
