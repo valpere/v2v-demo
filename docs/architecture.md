@@ -113,8 +113,14 @@ Session
   History  []Msg          // last 20 entries (about 10 turns), trimmed
   Slots    QuoteSlots     // 6 optional fields (FR-7)
   Voice    string         // "a" | "b" (FR-11)
+  Lang     string         // "uk" | "en", locked from turn 1
   Escalated bool
+  LeadDone  bool          // a lead_ready already fired -> no duplicate LeadRecord
 ```
+
+Per-chat turns are processed by one **serial worker goroutine per chat**
+(fed by a buffered channel), so they run in arrival order; different chats
+run concurrently. A `sync.Mutex` guards the shared maps only.
 
 `QuoteSlots`: `LanguagePair, DocType, Volume, Deadline, Certification,
 Delivery` — all `*string` (or small typed enums where the KB constrains the
@@ -133,9 +139,11 @@ The model is prevented from waffling by four layers, cheapest first:
    cannot drift into territory it was never given — and with the KB small,
    there is no retrieval to get wrong (B1).
 2. **Pre-LLM escalation.** `hardEscalate` (a keyword list for liability
-   topics) and the grounding gate (`kbOverlap` below `gate_floor` on a
-   non-slot-answer turn) both reply with the fixed handoff line and never call
-   the LLM.
+   topics) and the grounding gate (`kbOverlap` below `gate_floor` on a turn
+   that is neither a slot answer nor small-talk) both reply with the fixed
+   handoff line and never call the LLM. Greetings / thanks / farewells
+   (`isSmallTalk`) skip the gate — a dialogue boundary is not a content
+   question.
 3. **The rules in `prompt/system.md`.** "Answer only from the KNOWLEDGE BASE.
    If it's not covered, set `signal: escalate`. Never state a final price."
    Plus the explicit escalate list. (NFR-7, NFR-9.)

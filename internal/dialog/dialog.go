@@ -152,10 +152,10 @@ func Handle(
 		return esc()
 	}
 
-	// 2, 3, 4 — slot-answer bypass and the grounding gate
+	// 2, 3, 4 — slot-answer / small-talk bypass and the grounding gate
 	slotAnswer := isSlotAnswer(sess, userText)
 	overlap := kbOverlap(userText, sections)
-	if groundingGate(overlap, slotAnswer) {
+	if !isSmallTalk(userText) && groundingGate(overlap, slotAnswer) {
 		return esc()
 	}
 
@@ -214,9 +214,14 @@ func Handle(
 
 	// 11 — resolve the signal
 	signal := tr.Signal
-	if signal == SignalLeadReady && !sess.Slots.Complete() { // B4 guard
+	switch {
+	case signal == SignalLeadReady && !sess.Slots.Complete(): // B4 guard
 		log.Printf("dialog: lead_ready with incomplete slots: %s", compactSlots(sess.Slots))
 		signal = SignalContinue
+	case signal == SignalLeadReady && sess.LeadDone: // a lead already fired this session
+		signal = SignalContinue
+	case signal == SignalLeadReady:
+		sess.LeadDone = true
 	}
 	if signal == SignalEscalate { // A3: escalate always speaks the fixed line
 		sess.Escalated = true

@@ -74,7 +74,7 @@ func LoadConfig() (Config, error) {
 		STTBackend:   def("STT_BACKEND", "local"),
 		WhisperBin:   def("WHISPER_BIN", "whisper"),
 		WhisperModel: def("WHISPER_MODEL", "turbo"),
-		WhisperLang:  def("WHISPER_LANG", "auto"),
+		WhisperLang:  def("WHISPER_LANG", "uk"),
 
 		DialogBackend: def("DIALOG_BACKEND", "ollama"),
 		DialogModel:   def("DIALOG_MODEL", "gemma4:cloud"),

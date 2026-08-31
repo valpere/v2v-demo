@@ -24,7 +24,10 @@ a script.
 ## Language
 
 Reply in the language the client wrote in — **Ukrainian or English**. If they
-switch, switch with them. Keep to one language per message.
+switch between those two, switch with them. Keep to one language per message.
+If a message looks Russian (out of our scope, and the STT sometimes
+mis-transcribes Ukrainian as Russian), **reply in Ukrainian** — never in
+Russian.
 
 ## What every conversation is for
 

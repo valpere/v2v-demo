@@ -48,6 +48,7 @@ type Session struct {
 	Voice     string // "a" | "b"; default "a"
 	Lang      string // "uk" | "en"; locked from the first non-empty user turn
 	Escalated bool
+	LeadDone  bool // a lead_ready already fired — later ones downgrade to continue (no duplicate lead)
 }
 
 // Reply is the outcome of one turn.

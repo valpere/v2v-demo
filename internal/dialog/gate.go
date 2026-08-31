@@ -44,6 +44,34 @@ var escalateKeywords = []string{
 	"talk to a person", "менеджера напряму",
 }
 
+// pleasantryMarkers are greeting / thanks / farewell fragments (lowercase,
+// punctuation-free) that mark a conversation boundary, not a content question.
+var pleasantryMarkers = []string{
+	"добрий день", "доброго дня", "добрий вечір", "доброго вечора", "доброго ранку",
+	"добридень", "привіт", "вітаю", "доброго здоров", "радий вас",
+	"дякую", "дякуємо", "вдячн", "спасибі", "щиро дяк",
+	"до побачення", "на все добре", "гарного дня", "всього найкращого", "бувайте",
+	"hello", "hi ", "hey", "good morning", "good afternoon", "good evening",
+	"thank you", "thanks", "thank u", "appreciate",
+	"goodbye", "bye", "have a good", "have a nice", "see you", "cheers",
+}
+
+// isSmallTalk reports whether userText is a short greeting / thanks / farewell
+// with no embedded question — it should reach the assistant, never pre-escalate
+// (a greeting is the start of a dialogue, not grounds for a handoff).
+func isSmallTalk(userText string) bool {
+	if len(tokens(userText)) > 8 || strings.Contains(userText, "?") {
+		return false
+	}
+	q := " " + lowerStripPunct(userText) + " "
+	for _, m := range pleasantryMarkers {
+		if strings.Contains(q, m) {
+			return true
+		}
+	}
+	return false
+}
+
 func lowerStripPunct(s string) string {
 	s = strings.ToLower(s)
 	var b strings.Builder

@@ -150,6 +150,31 @@ func TestLangOf(t *testing.T) {
 	}
 }
 
+func TestIsSmallTalk(t *testing.T) {
+	yes := []string{
+		"Привіт!", "Добрий день", "Доброго дня ще раз",
+		"Дякую. Ви були цілком люб'язні.", "дякую!", "До побачення",
+		"Hello", "Hi there", "Thanks a lot", "Bye",
+	}
+	no := []string{
+		"Привіт, а скільки коштує апостиль?", // has "?"
+		"Яка погода в Києві?",                // question, no marker
+		"Мені потрібен переклад диплома",     // content, no marker
+		"Доброго дня, розкажіть будь ласка детально про всі ваші тарифи на юридичний переклад великих договорів", // >8 tokens
+		"поверніть гроші",
+	}
+	for _, s := range yes {
+		if !isSmallTalk(s) {
+			t.Errorf("isSmallTalk(%q) = false, want true", s)
+		}
+	}
+	for _, s := range no {
+		if isSmallTalk(s) {
+			t.Errorf("isSmallTalk(%q) = true, want false", s)
+		}
+	}
+}
+
 func TestSessLang(t *testing.T) {
 	if got := sessLang(&Session{Lang: "uk"}); got != "uk" {
 		t.Errorf("got %q, want uk", got)

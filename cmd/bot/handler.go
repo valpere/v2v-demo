@@ -17,19 +17,6 @@ import (
 // while a turn runs (server-side it lasts ~5s). See @schema GateParams.
 const RecordingTick = 4 * time.Second
 
-// chatLock returns the per-chat mutex, creating it under a.mu. Holding it
-// serialises one chat's turns while different chats run concurrently (B5).
-func (a *app) chatLock(id int64) *sync.Mutex {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	l := a.chatLocks[id]
-	if l == nil {
-		l = &sync.Mutex{}
-		a.chatLocks[id] = l
-	}
-	return l
-}
-
 func (a *app) session(id int64) *dialog.Session {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -90,18 +77,15 @@ func (a *app) startRecordingTicker(ctx context.Context, chatID int64) (stop func
 	return func() { once.Do(func() { close(done) }) }
 }
 
-// handleUpdate processes one inbound update. A panic here is recovered and
-// logged — it never stops the loop (REQ-NFR-03).
+// handleUpdate processes one inbound update. The per-chat worker calls this
+// serially, so no locking is needed for sess. A panic is recovered and
+// logged — it never stops the worker (REQ-NFR-03).
 func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("recovered panic (chat %d): %v", u.ChatID, r)
 		}
 	}()
-
-	lock := a.chatLock(u.ChatID)
-	lock.Lock()
-	defer lock.Unlock()
 
 	sess := a.session(u.ChatID)
 
@@ -117,11 +101,9 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 		return
 	}
 
-	// /voice a|b — switch this chat's voice, never reaches dialog.Handle
-	switch v := strings.ToLower(strings.TrimSpace(text)); v {
-	case "/voice a", "/voice b":
-		sess.Voice = v[len(v)-1:]
-		a.send(ctx, u.ChatID, dialog.VoiceSwitchedLine(sess))
+	// slash commands are handled here, never reach dialog.Handle
+	if strings.HasPrefix(strings.TrimSpace(text), "/") {
+		a.handleCommand(ctx, sess, u.ChatID, text)
 		return
 	}
 
@@ -184,6 +166,29 @@ func (a *app) resolveText(ctx context.Context, sess *dialog.Session, u telegram.
 		return "", false
 	}
 	return text, true
+}
+
+// handleCommand handles /voice (and swallows any other slash command with a
+// short hint, so a stray "/foo" never becomes a dialogue turn).
+func (a *app) handleCommand(ctx context.Context, sess *dialog.Session, chatID int64, text string) {
+	switch cmd := strings.ToLower(strings.TrimSpace(text)); cmd {
+	case "/voice a", "/voice b":
+		sess.Voice = cmd[len(cmd)-1:]
+		a.send(ctx, chatID, dialog.VoiceSwitchedLine(sess))
+	default: // "/voice", "/start" after greeting, "/help", anything unknown
+		a.send(ctx, chatID, voiceHelp(sess))
+	}
+}
+
+func voiceHelp(sess *dialog.Session) string {
+	cur := "A"
+	if sess.Voice == "b" {
+		cur = "B"
+	}
+	if sess.Lang == "en" {
+		return "Voice commands: /voice a, /voice b (current: " + cur + ")."
+	}
+	return "Команди голосу: /voice a, /voice b (зараз: " + cur + ")."
 }
 
 func leadFrom(chatID int64, s dialog.QuoteSlots) store.LeadRecord {

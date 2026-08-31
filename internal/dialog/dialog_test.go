@@ -304,6 +304,48 @@ func TestHandleUkrainianOffTopicStillEscalates(t *testing.T) {
 	}
 }
 
+func TestHandleGreetingReachesGenerator(t *testing.T) {
+	gen := &fakeGen{reply: reply("Вітаю! Чим можу допомогти?", "continue", nil)}
+	sess := &Session{}
+	r, _ := dialogHandle(t, sess, gen, "Привіт!")
+	if gen.calls != 1 {
+		t.Fatalf("greeting should reach the generator, calls = %d", gen.calls)
+	}
+	if r.Signal == SignalEscalate {
+		t.Fatal("a greeting must not pre-escalate")
+	}
+}
+
+func TestHandleFarewellReachesGenerator(t *testing.T) {
+	gen := &fakeGen{reply: reply("Дякую, гарного дня!", "continue", nil)}
+	sess := &Session{Lang: "uk"}
+	r, _ := dialogHandle(t, sess, gen, "Дякую. Ви були цілком люб'язні.")
+	if gen.calls != 1 || r.Signal == SignalEscalate {
+		t.Fatalf("farewell escalated: calls=%d sig=%s", gen.calls, r.Signal)
+	}
+}
+
+func TestHandleNoDuplicateLead(t *testing.T) {
+	full := map[string]string{
+		"language_pair": "uk->de", "doc_type": "diploma", "volume": "2 pages",
+		"deadline": "1 week", "certification": "certified", "delivery": "email",
+	}
+	sess := &Session{}
+
+	gen := &fakeGen{reply: reply("Записала все.", "lead_ready", full)}
+	r, _ := dialogHandle(t, sess, gen, "certified translation delivery by email")
+	if r.Signal != SignalLeadReady || !sess.LeadDone {
+		t.Fatalf("first: sig=%s leadDone=%v", r.Signal, sess.LeadDone)
+	}
+
+	// a later turn that also emits lead_ready (e.g. the user says "hello again")
+	gen2 := &fakeGen{reply: reply("Радий знову вас чути.", "lead_ready", full)}
+	r2, _ := dialogHandle(t, sess, gen2, "Добрий день ще раз")
+	if r2.Signal != SignalContinue {
+		t.Fatalf("second lead_ready should downgrade to continue, got %s", r2.Signal)
+	}
+}
+
 // dialogHandle runs Handle with the shared test KB and a stub system prompt.
 func dialogHandle(t *testing.T, sess *Session, gen Generator, text string) (Reply, error) {
 	t.Helper()

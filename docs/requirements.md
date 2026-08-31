@@ -32,7 +32,7 @@ repo is public).
   stt_backend:      Enum["local","openai"] @constraint(default: "local", rule: "dev default: local (openai-whisper CLI) is free + needs no key. The client-facing recording (I-10) MUST flip to openai — local Whisper on a CPU box is tens of seconds to minutes and fails REQ-NFR-02 live (B2 substance kept, its default-flip reverted)"),
   whisper_bin:      String @constraint(default: "whisper", rule: "the openai-whisper CLI (pipx-installed); used only when stt_backend=local"),
   whisper_model:    String @constraint(default: "turbo", rule: "openai-whisper model NAME (tiny|base|small|medium|large-v3|turbo), auto-downloaded to ~/.cache/whisper on first use; used only when stt_backend=local. turbo = large-v3-turbo: faster than medium on CPU AND better Ukrainian (benchmarked 2026-08-31, Ryzen 7700: turbo 12s vs medium 15s on a 4.6s clip)"),
-  whisper_lang:     Enum["auto","uk","en"] @constraint(default: "auto"),
+  whisper_lang:     Enum["auto","uk","en"] @constraint(default: "uk", rule: "pins Whisper's language; default uk because auto-detect drifts short Ukrainian clips to Russian and the model then mirrors it (2026-08-31 test-5_1). auto/en only to test English voice messages"),
   dialog_backend:   Enum["ollama","openai","gemini"] @constraint(default: "ollama", rule: "gemini was the intended default but needs a $25 prepay on the AI Studio project (429 'prepayment credits depleted', 2026-08-29) — demoted to last resort; ollama gemma4:cloud is the verified default"),
   dialog_model:     String @constraint(default: "gemma4:cloud"),
   gemini_key:       String @constraint(rule: "required when dialog_backend=gemini"),
@@ -72,7 +72,8 @@ repo is public).
   history:   List<Msg> @constraint(rule: "trimmed to the last 20 Msg entries (about 10 turns); lost on restart"),
   voice:     Enum["a","b"] @constraint(default: "a"),
   lang:      Enum["uk","en"] @constraint(rule: "locked from the first non-empty user turn; the fallback for handoff/apology lines when the current turn's language is undetermined"),
-  escalated: Bool @constraint(default: false)
+  escalated: Bool @constraint(default: false),
+  lead_done: Bool @constraint(default: false, rule: "a lead_ready already fired this session; a later lead_ready is downgraded to continue (no duplicate LeadRecord)")
 }
 
 @schema Msg {
@@ -260,9 +261,12 @@ named constants are `@schema GateParams` in §1.
 18. [REQ-DLG-13] The grounding gate decides, from `(kbOverlap, slotAnswer)`
     only: a slot answer never escalates; otherwise `kbOverlap` below
     `GateParams.gate_floor` forces escalation **before** any Generator call;
-    otherwise the turn proceeds. With `hardEscalate` (REQ-DLG-20) it is the
+    otherwise the turn proceeds. `dialog.Handle` also skips the gate when
+    `isSmallTalk(userText)` — a greeting / thanks / farewell is a dialogue
+    boundary, not a content question, and must never pre-escalate
+    (2026-08-31 test-5_1). With `hardEscalate` (REQ-DLG-20) the gate is the
     anti-waffle layer in front of the LLM.
-    -> [FUN-DLG-13] dialog.groundingGate(overlap float64, slotAnswer bool) (forceEscalate bool) @constraint(rule: "pure function of its two arguments; no I/O, no session read")
+    -> [FUN-DLG-13] dialog.groundingGate(overlap float64, slotAnswer bool) (forceEscalate bool) @constraint(rule: "pure function of its two arguments; no I/O, no session read"); dialog.isSmallTalk(userText string) bool
 
 19. [REQ-DLG-14] `dialog.Handle` must execute the exact 14-step sequence in
     plan.md §"Behavioural spec": lock `Session.Lang` -> `hardEscalate` check
@@ -286,13 +290,15 @@ named constants are `@schema GateParams` in §1.
 
 21. [REQ-DLG-16] Signal resolution: `tr == nil` -> escalate, reply text is the
     fixed handoff line, logged. Otherwise the signal is `tr.Signal` verbatim,
-    with one guard (B4): a `lead_ready` while `QuoteSlots.Complete()` is false
-    is downgraded to `continue` and a warning logged. There is **no
-    `continue`->`lead_ready` upgrade** — the model owns the positive case and
-    the system prompt ties it to the read-back summary (REQ-DLG-04). Any
+    with two guards: (B4) a `lead_ready` while `QuoteSlots.Complete()` is false
+    is downgraded to `continue` and a warning logged; and a `lead_ready` after
+    one already fired this session (`Session.LeadDone`) is downgraded to
+    `continue` — no duplicate `LeadRecord` (2026-08-31 test-5_1). There is
+    **no `continue`->`lead_ready` upgrade** — the model owns the positive case
+    and the system prompt ties it to the read-back summary (REQ-DLG-04). Any
     `escalate` (trailer, `hardEscalate`, gate, or parse failure) sets
     `Session.Escalated` and replaces the spoken text with the handoff line.
-    -> [LOG-DLG-16] dialog.Handle steps 1, 4, 9, 11 — every escalate path substitutes handoffLine(sessLang(sess)); step 11 has the lead_ready-vs-Complete guard
+    -> [LOG-DLG-16] dialog.Handle steps 1, 4, 9, 11 — every escalate path substitutes handoffLine(sessLang(sess)); step 11 has the lead_ready-vs-Complete and lead_ready-vs-LeadDone guards
 
 22. [REQ-DLG-17] Any `Generator.Generate` error must be caught inside
     `dialog.Handle` and turned into a `Reply{Signal: escalate}` with a fixed
@@ -363,28 +369,34 @@ named constants are `@schema GateParams` in §1.
     with no network and no API keys: `kbOverlap` (fraction, empty query,
     stopword filtering, no stemming), `hardEscalate` (each keyword, negative
     case), `groundingGate` (all four input combinations), `isSlotAnswer`
-    (short+question+nil, short-no-question, long), `parseTrailer` (each fence
-    spelling, JSON error, unknown signal, no trailer), the 6-way slot merge
-    (non-nil overwrite, nil never clears), the B4 guard, `QuoteSlots.Complete`,
-    `langOf`, `sessLang`, `greetingBody`.
-    -> [LOG-TST-01] internal/dialog/*_test.go, internal/kb/*_test.go; `go test ./... -race` in the build order after each step (AGENTS.md)
+    (short+question+nil, short-no-question, long), `isSmallTalk`
+    (greeting/thanks/farewell vs. embedded question vs. content),
+    `parseTrailer` (each fence spelling, JSON error, unknown signal, no
+    trailer), the 6-way slot merge (non-nil overwrite, nil never clears), the
+    B4 + LeadDone guards, `QuoteSlots.Complete`, `langOf`, `sessLang`,
+    `greetingBody`, `voiceID`. `cmd/bot` also has a per-chat FIFO-ordering
+    test (a slow fake generator, five queued messages, assert call order).
+    -> [LOG-TST-01] internal/dialog/*_test.go, internal/kb/*_test.go, cmd/bot/*_test.go; `make check` after each build-order step (AGENTS.md)
 
 ### 4.10 The cmd/bot update loop
 
 32. [REQ-BOT-01] The update loop must, per inbound update: send the greeting
     body once per chat (on `/start` or an unseen chat id); obtain the text
-    (STT for voice, `Update.Text` for text); handle `/voice a|b` locally;
-    otherwise call `dialog.Handle`; `tts.Speak` the reply; `SendVoice` (no
+    (STT for voice, `Update.Text` for text); handle any `/…` message locally
+    (`/voice a|b` switches, anything else gets a `/voice` usage hint) — never
+    a dialogue turn; otherwise call `dialog.Handle`; `tts.Speak` the reply; `SendVoice` (no
     caption) then one `SendText(reply.Text)`; `store.AppendTurn` **always**;
     `store.AppendLead` iff `reply.Signal == lead_ready`.
     -> [FUN-BOT-01] cmd/bot handleUpdate — see plan.md §"cmd/bot update loop"
 
-33. [REQ-BOT-02] Concurrency: one goroutine per update; a `sync.Mutex` guards
-    the `map[chatID]*Session` and the per-chat lock map; each chat's turns run
-    strictly serially (per-chat lock) while different chats run concurrently.
-    A panic in one turn's goroutine is recovered and logged — it never stops
-    the loop.
-    -> [LOG-BOT-02] cmd/bot: sessMu sync.Mutex; chatLocks map[int64]*sync.Mutex; defer recover in handleUpdate
+33. [REQ-BOT-02] Concurrency: one **serial worker goroutine per chat**, fed by
+    a per-chat buffered channel, so a chat's turns run in strict **arrival
+    order** while different chats run concurrently. (A per-chat mutex — the
+    original design — serialises but does not order: two quick messages race
+    for the lock and can invert. Fixed 2026-08-31, test-5_1.) A `sync.Mutex`
+    guards the shared maps (`sessions`, `seen`, `inbox`). A panic in
+    `handleUpdate` is recovered and logged — it never stops the worker.
+    -> [LOG-BOT-02] cmd/bot: mu sync.Mutex over sessions/seen/inbox; inbox map[int64]chan telegram.Update; chatWorker drains each chat's channel; defer recover in handleUpdate
 
 34. [REQ-BOT-03] On an STT error or an empty/whitespace transcript, the loop
     must reply with the fixed `sttFailLine` in the session language and

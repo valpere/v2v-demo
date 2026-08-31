@@ -31,10 +31,10 @@ type app struct {
 	sys      string
 	greeting string
 
-	mu        sync.Mutex
-	sessions  map[int64]*dialog.Session
-	chatLocks map[int64]*sync.Mutex
-	seen      map[int64]bool
+	mu       sync.Mutex
+	sessions map[int64]*dialog.Session
+	seen     map[int64]bool
+	inbox    map[int64]chan telegram.Update // per-chat FIFO queue (one serial worker each)
 }
 
 func main() {
@@ -77,17 +77,17 @@ func main() {
 	}
 
 	a := &app{
-		cfg:       cfg,
-		tg:        tg,
-		gen:       gen,
-		stt:       transcriber,
-		tts:       synth,
-		kb:        sections,
-		sys:       string(sys),
-		greeting:  greeting,
-		sessions:  make(map[int64]*dialog.Session),
-		chatLocks: make(map[int64]*sync.Mutex),
-		seen:      make(map[int64]bool),
+		cfg:      cfg,
+		tg:       tg,
+		gen:      gen,
+		stt:      transcriber,
+		tts:      synth,
+		kb:       sections,
+		sys:      string(sys),
+		greeting: greeting,
+		sessions: make(map[int64]*dialog.Session),
+		seen:     make(map[int64]bool),
+		inbox:    make(map[int64]chan telegram.Update),
 	}
 
 	updates, err := tg.Updates(ctx)
@@ -99,9 +99,40 @@ func main() {
 		cfg.DialogBackend, cfg.DialogModel, cfg.TTSBackend, cfg.STTBackend, len(sections))
 
 	for u := range updates {
-		go a.handleUpdate(ctx, u)
+		a.dispatch(ctx, u)
 	}
 	log.Print("v2v-demo: shut down")
+}
+
+// dispatch routes an update to its chat's serial worker, spawning the worker
+// on first contact. This keeps one chat's turns in strict arrival order (a
+// per-chat lock would serialise them but not order them) while different
+// chats run concurrently (B5).
+func (a *app) dispatch(ctx context.Context, u telegram.Update) {
+	a.mu.Lock()
+	ch := a.inbox[u.ChatID]
+	if ch == nil {
+		ch = make(chan telegram.Update, 64)
+		a.inbox[u.ChatID] = ch
+		go a.chatWorker(ctx, ch)
+	}
+	a.mu.Unlock()
+
+	select {
+	case ch <- u:
+	case <-ctx.Done():
+	}
+}
+
+func (a *app) chatWorker(ctx context.Context, ch <-chan telegram.Update) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case u := <-ch:
+			a.handleUpdate(ctx, u)
+		}
+	}
 }
 
 // newGenerator selects the dialogue backend. openai / gemini land in step 6.

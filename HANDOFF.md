@@ -39,6 +39,7 @@ Snapshot: **2026-08-31** (build-order steps 1–5 done).
 | KB | now **bilingual** (EN + UK block per `## ` section, ~19 KB, D-18) — fixed the cross-language grounding gate; see §3 |
 | Step 4 — `stt` local (openai-whisper CLI) | **done** — voice → DownloadVoice → Transcribe → dialog.Handle; recording-action ticker; live `tiny` smoke on a real .ogg passed |
 | Step 5 — `tts` ElevenLabs + greeting + `/voice` | **done** — `Speak` → Ogg/Opus mono (live smoke: HTTP 200 on Free, `opus_48000_128`); `SendVoice` + `SendText`; greeting once per chat; `/voice a\|b`. Full text+voice loop runs. |
+| Step 5 fixes (Val's live test `tmp/test-5_1`) | **done** — per-chat FIFO worker (message-order bug); `isSmallTalk` gate bypass (greetings/thanks no longer escalate); bare/unknown `/…` handled in cmd/bot; `WHISPER_LANG` default → `uk` + system.md "RU → reply uk" (STT was drifting uk→ru); `Session.LeadDone` (no duplicate lead). See `.agents/changes.md`. |
 | Steps 6–7 | alternates batch (openai/gemini/azure, whisper-1) · README/smoke doc |
 | `make check` (gofmt + vet + `go test -race`) | clean |
 | Deps | `github.com/go-telegram/bot` v1.24.0 (the one dependency) |
@@ -87,11 +88,15 @@ D-18 = the bilingual KB (added at build step 3 — see §3 Grounding).
   question → escalate before the LLM). A Ukrainian stemmer is the documented
   fallback if within-Ukrainian inflection proves too weak — **do not
   reintroduce per-section retrieval.**
-- **B3** `isSlotAnswer` also requires "the bot just asked (with a ?)"; a
-  `hardEscalate` keyword list is checked before the slot-answer bypass.
-  **B4** `lead_ready` while `!Slots.Complete()` → downgrade to `continue` + warn.
-  **B5** `cmd/bot` update loop: per-chat goroutine, `sync.Mutex` on the
-  session map, per-chat lock. All spelled out in `.agents/plan.md`.
+- **B3** `isSlotAnswer` requires "the bot just asked (with a ?)"; a
+  `hardEscalate` keyword list runs before the slot-answer bypass; `isSmallTalk`
+  (greeting/thanks/farewell) also bypasses the gate (test-5_1).
+  **B4** `lead_ready` while `!Slots.Complete()` → `continue` + warn; a second
+  `lead_ready` after one already fired (`Session.LeadDone`) → `continue`.
+  **B5** `cmd/bot`: one **serial worker goroutine per chat** fed by a per-chat
+  channel — strict arrival order (a per-chat mutex serialised but didn't order;
+  fixed test-5_1). Any `/…` message is handled in `cmd/bot`, never `Handle`.
+  All spelled out in `.agents/plan.md`.
 - **Package layout is fixed by `.agents/plan.md`.** Do not restructure. One
   dependency only (`go-telegram/bot`); everything else is stdlib `net/http`.
 

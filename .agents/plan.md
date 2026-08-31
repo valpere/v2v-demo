@@ -151,6 +151,7 @@ type Session struct {
 	Voice     string // "a" | "b"; default "a"
 	Lang      string // "uk" | "en"; set from the first non-empty user turn, langOf fallback
 	Escalated bool
+	LeadDone  bool   // a lead_ready already fired — later ones downgrade to continue (test-5_1)
 }
 
 type Generator interface {
@@ -180,6 +181,7 @@ func Handle(
 func kbOverlap(query string, kb []Section) float64      // fraction of meaningful query terms found in the whole KB
 func hardEscalate(query string) bool                    // unambiguous handoff triggers (B3)
 func isSlotAnswer(sess *Session, userText string) bool  // short + bot just asked + a slot is nil
+func isSmallTalk(userText string) bool                  // greeting / thanks / farewell — bypasses the gate (test-5_1)
 func groundingGate(overlap float64, slotAnswer bool) (forceEscalate bool)
 
 // ── internal/store ──────────────────────────────────────────────
@@ -324,6 +326,20 @@ So a short message only bypasses the gate when it is plausibly an answer to
 the bot's own question — "5 pages" after "how many pages?" bypasses; a bare
 "apostille?" out of nowhere does not.
 
+### isSmallTalk(userText string) bool   (added 2026-08-31, test-5_1)
+
+```
+if len(tokenize(userText)) > 8 || userText contains "?"  { return false }
+q := " " + lower(strip_punct(userText)) + " "
+return any pleasantryMarker is a substring of q   // greeting / thanks / farewell
+```
+
+A greeting / thank-you / farewell is a conversation boundary, not a content
+question — it must reach the assistant, never pre-escalate. `Handle` checks
+`!isSmallTalk(userText)` before calling `groundingGate` (same role as the
+slot-answer bypass). "привіт, а скільки коштує апостиль?" still gates (the
+"?").
+
 ### groundingGate(overlap float64, slotAnswer bool) (forceEscalate bool)
 
 ```
@@ -360,7 +376,7 @@ handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil }`.
 1. if hardEscalate(userText):  esc(sess)              // B3: unambiguous handoff trigger
 2. slotAnswer := isSlotAnswer(sess, userText)
 3. overlap    := kbOverlap(userText, kb)
-4. if groundingGate(overlap, slotAnswer):  esc(sess)  // content question the KB barely covers
+4. if !isSmallTalk(userText) && groundingGate(overlap, slotAnswer):  esc(sess)  // content question the KB barely covers
 5. sysPrompt := systemPrompt
               + "\n\n--- KNOWLEDGE BASE ---\n"  + join("\n\n", "## "+s.Title+"\n"+s.Body for s in kb)   // WHOLE KB
               + "\n\n--- COLLECTED SO FAR ---\n" + jsonCompact(sess.Slots)
@@ -379,6 +395,10 @@ handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil }`.
     if signal == SignalLeadReady && !sess.Slots.Complete():   // B4 guard
         log.Warn("lead_ready with incomplete slots", slots)
         signal = SignalContinue
+    else if signal == SignalLeadReady && sess.LeadDone:       // a lead already fired this session
+        signal = SignalContinue                               // (no duplicate LeadRecord; added test-5_1)
+    else if signal == SignalLeadReady:
+        sess.LeadDone = true
     if signal == SignalEscalate:
         sess.Escalated = true
         spoken = handoffLine(sessLang(sess))          // A3: escalate always speaks the fixed line
@@ -394,14 +414,16 @@ return has `Matched: nil` — nothing was consulted.
 
 ### cmd/bot update loop   (B5)
 
-One goroutine per chat; a `sync.Mutex` guards the `map[chatID]*Session`; each
-chat's goroutine holds a per-chat lock so its turns are strictly serial while
-different chats run concurrently.
+One **serial worker goroutine per chat**, fed by a per-chat buffered channel,
+so a chat's turns run in strict **arrival order** while different chats run
+concurrently. (A per-chat `sync.Mutex` — the original B5 — serialises but does
+NOT order: two quick messages race for the lock and ~half the time invert.
+Fixed 2026-08-31, test-5_1.)
 
 ```
-sessions  : map[int64]*Session          // guarded by sessMu sync.Mutex
-chatLocks : map[int64]*sync.Mutex        // guarded by sessMu; one lock per chat
-seen      : map[int64]bool               // greeted this chat? guarded by sessMu
+sessions : map[int64]*Session          // guarded by mu sync.Mutex (map access only)
+seen     : map[int64]bool               // greeted this chat? guarded by mu
+inbox    : map[int64]chan Update         // per-chat FIFO; guarded by mu
 
 main:
     cfg := LoadConfig()
@@ -410,12 +432,17 @@ main:
     updates := tg.Updates(ctx)                        // long-poll; the client owns offset advance,
                                                       //   advancing only after an Update is taken from the channel
     for u := range updates:
-        go handleUpdate(u)                            // per-chat serialization is inside
+        dispatch(u)                                   // -> inbox[u.ChatID]; spawns chatWorker on first contact
+
+chatWorker(ch):  for u := range ch { handleUpdate(u) }   // sequential, in order
 
 handleUpdate(u Update):
-    defer recover-and-log                             // a panic in one turn never kills the loop
-    lock := chatLock(u.ChatID); lock.Lock(); defer lock.Unlock()
-    sess := getOrCreateSession(u.ChatID)
+    defer recover-and-log                             // a panic in one turn never kills the worker
+    sess := getOrCreateSession(u.ChatID)              // no per-turn lock — the worker is the serialization
+
+    // slash commands (after greeting, after transcript) are handled here,
+    // never reach dialog.Handle: "/voice a|b" switches sess.Voice; any other
+    // "/..." gets a one-line /voice usage hint.
 
     if u.IsStart || firstMessage(u.ChatID):
         tg.SendText(ctx, u.ChatID, greet); markSeen(u.ChatID)
@@ -434,9 +461,13 @@ handleUpdate(u Update):
     else:
         text = u.Text
 
-    // 2. /voice command — handled here, never reaches Handle
-    if text == "/voice a" || text == "/voice b":
-        sess.Voice = text[len(text)-1:]; tg.SendText(ctx, u.ChatID, voiceSwitched(sessLang(sess))); return
+    // 2. slash commands — handled here, never reach Handle
+    if text starts with "/":
+        if lower(trim(text)) in {"/voice a","/voice b"}:
+            sess.Voice = last char; tg.SendText(ctx, u.ChatID, voiceSwitched(sessLang(sess)))
+        else:  // "/voice", "/help", any unknown "/..."
+            tg.SendText(ctx, u.ChatID, voiceHelp(sess))
+        return
 
     // 3. dialogue turn
     start := now()
