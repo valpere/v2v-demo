@@ -1,0 +1,298 @@
+package dialog
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+)
+
+type fakeGen struct {
+	reply   string
+	err     error
+	gotSys  string
+	gotHist []Msg
+	calls   int
+}
+
+func (f *fakeGen) Generate(_ context.Context, sys string, hist []Msg) (string, error) {
+	f.calls++
+	f.gotSys = sys
+	f.gotHist = hist
+	return f.reply, f.err
+}
+
+func trailerJSON(sig string, kv map[string]string) string {
+	slots := map[string]any{
+		"language_pair": nil, "doc_type": nil, "volume": nil,
+		"deadline": nil, "certification": nil, "delivery": nil,
+	}
+	for k, v := range kv {
+		slots[k] = v
+	}
+	var pairs []string
+	for _, k := range []string{"language_pair", "doc_type", "volume", "deadline", "certification", "delivery"} {
+		if slots[k] == nil {
+			pairs = append(pairs, `"`+k+`":null`)
+		} else {
+			pairs = append(pairs, `"`+k+`":"`+slots[k].(string)+`"`)
+		}
+	}
+	return "{\"slots\":{" + strings.Join(pairs, ",") + "},\"signal\":\"" + sig + "\"}"
+}
+
+func reply(text, sig string, kv map[string]string) string {
+	return text + "\n\n```json\n" + trailerJSON(sig, kv) + "\n```"
+}
+
+// ── parseTrailer ────────────────────────────────────────────────
+
+func TestParseTrailer(t *testing.T) {
+	t.Run("json fence", func(t *testing.T) {
+		spoken, tr := parseTrailer("Hello there.\n```json\n{\"slots\":{\"language_pair\":\"uk->de\",\"doc_type\":null,\"volume\":null,\"deadline\":null,\"certification\":null,\"delivery\":null},\"signal\":\"continue\"}\n```")
+		if tr == nil {
+			t.Fatal("tr = nil, want parsed")
+		}
+		if spoken != "Hello there." {
+			t.Fatalf("spoken = %q", spoken)
+		}
+		if tr.Signal != SignalContinue || tr.Slots.LanguagePair == nil || *tr.Slots.LanguagePair != "uk->de" {
+			t.Fatalf("tr = %+v", tr)
+		}
+	})
+
+	t.Run("uppercase JSON fence", func(t *testing.T) {
+		_, tr := parseTrailer("Hi.\n```JSON\n{\"slots\":{},\"signal\":\"escalate\"}\n```")
+		if tr == nil || tr.Signal != SignalEscalate {
+			t.Fatalf("tr = %+v", tr)
+		}
+	})
+
+	t.Run("bare fence", func(t *testing.T) {
+		_, tr := parseTrailer("Hi.\n```\n{\"slots\":{},\"signal\":\"lead_ready\"}\n```")
+		if tr == nil || tr.Signal != SignalLeadReady {
+			t.Fatalf("tr = %+v", tr)
+		}
+	})
+
+	t.Run("last block wins", func(t *testing.T) {
+		raw := "text\n```json\n{\"slots\":{},\"signal\":\"continue\"}\n```\nmore\n```json\n{\"slots\":{},\"signal\":\"escalate\"}\n```"
+		spoken, tr := parseTrailer(raw)
+		if tr == nil || tr.Signal != SignalEscalate {
+			t.Fatalf("tr = %+v", tr)
+		}
+		if !strings.Contains(spoken, "text") || !strings.Contains(spoken, "more") {
+			t.Fatalf("spoken = %q", spoken)
+		}
+	})
+
+	t.Run("no trailer", func(t *testing.T) {
+		spoken, tr := parseTrailer("  Just a sentence.  ")
+		if tr != nil {
+			t.Fatal("tr != nil")
+		}
+		if spoken != "Just a sentence." {
+			t.Fatalf("spoken = %q", spoken)
+		}
+	})
+
+	t.Run("malformed json", func(t *testing.T) {
+		spoken, tr := parseTrailer("Reply.\n```json\n{not valid\n```")
+		if tr != nil {
+			t.Fatal("tr != nil for bad json")
+		}
+		if spoken != "Reply." {
+			t.Fatalf("spoken = %q (fenced block should be stripped)", spoken)
+		}
+	})
+
+	t.Run("unknown signal", func(t *testing.T) {
+		_, tr := parseTrailer("Reply.\n```json\n{\"slots\":{},\"signal\":\"halt\"}\n```")
+		if tr != nil {
+			t.Fatal("tr != nil for unknown signal")
+		}
+	})
+
+	t.Run("fence without json object is ignored", func(t *testing.T) {
+		spoken, tr := parseTrailer("Reply.\n```\nnot an object\n```")
+		if tr != nil {
+			t.Fatal("tr != nil")
+		}
+		_ = spoken
+	})
+}
+
+// ── Handle ──────────────────────────────────────────────────────
+
+func TestHandleContinueAndMerge(t *testing.T) {
+	gen := &fakeGen{reply: reply("What volume are we looking at?", "continue", map[string]string{
+		"language_pair": "uk->de", "doc_type": "diploma",
+	})}
+	sess := &Session{}
+	r, err := dialogHandle(t, sess, gen, "I need a certified translation of a diploma, delivery by email")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Signal != SignalContinue {
+		t.Fatalf("signal = %q", r.Signal)
+	}
+	if sess.Slots.LanguagePair == nil || *sess.Slots.LanguagePair != "uk->de" || sess.Slots.DocType == nil {
+		t.Fatalf("slots not merged: %s", compactSlots(sess.Slots))
+	}
+	if sess.Lang != "en" {
+		t.Fatalf("Lang = %q, want en", sess.Lang)
+	}
+	if len(sess.History) != 2 || sess.History[0].Role != "user" || sess.History[1].Role != "assistant" {
+		t.Fatalf("history = %+v", sess.History)
+	}
+	if !strings.Contains(gen.gotSys, "--- KNOWLEDGE BASE ---") || !strings.Contains(gen.gotSys, "## Services") {
+		t.Fatal("system prompt missing KB")
+	}
+}
+
+func TestHandleMergeNeverClears(t *testing.T) {
+	sess := &Session{
+		Slots:   QuoteSlots{DocType: sp("contract")},
+		History: []Msg{{Role: "assistant", Text: "How many pages is it?"}},
+	}
+	gen := &fakeGen{reply: reply("ok?", "continue", map[string]string{"volume": "10 pages"})}
+	if _, err := dialogHandle(t, sess, gen, "about ten pages"); err != nil { // slot answer -> bypasses the gate
+		t.Fatal(err)
+	}
+	if sess.Slots.DocType == nil || *sess.Slots.DocType != "contract" {
+		t.Fatal("existing slot was cleared by a null in the trailer")
+	}
+	if sess.Slots.Volume == nil || *sess.Slots.Volume != "10 pages" {
+		t.Fatal("new slot not merged")
+	}
+}
+
+func TestHandleHardEscalate(t *testing.T) {
+	gen := &fakeGen{reply: reply("should not be used", "continue", nil)}
+	sess := &Session{}
+	r, _ := dialogHandle(t, sess, gen, "Поверніть гроші, це скарга")
+	if r.Signal != SignalEscalate || r.Text != handoffUK {
+		t.Fatalf("r = %+v", r)
+	}
+	if gen.calls != 0 {
+		t.Fatal("generator called on a hardEscalate turn")
+	}
+	if r.Matched != nil {
+		t.Fatal("Matched should be nil on an early escalate")
+	}
+	if !sess.Escalated {
+		t.Fatal("sess.Escalated not set")
+	}
+}
+
+func TestHandleGroundingGate(t *testing.T) {
+	gen := &fakeGen{reply: reply("unused", "continue", nil)}
+	sess := &Session{}
+	// off-topic content question, no KB overlap, not a slot answer
+	r, _ := dialogHandle(t, sess, gen, "What is the capital of Australia and how tall is Everest")
+	if r.Signal != SignalEscalate {
+		t.Fatalf("signal = %q, want escalate", r.Signal)
+	}
+	if gen.calls != 0 {
+		t.Fatal("generator called despite the gate firing")
+	}
+}
+
+func TestHandleSlotAnswerBypassesGate(t *testing.T) {
+	gen := &fakeGen{reply: reply("Записала.", "continue", map[string]string{"volume": "5 pages"})}
+	sess := &Session{
+		History: []Msg{{Role: "assistant", Text: "Скільки сторінок у документі?"}},
+		Slots:   QuoteSlots{DocType: sp("diploma")},
+	}
+	r, _ := dialogHandle(t, sess, gen, "п'ять сторінок")
+	if gen.calls != 1 {
+		t.Fatalf("generator calls = %d, want 1 (slot answer should bypass the gate)", gen.calls)
+	}
+	if r.Signal != SignalContinue {
+		t.Fatalf("signal = %q", r.Signal)
+	}
+}
+
+func TestHandleNilTrailerEscalates(t *testing.T) {
+	gen := &fakeGen{reply: "Just talking, no trailer at all."}
+	sess := &Session{Lang: "en"}
+	r, _ := dialogHandle(t, sess, gen, "certified translation please, how does it work")
+	if r.Signal != SignalEscalate || r.Text != handoffEN {
+		t.Fatalf("r = %+v", r)
+	}
+	if !sess.Escalated {
+		t.Fatal("Escalated not set")
+	}
+}
+
+func TestHandleGeneratorError(t *testing.T) {
+	gen := &fakeGen{err: errors.New("boom")}
+	sess := &Session{Lang: "uk"}
+	r, err := dialogHandle(t, sess, gen, "certified translation, tell me about delivery options")
+	if err != nil {
+		t.Fatalf("Handle returned error: %v (must degrade, never bubble)", err)
+	}
+	if r.Signal != SignalEscalate || r.Text != apologyUK {
+		t.Fatalf("r = %+v", r)
+	}
+}
+
+func TestHandleLeadReady(t *testing.T) {
+	full := map[string]string{
+		"language_pair": "uk->de", "doc_type": "diploma", "volume": "2 pages",
+		"deadline": "1 week", "certification": "certified", "delivery": "email",
+	}
+	gen := &fakeGen{reply: reply("Записала все, менеджер надішле вартість.", "lead_ready", full)}
+	sess := &Session{}
+	r, _ := dialogHandle(t, sess, gen, "certified translation delivery by email")
+	if r.Signal != SignalLeadReady {
+		t.Fatalf("signal = %q, want lead_ready", r.Signal)
+	}
+	if !sess.Slots.Complete() {
+		t.Fatal("slots not complete")
+	}
+}
+
+func TestHandleLeadReadyGuardedWhenIncomplete(t *testing.T) {
+	gen := &fakeGen{reply: reply("Дякую!", "lead_ready", map[string]string{"language_pair": "uk->de"})}
+	sess := &Session{}
+	r, _ := dialogHandle(t, sess, gen, "certified translation and delivery please")
+	if r.Signal != SignalContinue {
+		t.Fatalf("signal = %q, want continue (B4 guard downgrades lead_ready with incomplete slots)", r.Signal)
+	}
+}
+
+func TestHandleEscalateSignalSpeaksFixedLine(t *testing.T) {
+	gen := &fakeGen{reply: reply("Це вам краще підкаже менеджер, з'єдную.", "escalate", nil)}
+	sess := &Session{Lang: "uk"}
+	r, _ := dialogHandle(t, sess, gen, "certified translation, what about delivery")
+	if r.Signal != SignalEscalate || r.Text != handoffUK {
+		t.Fatalf("r = %+v (escalate must replace spoken text with the fixed handoff line)", r)
+	}
+	if len(sess.History) == 0 || sess.History[len(sess.History)-1].Text != handoffUK {
+		t.Fatal("history should record the handoff line, not the model text")
+	}
+}
+
+// TestHandleCrossLanguageGate documents a known characteristic: kbOverlap is
+// exact-substring, so a Ukrainian content question against an English-only KB
+// scores 0 and the gate escalates it before the LLM. It only passes the gate
+// as a slot answer (short + the bot just asked). Whether the shipped KB must
+// carry Ukrainian text is a content decision tracked in .agents/changes.md.
+func TestHandleCrossLanguageGate(t *testing.T) {
+	gen := &fakeGen{reply: reply("unused", "continue", nil)}
+	sess := &Session{}
+	r, _ := dialogHandle(t, sess, gen, "Чи можна оплатити криптовалютою?")
+	if r.Signal != SignalEscalate {
+		t.Fatalf("signal = %q, want escalate (uk query vs en KB -> overlap 0)", r.Signal)
+	}
+	if gen.calls != 0 {
+		t.Fatal("generator called")
+	}
+}
+
+// dialogHandle runs Handle with the shared test KB and a stub system prompt.
+func dialogHandle(t *testing.T, sess *Session, gen Generator, text string) (Reply, error) {
+	t.Helper()
+	return Handle(context.Background(), sess, testKB(), gen, "SYSTEM PROMPT", text)
+}
