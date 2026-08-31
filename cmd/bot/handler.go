@@ -41,6 +41,18 @@ func (a *app) session(id int64) *dialog.Session {
 	return s
 }
 
+// firstContact marks the chat seen and reports whether this is the first time
+// (REQ-UX-02 — greet once per chat).
+func (a *app) firstContact(id int64) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.seen[id] {
+		return false
+	}
+	a.seen[id] = true
+	return true
+}
+
 func (a *app) send(ctx context.Context, chatID int64, text string) {
 	if err := a.tg.SendText(ctx, chatID, text); err != nil {
 		log.Printf("send (chat %d): %v", chatID, err)
@@ -93,17 +105,38 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 
 	sess := a.session(u.ChatID)
 
+	if first := a.firstContact(u.ChatID); u.IsStart || first {
+		a.send(ctx, u.ChatID, a.greeting)
+		if u.IsStart {
+			return // /start carries no other content
+		}
+	}
+
 	text, ok := a.resolveText(ctx, sess, u)
 	if !ok {
+		return
+	}
+
+	// /voice a|b — switch this chat's voice, never reaches dialog.Handle
+	switch v := strings.ToLower(strings.TrimSpace(text)); v {
+	case "/voice a", "/voice b":
+		sess.Voice = v[len(v)-1:]
+		a.send(ctx, u.ChatID, dialog.VoiceSwitchedLine(sess))
 		return
 	}
 
 	start := time.Now()
 	stop := a.startRecordingTicker(ctx, u.ChatID)
 	reply, _ := dialog.Handle(ctx, sess, a.kb, a.gen, a.sys, text) // never returns a non-nil error
+	ogg, terr := a.tts.Speak(ctx, reply.Text, voiceID(a.cfg, sess.Voice), sess.Lang)
 	stop()
 
-	a.send(ctx, u.ChatID, reply.Text)
+	if terr != nil {
+		log.Printf("tts (chat %d): %v", u.ChatID, terr)
+	} else if err := a.tg.SendVoice(ctx, u.ChatID, ogg); err != nil {
+		log.Printf("send voice (chat %d): %v", u.ChatID, err)
+	}
+	a.send(ctx, u.ChatID, reply.Text) // text always goes out once
 
 	if err := store.AppendTurn(a.cfg.DataDir, store.TurnRecord{
 		Time:      start,

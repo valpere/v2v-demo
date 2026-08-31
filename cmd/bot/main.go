@@ -1,6 +1,8 @@
-// Command bot is the v2v-demo Telegram voice assistant. Build-order step 3:
-// the dialogue core runs on text messages (grounding gate + Ollama generator
-// + trailer parse + slot merge + JSONL logging). STT / TTS land in later steps.
+// Command bot is the v2v-demo Telegram voice assistant. Build-order step 5:
+// the full loop on text and voice — STT (local Whisper) → grounding gate +
+// Ollama generator → ElevenLabs TTS → voice + text reply, plus the greeting
+// and the /voice command. Config-flag alternates (openai/gemini/azure,
+// whisper-1) land in step 6.
 package main
 
 import (
@@ -16,19 +18,23 @@ import (
 	"github.com/valpere/v2v-demo/internal/kb"
 	"github.com/valpere/v2v-demo/internal/stt"
 	"github.com/valpere/v2v-demo/internal/telegram"
+	"github.com/valpere/v2v-demo/internal/tts"
 )
 
 type app struct {
-	cfg Config
-	tg  telegram.Client
-	gen dialog.Generator
-	stt stt.Transcriber
-	kb  []kb.Section
-	sys string
+	cfg      Config
+	tg       telegram.Client
+	gen      dialog.Generator
+	stt      stt.Transcriber
+	tts      tts.Synthesizer
+	kb       []kb.Section
+	sys      string
+	greeting string
 
 	mu        sync.Mutex
 	sessions  map[int64]*dialog.Session
 	chatLocks map[int64]*sync.Mutex
+	seen      map[int64]bool
 }
 
 func main() {
@@ -45,11 +51,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("system prompt: %v", err)
 	}
+	greeting, err := greetingBody(cfg.GreetingPath)
+	if err != nil {
+		log.Fatal(err)
+	}
 	gen, err := newGenerator(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
 	transcriber, err := newTranscriber(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	synth, err := newSynthesizer(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -67,10 +81,13 @@ func main() {
 		tg:        tg,
 		gen:       gen,
 		stt:       transcriber,
+		tts:       synth,
 		kb:        sections,
 		sys:       string(sys),
+		greeting:  greeting,
 		sessions:  make(map[int64]*dialog.Session),
 		chatLocks: make(map[int64]*sync.Mutex),
+		seen:      make(map[int64]bool),
 	}
 
 	updates, err := tg.Updates(ctx)
@@ -109,4 +126,31 @@ func newTranscriber(cfg Config) (stt.Transcriber, error) {
 	default:
 		return nil, fmt.Errorf("unknown STT_BACKEND %q", cfg.STTBackend)
 	}
+}
+
+// newSynthesizer selects the TTS backend. azure lands in step 6.
+func newSynthesizer(cfg Config) (tts.Synthesizer, error) {
+	switch cfg.TTSBackend {
+	case "elevenlabs":
+		return tts.NewElevenLabs(cfg.ElevenKey), nil
+	case "azure":
+		return nil, fmt.Errorf("TTS_BACKEND=azure lands in build-order step 6")
+	default:
+		return nil, fmt.Errorf("unknown TTS_BACKEND %q", cfg.TTSBackend)
+	}
+}
+
+// voiceID resolves the active backend's voice id for "a" | "b".
+func voiceID(cfg Config, voice string) string {
+	b := voice == "b"
+	if cfg.TTSBackend == "azure" {
+		if b {
+			return cfg.AzureVoiceB
+		}
+		return cfg.AzureVoiceA
+	}
+	if b {
+		return cfg.ElevenVoiceB
+	}
+	return cfg.ElevenVoiceA
 }
