@@ -27,7 +27,7 @@ not need it to build.
 
 ## 2. Current status
 
-Snapshot: **2026-08-31** (build-order steps 1–4 done).
+Snapshot: **2026-08-31** (build-order steps 1–5 done).
 
 | | |
 |--|--|
@@ -38,11 +38,12 @@ Snapshot: **2026-08-31** (build-order steps 1–4 done).
 | Step 3 — `dialog` core on text messages | **done** — gate + Ollama generator + trailer parse + slot merge + JSONL log; live gemma4:cloud smoke passed |
 | KB | now **bilingual** (EN + UK block per `## ` section, ~19 KB, D-18) — fixed the cross-language grounding gate; see §3 |
 | Step 4 — `stt` local (openai-whisper CLI) | **done** — voice → DownloadVoice → Transcribe → dialog.Handle; recording-action ticker; live `tiny` smoke on a real .ogg passed |
-| Steps 5–7 | TTS (ElevenLabs) + `/voice` · alternates batch · README/smoke doc |
+| Step 5 — `tts` ElevenLabs + greeting + `/voice` | **done** — `Speak` → Ogg/Opus mono (live smoke: HTTP 200 on Free, `opus_48000_128`); `SendVoice` + `SendText`; greeting once per chat; `/voice a\|b`. Full text+voice loop runs. |
+| Steps 6–7 | alternates batch (openai/gemini/azure, whisper-1) · README/smoke doc |
 | `make check` (gofmt + vet + `go test -race`) | clean |
 | Deps | `github.com/go-telegram/bot` v1.24.0 (the one dependency) |
 
-**Your task:** continue `.agents/plan.md` "Build order" from step 5.
+**Your task:** continue `.agents/plan.md` "Build order" from step 6.
 After each step: `make check` (`make help` lists all targets). Build-time
 notes / deviations live in `.agents/changes.md` (gitignored).
 

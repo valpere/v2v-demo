@@ -14,6 +14,7 @@
 *.sqlite
 *.log
 /recordings/
+/data/
 
 # opencode agent scratch (keep plan.md tracked)
 .agents/changes.md

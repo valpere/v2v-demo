@@ -605,7 +605,8 @@ substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
    Also: KB made bilingual (see the Bilingual KB note above).
 4. **[done]** `stt`: `local` impl (shell the openai-whisper CLI — the dev default) — voice in.
    `cmd/bot`: recording-action ticker around STT + the dialogue turn.
-5. `tts`: `elevenlabs` impl — voice out; `/voice` command
+5. **[done]** `tts`: `elevenlabs` impl — voice out; `/voice` command.
+   Also: the greeting (`greeting.md` body once per chat, REQ-UX-02).
 6. alternates batch: `openai` + `gemini` impls for `dialog.Generator`,
    `openai` (`whisper-1`) for `stt` — needed for the I-10 recording,
    `azure` for `tts`; verify `STT_BACKEND` /
