@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"log"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -10,6 +12,10 @@ import (
 	"github.com/valpere/v2v-demo/internal/store"
 	"github.com/valpere/v2v-demo/internal/telegram"
 )
+
+// RecordingTick is how often the "recording voice" chat action is re-sent
+// while a turn runs (server-side it lasts ~5s). See @schema GateParams.
+const RecordingTick = 4 * time.Second
 
 // chatLock returns the per-chat mutex, creating it under a.mu. Holding it
 // serialises one chat's turns while different chats run concurrently (B5).
@@ -41,6 +47,37 @@ func (a *app) send(ctx context.Context, chatID int64, text string) {
 	}
 }
 
+// startRecordingTicker shows the "recording voice" action immediately and
+// re-sends it every RecordingTick until the returned stop() is called or ctx
+// is cancelled.
+func (a *app) startRecordingTicker(ctx context.Context, chatID int64) (stop func()) {
+	action := func() {
+		if err := a.tg.SendRecordingAction(ctx, chatID); err != nil {
+			log.Printf("recording action (chat %d): %v", chatID, err)
+		}
+	}
+	action()
+
+	done := make(chan struct{})
+	go func() {
+		t := time.NewTicker(RecordingTick)
+		defer t.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				action()
+			}
+		}
+	}()
+
+	var once sync.Once
+	return func() { once.Do(func() { close(done) }) }
+}
+
 // handleUpdate processes one inbound update. A panic here is recovered and
 // logged — it never stops the loop (REQ-NFR-03).
 func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
@@ -56,16 +93,16 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 
 	sess := a.session(u.ChatID)
 
-	if u.VoiceFileID != "" {
-		// transcription lands in build-order step 4
-		a.send(ctx, u.ChatID, "(voice received — transcription lands in a later build step)")
+	text, ok := a.resolveText(ctx, sess, u)
+	if !ok {
 		return
 	}
 
-	text := u.Text
 	start := time.Now()
-
+	stop := a.startRecordingTicker(ctx, u.ChatID)
 	reply, _ := dialog.Handle(ctx, sess, a.kb, a.gen, a.sys, text) // never returns a non-nil error
+	stop()
+
 	a.send(ctx, u.ChatID, reply.Text)
 
 	if err := store.AppendTurn(a.cfg.DataDir, store.TurnRecord{
@@ -86,6 +123,34 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 			log.Printf("store lead (chat %d): %v", u.ChatID, err)
 		}
 	}
+}
+
+// resolveText yields the turn's text: Update.Text for a text message, or the
+// STT transcript for a voice message. On an STT failure or an empty
+// transcript it replies with the fixed sttFail line and returns ok=false —
+// no dialogue turn, no turn record (REQ-BOT-03).
+func (a *app) resolveText(ctx context.Context, sess *dialog.Session, u telegram.Update) (string, bool) {
+	if u.VoiceFileID == "" {
+		return u.Text, true
+	}
+
+	stop := a.startRecordingTicker(ctx, u.ChatID)
+	defer stop()
+
+	ogg, err := a.tg.DownloadVoice(ctx, u.VoiceFileID)
+	var text string
+	if err == nil {
+		text, err = a.stt.Transcribe(ctx, ogg, a.cfg.WhisperLang)
+		os.Remove(ogg)
+	}
+	if err != nil || strings.TrimSpace(text) == "" {
+		if err != nil {
+			log.Printf("stt (chat %d): %v", u.ChatID, err)
+		}
+		a.send(ctx, u.ChatID, dialog.SttFailLine(sess))
+		return "", false
+	}
+	return text, true
 }
 
 func leadFrom(chatID int64, s dialog.QuoteSlots) store.LeadRecord {

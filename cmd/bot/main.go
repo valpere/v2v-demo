@@ -14,6 +14,7 @@ import (
 
 	"github.com/valpere/v2v-demo/internal/dialog"
 	"github.com/valpere/v2v-demo/internal/kb"
+	"github.com/valpere/v2v-demo/internal/stt"
 	"github.com/valpere/v2v-demo/internal/telegram"
 )
 
@@ -21,6 +22,7 @@ type app struct {
 	cfg Config
 	tg  telegram.Client
 	gen dialog.Generator
+	stt stt.Transcriber
 	kb  []kb.Section
 	sys string
 
@@ -47,6 +49,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	transcriber, err := newTranscriber(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -60,6 +66,7 @@ func main() {
 		cfg:       cfg,
 		tg:        tg,
 		gen:       gen,
+		stt:       transcriber,
 		kb:        sections,
 		sys:       string(sys),
 		sessions:  make(map[int64]*dialog.Session),
@@ -89,5 +96,17 @@ func newGenerator(cfg Config) (dialog.Generator, error) {
 		return nil, fmt.Errorf("DIALOG_BACKEND=%s lands in build-order step 6", cfg.DialogBackend)
 	default:
 		return nil, fmt.Errorf("unknown DIALOG_BACKEND %q", cfg.DialogBackend)
+	}
+}
+
+// newTranscriber selects the STT backend. openai (whisper-1) lands in step 6.
+func newTranscriber(cfg Config) (stt.Transcriber, error) {
+	switch cfg.STTBackend {
+	case "local":
+		return stt.NewLocal(cfg.WhisperBin, cfg.WhisperModel, cfg.WhisperLang), nil
+	case "openai":
+		return nil, fmt.Errorf("STT_BACKEND=openai lands in build-order step 6")
+	default:
+		return nil, fmt.Errorf("unknown STT_BACKEND %q", cfg.STTBackend)
 	}
 }
