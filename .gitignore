@@ -8,6 +8,7 @@
 /ftb-demo
 /bot
 *.exe
+/minions/tgdrive/tgdrive
 
 # runtime data
 *.db
