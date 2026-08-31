@@ -23,6 +23,10 @@
 # Claude Code — per-user local overrides (settings.json IS tracked)
 .claude/settings.local.json
 
+# session-recall — per-project, local-only context (session-log.md not caught by *.log)
+.claude/session-log.md
+.claude/sessions.db
+
 # throwaway scratch (dev helpers live in minions/, which IS tracked)
 tmp/
 
