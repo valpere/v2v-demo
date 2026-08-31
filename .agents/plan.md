@@ -263,14 +263,21 @@ const (
 )
 ```
 
-**B1 decision (2026-08-29):** the KB is ~6 KB — the *whole* KB goes into every
-system prompt (gemma4:cloud / Gemini Flash / gpt-4o-mini all have the headroom).
+**B1 decision (2026-08-29):** the *whole* KB goes into every system prompt
+(gemma4:cloud / Gemini Flash / gpt-4o-mini all have the headroom).
 There is **no retrieval-for-context**. A keyword-overlap score is computed
 *only* to feed the grounding gate. If exact-match overlap proves too weak for
 inflected Ukrainian in testing, add a stemmer (B1 fallback — candidates:
 `github.com/amakukha/stemmers_ukrainian`, `github.com/dbklim/Uk_Stemmer`,
 k-centre.uacorpus.org tools) and re-tune `GateFloor`; do not reintroduce
 per-section retrieval.
+
+**Bilingual KB (2026-08-31, step 3):** `kb/translation-bureau.md` was
+English-only, so `kbOverlap` scored every Ukrainian content question 0 and
+the gate false-escalated it pre-LLM. Fixed by making the KB bilingual — an
+English block then a Ukrainian block under each `## ` heading (headings
+`English / Українською`), ~19 KB, 13 sections. The B1 stemmer note now
+applies only to within-Ukrainian inflection, not the cross-language wall.
 
 ### kbOverlap(query string, kb []Section) float64
 
@@ -532,9 +539,9 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
     concrete Flash model is `gemini-3.6-flash`; `gemini-flash-latest` is a
     maintained alias.
   Build `ollama` first (step 3); `openai` + `gemini` in the alternates batch (step 6).
-- **KB in the prompt (B1):** the whole KB (~6 KB) is in every system prompt.
-  No retrieval-for-context. `kbOverlap` is a keyword-overlap score used **only**
-  by the grounding gate. Design lineage: `ragline`'s `Decide` (retrieve →
+- **KB in the prompt (B1):** the whole KB (~19 KB, bilingual — EN + UK block
+  per section) is in every system prompt. No retrieval-for-context.
+  `kbOverlap` is a keyword-overlap score used **only** by the grounding gate. Design lineage: `ragline`'s `Decide` (retrieve →
   score → answer-or-escalate) collapsed to "score-for-gate only" because the
   KB is tiny (not a dependency — see `docs/architecture.md` §6). Fallback if
   exact-match overlap misses inflected Ukrainian: add a stemmer (see the B1
@@ -591,10 +598,11 @@ substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
 
 ## Build order
 
-1. config + `kb` (load & split) + `store` + `go build` — no external calls
-2. `telegram` long-poll loop, echo text back
-3. `dialog`: `gate.go` (kbOverlap + hardEscalate + isSlotAnswer + gate) +
-   `Generator` (`ollama` first) + trailer parse + slot merge; onto text messages
+1. **[done]** config + `kb` (load & split) + `store` + `go build` — no external calls
+2. **[done]** `telegram` long-poll loop, echo text back
+3. **[done]** `dialog`: `gate.go` (kbOverlap + hardEscalate + isSlotAnswer + gate) +
+   `Generator` (`ollama` first) + trailer parse + slot merge; onto text messages.
+   Also: KB made bilingual (see the Bilingual KB note above).
 4. `stt`: `local` impl (shell the openai-whisper CLI — the dev default) — voice in
 5. `tts`: `elevenlabs` impl — voice out; `/voice` command
 6. alternates batch: `openai` + `gemini` impls for `dialog.Generator`,
@@ -603,4 +611,4 @@ substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
    `DIALOG_BACKEND` / `TTS_BACKEND` switch cleanly
 7. README refresh + `.env.example` check + a short smoke-test doc
 
-After each step: `go build ./...`, `go vet ./...`, `go test ./... -race`.
+After each step: `make check` (gofmt + `go vet ./...` + `go test ./... -race`).

@@ -16,13 +16,14 @@ Telegram voice msg ─► local openai-whisper STT ─► whole KB + grounding g
                                           └─ escalates to a human on out-of-scope / on request
 ```
 
-UK + EN only. Text messages work too (STT skipped). `/voice b` swaps to the
-second voice for comparison.
+UK + EN only (the KB carries both languages under each heading). Text
+messages work too (STT skipped). `/voice b` swaps to the second voice for
+comparison.
 
 ## Run
 
 ```bash
-cp .env.example .env      # fill TELEGRAM_BOT_TOKEN and ELEVENLABS_API_KEY
+make env                  # cp .env.example .env — then fill TELEGRAM_BOT_TOKEN and ELEVENLABS_API_KEY
 # dev path needs: the `openai-whisper` CLI + ffmpeg on PATH (local STT — first
 # run downloads the model to ~/.cache/whisper), and `ollama` logged in to a
 # Pro/Max account (gemma4:cloud). The default voice IDs (premade Sarah/George)
@@ -43,5 +44,9 @@ Then message the bot on Telegram.
 
 ## Status
 
-Scaffold only — implementation tracked in `.agents/plan.md`. Not connected to
-Zoho, telephony, or any real RAG store; see the plan's "Out of scope".
+In progress — build-order steps 1–3 done (config + KB + store; Telegram
+long-poll; dialogue core on text messages — grounding gate, Ollama
+`gemma4:cloud`, JSONL turn/lead log). Voice in/out (STT, TTS) and the
+config-flag alternates are steps 4–7. Tracked in `.agents/plan.md`;
+`make help` for dev tasks. Not connected to Zoho, telephony, or any real RAG
+store; see the plan's "Out of scope".

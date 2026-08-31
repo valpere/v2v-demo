@@ -27,17 +27,23 @@ not need it to build.
 
 ## 2. Current status
 
+Snapshot: **2026-08-31** (build-order steps 1–3 done).
+
 | | |
 |--|--|
 | Prereqs / accounts | **done** — see §4 |
 | `.env` | **complete** for the dev path |
-| Code | **not started** — `cmd/bot/main.go` is `func main() {}`, `internal/` is empty |
-| `go build ./...` / `go vet` / `gofmt` | clean (trivially) |
-| Dependency `go-telegram/bot` | not added yet (build-order step 2 adds it) |
+| Step 1 — config + `kb` + `store` | **done** (`f7f84f5`) |
+| Step 2 — `telegram` long-poll + echo | **done** (`b6324d1`) — verified live |
+| Step 3 — `dialog` core on text messages | **done** — gate + Ollama generator + trailer parse + slot merge + JSONL log; live gemma4:cloud smoke passed |
+| KB | now **bilingual** (EN + UK block per `## ` section, ~19 KB) — fixed the cross-language grounding gate; see §3 |
+| Steps 4–7 | STT (local whisper) · TTS (ElevenLabs) + `/voice` · alternates batch · README/smoke doc |
+| `make check` (gofmt + vet + `go test -race`) | clean |
+| Deps | `github.com/go-telegram/bot` v1.24.0 (the one dependency) |
 
-**Your task:** implement the demo by following `.agents/plan.md` "Build order"
-steps 1→7. After each step: `make check` (gofmt + `go vet` + `go test ./... -race`;
-`make help` lists all targets).
+**Your task:** continue `.agents/plan.md` "Build order" from step 4.
+After each step: `make check` (`make help` lists all targets). Build-time
+notes / deviations live in `.agents/changes.md` (gitignored).
 
 ---
 
@@ -68,12 +74,14 @@ engagement repo's `docs/10-decisions.md` (D-01…D-17) if you need the "why".
   - The auditioned UA library voices (`2OXYbN1uGomXXJtv9Dq6` /
     `4nLP0u2B3yI0lyzATFnN`, kept as comments in `.env`) swap in **only** when
     Starter is activated for the client recording.
-- **Grounding (B1):** the **whole KB (~6 KB) goes into every system prompt**.
-  There is **no retrieval-for-context**. `kbOverlap` is a keyword score used
-  *only* by the grounding gate (`< GateFloor` on a content question →
-  escalate before the LLM). A Ukrainian stemmer is the documented fallback if
-  exact-match overlap proves too weak — **do not reintroduce per-section
-  retrieval.**
+- **Grounding (B1):** the **whole KB goes into every system prompt** (~19 KB,
+  **bilingual** — an EN block and a UK block under each `## ` heading; this is
+  what lets `kbOverlap` score a Ukrainian query, resolved step 3 —
+  `.agents/changes.md`). There is **no retrieval-for-context**. `kbOverlap` is
+  a keyword score used *only* by the grounding gate (`< GateFloor` on a content
+  question → escalate before the LLM). A Ukrainian stemmer is the documented
+  fallback if within-Ukrainian inflection proves too weak — **do not
+  reintroduce per-section retrieval.**
 - **B3** `isSlotAnswer` also requires "the bot just asked (with a ?)"; a
   `hardEscalate` keyword list is checked before the slot-answer bypass.
   **B4** `lead_ready` while `!Slots.Complete()` → downgrade to `continue` + warn.
