@@ -108,9 +108,15 @@ func (c Config) validate() error {
 		if c.ElevenKey == "" {
 			errs = append(errs, "ELEVENLABS_API_KEY is required for TTS_BACKEND=elevenlabs")
 		}
+		if c.ElevenVoiceA == "" || c.ElevenVoiceB == "" {
+			errs = append(errs, "ELEVENLABS_VOICE_A and ELEVENLABS_VOICE_B are required for TTS_BACKEND=elevenlabs")
+		}
 	case "azure":
 		if c.AzureKey == "" || c.AzureRegion == "" {
 			errs = append(errs, "AZURE_SPEECH_KEY and AZURE_SPEECH_REGION are required for TTS_BACKEND=azure")
+		}
+		if c.AzureVoiceA == "" || c.AzureVoiceB == "" {
+			errs = append(errs, "AZURE_VOICE_A and AZURE_VOICE_B are required for TTS_BACKEND=azure")
 		}
 	default:
 		errs = append(errs, fmt.Sprintf("TTS_BACKEND %q: want elevenlabs|azure", c.TTSBackend))

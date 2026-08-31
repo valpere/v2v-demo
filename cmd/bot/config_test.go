@@ -66,8 +66,11 @@ func TestReadDotEnvMalformed(t *testing.T) {
 	}
 }
 
+// minValidEnv is the smallest .env that passes validate() on the dev defaults.
+const minValidEnv = "TELEGRAM_BOT_TOKEN=t\nELEVENLABS_API_KEY=k\nELEVENLABS_VOICE_A=va\nELEVENLABS_VOICE_B=vb\n"
+
 func TestLoadConfigDefaults(t *testing.T) {
-	chdirWithEnv(t, "TELEGRAM_BOT_TOKEN=t\nELEVENLABS_API_KEY=k\n")
+	chdirWithEnv(t, minValidEnv)
 	cfg, err := LoadConfig()
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
@@ -91,7 +94,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 }
 
 func TestLoadConfigEnvOverridesFile(t *testing.T) {
-	chdirWithEnv(t, "TELEGRAM_BOT_TOKEN=fromfile\nELEVENLABS_API_KEY=k\n")
+	chdirWithEnv(t, minValidEnv+"TELEGRAM_BOT_TOKEN=fromfile\n")
 	t.Setenv("TELEGRAM_BOT_TOKEN", "fromenv")
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -104,12 +107,14 @@ func TestLoadConfigEnvOverridesFile(t *testing.T) {
 
 func TestLoadConfigValidation(t *testing.T) {
 	cases := map[string]string{
-		"no telegram token":  "ELEVENLABS_API_KEY=k\n",
-		"no eleven key":      "TELEGRAM_BOT_TOKEN=t\n",
-		"bad tts backend":    "TELEGRAM_BOT_TOKEN=t\nTTS_BACKEND=festival\n",
-		"gemini without key": "TELEGRAM_BOT_TOKEN=t\nELEVENLABS_API_KEY=k\nDIALOG_BACKEND=gemini\n",
-		"openai stt no key":  "TELEGRAM_BOT_TOKEN=t\nELEVENLABS_API_KEY=k\nSTT_BACKEND=openai\n",
-		"azure no key":       "TELEGRAM_BOT_TOKEN=t\nTTS_BACKEND=azure\n",
+		"no telegram token":   "ELEVENLABS_API_KEY=k\nELEVENLABS_VOICE_A=a\nELEVENLABS_VOICE_B=b\n",
+		"no eleven key":       "TELEGRAM_BOT_TOKEN=t\nELEVENLABS_VOICE_A=a\nELEVENLABS_VOICE_B=b\n",
+		"no eleven voice ids": "TELEGRAM_BOT_TOKEN=t\nELEVENLABS_API_KEY=k\n",
+		"one eleven voice id": "TELEGRAM_BOT_TOKEN=t\nELEVENLABS_API_KEY=k\nELEVENLABS_VOICE_A=a\n",
+		"bad tts backend":     "TELEGRAM_BOT_TOKEN=t\nTTS_BACKEND=festival\n",
+		"gemini without key":  minValidEnv + "DIALOG_BACKEND=gemini\n",
+		"openai stt no key":   minValidEnv + "STT_BACKEND=openai\n",
+		"azure no key":        "TELEGRAM_BOT_TOKEN=t\nTTS_BACKEND=azure\n",
 	}
 	for name, dotenv := range cases {
 		t.Run(name, func(t *testing.T) {
