@@ -43,10 +43,11 @@ round and the I-10 recording are what's left).
 | Step 5 fixes (Val's live test `tmp/test-5_1`) | **done** — per-chat FIFO worker (message-order bug); `isSmallTalk` gate bypass (greetings/thanks no longer escalate); bare/unknown `/…` handled in cmd/bot; `WHISPER_LANG` default → `uk` + system.md "RU → reply uk" (STT was drifting uk→ru); `Session.LeadDone` (no duplicate lead). See `.agents/changes.md`. |
 | Step 6 — alternates | **done** — `dialog` openai + gemini generators (openai_compat.go shared), `stt` whisper-1, `tts` azure. Backend switch = `newGenerator/Transcriber/Synthesizer` + config `validate()`. Wire format live-verified via quota errors (gemini/whisper-1 real keys → 429, not 400); azure build+httptest only (no key). |
 | Step 7 — README + smoke doc | **done** — `README.md` refreshed, `.env.example` checked against `config.go`, `docs/smoke-test.md` written (the scripted manual run). |
-| Live smoke round | **done** (2026-08-31) — CDP-driven `web.telegram.org/a/` (`tmp/tgdrive/`, burner acct). Greeting, quote→lead_ready (clean LeadRecord), voice-out, gate/hardEscalate/small-talk, uk↔en switch, ru→uk, `/voice`. Fixed a real gate bug: normal Ukrainian was escalating (`isSlotAnswer` trailing-`?` too strict; `kbOverlap` missed inflection) → `contains "?"` + prefix/stem match (commit `055544f`). Voice-IN untested (web uploads `.ogg` as a file). |
-| Left | alternate backends once balances are funded (§8) · the I-10 client recording (§8) |
-| `make check` (gofmt + vet + `go test -race`) | clean |
-| minions-curator | wired — `.claude/settings.local.json` hooks + `.claude/skills/curate-minions/` (commit `89fbf80`); active next session |
+| Live smoke round | **done** (2026-08-31) — CDP-driven `web.telegram.org/a/` (`minions/tgdrive/`, burner acct). Greeting, quote→lead_ready (clean LeadRecord), voice-out, gate/hardEscalate/small-talk, uk↔en switch, ru→uk, `/voice`. Fixed a real gate bug: normal Ukrainian was escalating (`isSlotAnswer` trailing-`?` too strict; `kbOverlap` missed inflection) → `contains "?"` + prefix/stem match (commit `055544f`). Voice-IN untested (web uploads `.ogg` as a file). |
+| Post-build tidy (2026-09-01) | `validate()` now requires the TTS voice ids; `system.md` nudges post-lead brevity (no re-summary); `minions/tgdrive/` promoted from `tmp/` + `minions/TOOLS.md`. `docs/smoke-test.md` broadened to 18 sections via an external-agent council. |
+| Left | full `docs/smoke-test.md` sweep (only ~10 categories run live) · alternate backends once balances are funded (§8) · the I-10 client recording (§8) |
+| `make check` (gofmt + vet + `go test -race`) | clean, 121 tests |
+| minions-curator | wired (`.claude/settings.local.json` + `.claude/skills/curate-minions/`), active. First `scan` → 0 candidates (Go files not scanned; `turn.sh` too thin) — `tgdrive` promoted by hand. |
 | Deps | `github.com/go-telegram/bot` v1.24.0; `github.com/pemistahl/lingua-go` v1.4.0 (language detection — D-19; +~126 MB binary, accepted) |
 
 **Your task:** the build order and a live smoke round are done. What's left
