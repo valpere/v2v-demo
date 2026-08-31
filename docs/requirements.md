@@ -231,8 +231,8 @@ named constants are `@schema GateParams` in §1.
 
 15. [REQ-DLG-10] The **whole KB** goes into every system prompt — each section
     as `## Title` then body — with no retrieval or truncation (B1: the KB is
-    ~19 KB — an English block and a Ukrainian block under every heading —
-    well inside the model's context). The only score computed is
+    ~19 KB — an English block and a Ukrainian block under every heading
+    (D-18) — well inside the model's context). The only score computed is
     `kbOverlap` = the fraction of the user message's meaningful (stopword-
     filtered) terms that appear anywhere in the concatenated KB; it feeds the
     grounding gate and nothing else.
@@ -242,11 +242,11 @@ named constants are `@schema GateParams` in §1.
     whitespace-splits, and drops a fixed package-level stopword set (~40
     Ukrainian + English function words). An empty query after filtering yields
     `kbOverlap = 0`. Exact match, no stemming. The KB is bilingual (a
-    Ukrainian block under every heading), so a Ukrainian query has terms to
-    match against — the cross-language wall is gone; the remaining gap is
-    within-Ukrainian inflection ("криптовалютою" vs KB "криптовалюта"). If
-    that is missed in testing, add a stemmer (B1 fallback), do not
-    reintroduce per-section retrieval.
+    Ukrainian block under every heading — D-18), so a Ukrainian query has
+    terms to match against — the cross-language wall is gone; the remaining
+    gap is within-Ukrainian inflection ("криптовалютою" vs KB
+    "криптовалюта"). If that is missed in testing, add a stemmer (B1
+    fallback), do not reintroduce per-section retrieval.
     -> [LOG-DLG-11] dialog stopwords var (map[string]bool); rationale: function words inflate the overlap so the gate never fires (ragline's tsquery lesson)
 
 17. [REQ-DLG-12] A turn is a **slot answer** when the user message is at most
@@ -475,5 +475,5 @@ during build (premade Sarah/George — library/UA voices need Starter) then
 Starter + UA library voices before the client link, Azure the free fallback;
 fictional bureau "FromToBridge"; Ukrainian + English, no Russian; host local
 for now; **KB is bilingual** — English + Ukrainian block per section
-(2026-08-31, so `kbOverlap` scores a Ukrainian query and the grounding gate
-is not a cross-language false-escalate).
+(D-18, 2026-08-31: so `kbOverlap` scores a Ukrainian query and the grounding
+gate is not a cross-language false-escalate).

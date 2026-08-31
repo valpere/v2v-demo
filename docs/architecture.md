@@ -128,10 +128,10 @@ The model is prevented from waffling by four layers, cheapest first:
 
 1. **Bounded context.** The LLM never sees more than: `prompt/system.md`,
    the **whole KB** (~19 KB — an English block and a Ukrainian block under
-   every `## Title` — the bilingual text is what lets `kbOverlap` score a
-   Ukrainian query), the slot state, the last 20 Msg entries. It cannot
-   drift into territory it was never given — and with the KB small, there is
-   no retrieval to get wrong (B1).
+   every `## Title`; the bilingual text is what lets `kbOverlap` score a
+   Ukrainian query — D-18), the slot state, the last 20 Msg entries. It
+   cannot drift into territory it was never given — and with the KB small,
+   there is no retrieval to get wrong (B1).
 2. **Pre-LLM escalation.** `hardEscalate` (a keyword list for liability
    topics) and the grounding gate (`kbOverlap` below `gate_floor` on a
    non-slot-answer turn) both reply with the fixed handoff line and never call

@@ -44,9 +44,10 @@ Then message the bot on Telegram.
 
 ## Status
 
-In progress — build-order steps 1–3 done (config + KB + store; Telegram
+In progress — build-order steps 1–4 done (config + KB + store; Telegram
 long-poll; dialogue core on text messages — grounding gate, Ollama
-`gemma4:cloud`, JSONL turn/lead log). Voice in/out (STT, TTS) and the
-config-flag alternates are steps 4–7. Tracked in `.agents/plan.md`;
-`make help` for dev tasks. Not connected to Zoho, telephony, or any real RAG
-store; see the plan's "Out of scope".
+`gemma4:cloud`, JSONL turn/lead log; local `openai-whisper` STT for voice
+in). Voice out (ElevenLabs TTS + `/voice`) and the config-flag alternates
+are steps 5–7. Tracked in `.agents/plan.md`; `make help` for dev tasks. Not
+connected to Zoho, telephony, or any real RAG store; see the plan's "Out of
+scope".

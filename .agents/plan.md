@@ -272,7 +272,7 @@ inflected Ukrainian in testing, add a stemmer (B1 fallback — candidates:
 k-centre.uacorpus.org tools) and re-tune `GateFloor`; do not reintroduce
 per-section retrieval.
 
-**Bilingual KB (2026-08-31, step 3):** `kb/translation-bureau.md` was
+**Bilingual KB (D-18, 2026-08-31, step 3):** `kb/translation-bureau.md` was
 English-only, so `kbOverlap` scored every Ukrainian content question 0 and
 the gate false-escalated it pre-LLM. Fixed by making the KB bilingual — an
 English block then a Ukrainian block under each `## ` heading (headings
@@ -540,7 +540,7 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
     maintained alias.
   Build `ollama` first (step 3); `openai` + `gemini` in the alternates batch (step 6).
 - **KB in the prompt (B1):** the whole KB (~19 KB, bilingual — EN + UK block
-  per section) is in every system prompt. No retrieval-for-context.
+  per section, D-18) is in every system prompt. No retrieval-for-context.
   `kbOverlap` is a keyword-overlap score used **only** by the grounding gate. Design lineage: `ragline`'s `Decide` (retrieve →
   score → answer-or-escalate) collapsed to "score-for-gate only" because the
   KB is tiny (not a dependency — see `docs/architecture.md` §6). Fallback if
@@ -603,7 +603,8 @@ substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
 3. **[done]** `dialog`: `gate.go` (kbOverlap + hardEscalate + isSlotAnswer + gate) +
    `Generator` (`ollama` first) + trailer parse + slot merge; onto text messages.
    Also: KB made bilingual (see the Bilingual KB note above).
-4. `stt`: `local` impl (shell the openai-whisper CLI — the dev default) — voice in
+4. **[done]** `stt`: `local` impl (shell the openai-whisper CLI — the dev default) — voice in.
+   `cmd/bot`: recording-action ticker around STT + the dialogue turn.
 5. `tts`: `elevenlabs` impl — voice out; `/voice` command
 6. alternates batch: `openai` + `gemini` impls for `dialog.Generator`,
    `openai` (`whisper-1`) for `stt` — needed for the I-10 recording,

@@ -27,7 +27,7 @@ not need it to build.
 
 ## 2. Current status
 
-Snapshot: **2026-08-31** (build-order steps 1–3 done).
+Snapshot: **2026-08-31** (build-order steps 1–4 done).
 
 | | |
 |--|--|
@@ -36,12 +36,13 @@ Snapshot: **2026-08-31** (build-order steps 1–3 done).
 | Step 1 — config + `kb` + `store` | **done** (`f7f84f5`) |
 | Step 2 — `telegram` long-poll + echo | **done** (`b6324d1`) — verified live |
 | Step 3 — `dialog` core on text messages | **done** — gate + Ollama generator + trailer parse + slot merge + JSONL log; live gemma4:cloud smoke passed |
-| KB | now **bilingual** (EN + UK block per `## ` section, ~19 KB) — fixed the cross-language grounding gate; see §3 |
-| Steps 4–7 | STT (local whisper) · TTS (ElevenLabs) + `/voice` · alternates batch · README/smoke doc |
+| KB | now **bilingual** (EN + UK block per `## ` section, ~19 KB, D-18) — fixed the cross-language grounding gate; see §3 |
+| Step 4 — `stt` local (openai-whisper CLI) | **done** — voice → DownloadVoice → Transcribe → dialog.Handle; recording-action ticker; live `tiny` smoke on a real .ogg passed |
+| Steps 5–7 | TTS (ElevenLabs) + `/voice` · alternates batch · README/smoke doc |
 | `make check` (gofmt + vet + `go test -race`) | clean |
 | Deps | `github.com/go-telegram/bot` v1.24.0 (the one dependency) |
 
-**Your task:** continue `.agents/plan.md` "Build order" from step 4.
+**Your task:** continue `.agents/plan.md` "Build order" from step 5.
 After each step: `make check` (`make help` lists all targets). Build-time
 notes / deviations live in `.agents/changes.md` (gitignored).
 
@@ -50,7 +51,8 @@ notes / deviations live in `.agents/changes.md` (gitignored).
 ## 3. Decisions already settled — do NOT relitigate
 
 These are baked into `.agents/plan.md` and `docs/`. Fuller rationale in the
-engagement repo's `docs/10-decisions.md` (D-01…D-17) if you need the "why".
+engagement repo's `docs/10-decisions.md` (D-01…D-18) if you need the "why".
+D-18 = the bilingual KB (added at build step 3 — see §3 Grounding).
 
 - **Dialogue LLM:** default `ollama` `gemma4:cloud`. Backend order
   `ollama → openai (gpt-4o-mini) → gemini`. Gemini is **last resort** — its
@@ -76,7 +78,7 @@ engagement repo's `docs/10-decisions.md` (D-01…D-17) if you need the "why".
     Starter is activated for the client recording.
 - **Grounding (B1):** the **whole KB goes into every system prompt** (~19 KB,
   **bilingual** — an EN block and a UK block under each `## ` heading; this is
-  what lets `kbOverlap` score a Ukrainian query, resolved step 3 —
+  what lets `kbOverlap` score a Ukrainian query — D-18, resolved step 3, see
   `.agents/changes.md`). There is **no retrieval-for-context**. `kbOverlap` is
   a keyword score used *only* by the grounding gate (`< GateFloor` on a content
   question → escalate before the LLM). A Ukrainian stemmer is the documented
