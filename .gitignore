@@ -20,6 +20,9 @@
 .agents/test-report.md
 .agents/summary.md
 
+# Claude Code — per-user local overrides (settings.json IS tracked)
+.claude/settings.local.json
+
 # throwaway scratch (dev helpers live in minions/, which IS tracked)
 tmp/
 

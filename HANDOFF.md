@@ -168,8 +168,10 @@ for a given step. The plan is precise enough for either path.
 - Direct-to-main convention for this repo (it has a GitHub remote). Commit and
   push freely once a build-order step passes `build && vet && test -race`.
 - Tracked: source, `docs/`, `.agents/plan.md`, `minions/`, `AGENTS.md`,
-  `.env.example`, `HANDOFF.md`. Gitignored: `.env`, `tmp/`, `.engage/`,
-  `.agents/{changes,test-report,summary}.md`, `/bot`, `*.db`.
+  `.env.example`, `HANDOFF.md`, `.claude/settings.json` (bash allowlist for
+  the build loop — opencode/whisper/ffmpeg/mpv/gofmt). Gitignored: `.env`,
+  `tmp/`, `.engage/`, `.agents/{changes,test-report,summary}.md`, `/bot`,
+  `*.db`, `.claude/settings.local.json`.
 - End commit messages with:
   `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`
 
