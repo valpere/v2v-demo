@@ -60,7 +60,7 @@ One **standard page = 1800 characters including spaces**.
 
 ## Indicative pricing / Орієнтовні ціни (EUR, excl. VAT — a manager confirms the final figure)
 
-- General text, UA ⇄ EN / DE / PL: **12–16 per standard page**
+- General text (Ukrainian to or from English, German, or Polish): **12–16 per standard page**
 - Legal / technical / medical / financial: **18–24 per standard page**
 - Certified (bureau stamp + signature): **+5 per document**
 - Notarization: **+18 per document** (notary fee included)
@@ -77,7 +77,7 @@ and tells the client a manager will confirm the quote.
 
 Орієнтовні ціни (EUR, без ПДВ — фінальну суму підтверджує менеджер):
 
-- Загальний текст, UA ⇄ EN / DE / PL: **12–16 за стандартну сторінку**
+- Загальний текст (з української на англійську, німецьку чи польську та у зворотному напрямку): **12–16 за стандартну сторінку**
 - Юридичний / технічний / медичний / фінансовий: **18–24 за стандартну
   сторінку**
 - Засвідчення печаткою бюро + підпис: **+5 за документ**
@@ -199,8 +199,9 @@ promises a manager reply the next business morning.
 ## Common questions / Поширені запитання
 
 - **"How much does it cost?"** — the price depends on the language pair, the
-  subject area, the volume, and the deadline. General UA⇄EN/DE/PL text is
-  about 12–16 EUR per standard page; specialised text is 18–24. A manager
+  subject area, the volume, and the deadline. General text between Ukrainian
+  and English, German, or Polish is about 12–16 EUR per standard page;
+  specialised text is 18–24. A manager
   gives the exact figure after seeing the document.
 - **"What is a page?"** — 1800 characters including spaces. A one-page
   certificate is usually one standard page; a contract can be several.
@@ -225,8 +226,9 @@ promises a manager reply the next business morning.
 Поширені запитання:
 
 - **«Скільки це коштує?»** — ціна залежить від мовної пари, тематики, обсягу
-  та терміну. Загальний текст UA⇄EN/DE/PL — приблизно 12–16 EUR за стандартну
-  сторінку; спеціалізований — 18–24. Точну цифру менеджер називає після
+  та терміну. Загальний текст між українською та англійською, німецькою чи
+  польською — приблизно 12–16 EUR за стандартну сторінку; спеціалізований —
+  18–24. Точну цифру менеджер називає після
   перегляду документа.
 - **«Що таке сторінка?»** — 1800 знаків із пробілами. Односторінкове свідоцтво
   зазвичай одна стандартна сторінка; договір — кілька.

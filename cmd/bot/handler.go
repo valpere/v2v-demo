@@ -11,6 +11,7 @@ import (
 	"github.com/valpere/v2v-demo/internal/dialog"
 	"github.com/valpere/v2v-demo/internal/store"
 	"github.com/valpere/v2v-demo/internal/telegram"
+	"github.com/valpere/v2v-demo/internal/tts"
 )
 
 // RecordingTick is how often the "recording voice" chat action is re-sent
@@ -110,7 +111,7 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	start := time.Now()
 	stop := a.startRecordingTicker(ctx, u.ChatID)
 	reply, _ := dialog.Handle(ctx, sess, a.kb, a.gen, a.sys, text) // never returns a non-nil error
-	ogg, terr := a.tts.Speak(ctx, reply.Text, voiceID(a.cfg, sess.Voice), sess.Lang)
+	ogg, terr := a.tts.Speak(ctx, tts.Spoken(reply.Text, sess.Lang), voiceID(a.cfg, sess.Voice), sess.Lang)
 	stop()
 
 	if terr != nil {

@@ -23,8 +23,10 @@ file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
    is spelled out there. LLM dev default `ollama` (`gemma4:cloud`);
    `DIALOG_BACKEND` switches to `openai` (the client artefact — D-20) /
    `gemini` (D-13).
-4. `Reply.Text` → `tts.Speak` (session voice) → OGG/Opus (default ElevenLabs
-   `eleven_multilingual_v2`; `TTS_BACKEND=azure` — D-15).
+4. `Reply.Text` → `tts.Spoken` (strips markdown / arrows / currency codes the
+   voice would spell out — the text message keeps the original) → `tts.Speak`
+   (session voice) → OGG/Opus (default ElevenLabs `eleven_multilingual_v2`;
+   `TTS_BACKEND=azure` — D-15).
 5. Telegram: `SendVoice` (no caption) then one `SendText(Reply.Text)`.
 6. `store.AppendTurn` always; `store.AppendLead` iff `Reply.Signal ==
    lead_ready`.
@@ -632,6 +634,11 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
   10-min token. Same `Speak(ctx, text, voiceID, lang) ([]byte, error)`.
   Build ElevenLabs first (that's the demo path); Azure with the openai
   rollback batch (step 6).
+  `tts.Spoken(text, lang) string` runs on the reply before `Speak` (not
+  before `SendText`): drops markdown emphasis / list & heading markers,
+  rewrites arrow shorthand (`UA ⇄ EN`, `uk→en`) to a dash, and turns currency
+  codes/symbols (`EUR`, `€`, `USD`, `$`) into the spoken word in the reply
+  language. Backstop for `prompt/system.md`'s "write for the ear" rule.
 - **Voices:** `VOICE_A` / `VOICE_B` per backend
   (`ELEVENLABS_VOICE_A`/`_B`, `AZURE_VOICE_A`/`_B`); `/voice b` swaps for that
   chat only. ElevenLabs Free during build → Starter before the client link.

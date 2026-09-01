@@ -97,7 +97,9 @@ All HTTP is stdlib.
       session marked escalated. No `continue`->`lead_ready` upgrade — the model
       owns `lead_ready` and only emits it after the read-back summary.
       `lead_ready` → the caller appends a lead record (Zoho-field shape).
-3. `tts` the final reply with the session's current voice → OGG.
+3. `tts.Spoken` normalises the reply for the ear (drops markdown, arrow
+   shorthand, currency codes), then `tts` synthesises it with the session's
+   current voice → OGG. The text message sent alongside keeps the original.
 4. Telegram: send the voice note, and the text as a normal message (so the
    client can read what was said).
 5. `store` appends the turn record: transcript, reply, signal, matched
