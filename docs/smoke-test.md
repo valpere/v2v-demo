@@ -16,7 +16,9 @@ Those sections repeat the channel under their heading; every other section
 is text.
 
 `[R]` = a regression case for a bug already found and fixed. Those must keep
-passing.
+passing. `§N` (and `§Na`) points at the numbered section (subsection) below
+— e.g. `§13` is "13. Voice", `§2a` is the first scenario under "2. Quote
+flow".
 
 ## Setup
 
@@ -178,7 +180,7 @@ recipient answer with each of these (fresh conversation each time is fine):
 
 ## 3. `lead_ready` discipline
 
-**3a — summary before `lead_ready`.** Do a full 2a-style quote. Watch the
+**3a — summary before `lead_ready`.** Do a full §2a-style quote. Watch the
 turn that supplies the sixth value:
 
 - **Expect:** that turn **reads all six back** and only then emits
