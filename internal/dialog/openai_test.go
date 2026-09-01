@@ -83,6 +83,114 @@ func TestOpenAICompatErrors(t *testing.T) {
 	})
 }
 
+func TestOpenAICompatRetry(t *testing.T) {
+	old := chatRetryBackoff
+	chatRetryBackoff = time.Millisecond
+	t.Cleanup(func() { chatRetryBackoff = old })
+
+	ok := `{"choices":[{"message":{"content":"ok"}}]}`
+
+	t.Run("retries once past a 500", func(t *testing.T) {
+		var n int
+		g := oaiStub(t, func(w http.ResponseWriter, r *http.Request) {
+			n++
+			if n == 1 {
+				w.WriteHeader(http.StatusBadGateway)
+				return
+			}
+			w.Write([]byte(ok))
+		})
+		out, err := g.Generate(context.Background(), "s", nil)
+		if err != nil || out != "ok" {
+			t.Fatalf("out=%q err=%v", out, err)
+		}
+		if n != 2 {
+			t.Fatalf("requests = %d, want 2", n)
+		}
+	})
+
+	t.Run("retries once past a 429", func(t *testing.T) {
+		var n int
+		g := oaiStub(t, func(w http.ResponseWriter, r *http.Request) {
+			n++
+			if n == 1 {
+				w.WriteHeader(http.StatusTooManyRequests)
+				return
+			}
+			w.Write([]byte(ok))
+		})
+		if _, err := g.Generate(context.Background(), "s", nil); err != nil {
+			t.Fatal(err)
+		}
+		if n != 2 {
+			t.Fatalf("requests = %d, want 2", n)
+		}
+	})
+
+	t.Run("gives up after two transient failures", func(t *testing.T) {
+		var n int
+		g := oaiStub(t, func(w http.ResponseWriter, r *http.Request) {
+			n++
+			w.WriteHeader(http.StatusServiceUnavailable)
+		})
+		if _, err := g.Generate(context.Background(), "s", nil); err == nil {
+			t.Fatal("want error")
+		}
+		if n != 2 {
+			t.Fatalf("requests = %d, want 2 (one retry)", n)
+		}
+	})
+
+	t.Run("does not retry a 400", func(t *testing.T) {
+		var n int
+		g := oaiStub(t, func(w http.ResponseWriter, r *http.Request) {
+			n++
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"error":{"message":"bad model"}}`))
+		})
+		if _, err := g.Generate(context.Background(), "s", nil); err == nil {
+			t.Fatal("want error")
+		}
+		if n != 1 {
+			t.Fatalf("requests = %d, want 1 (no retry on 4xx)", n)
+		}
+	})
+
+	t.Run("does not retry empty choices", func(t *testing.T) {
+		var n int
+		g := oaiStub(t, func(w http.ResponseWriter, r *http.Request) {
+			n++
+			w.Write([]byte(`{"choices":[]}`))
+		})
+		if _, err := g.Generate(context.Background(), "s", nil); err == nil {
+			t.Fatal("want error")
+		}
+		if n != 1 {
+			t.Fatalf("requests = %d, want 1", n)
+		}
+	})
+
+	t.Run("aborts the backoff on a cancelled context", func(t *testing.T) {
+		chatRetryBackoff = time.Hour // only a ctx cancel can end the wait
+		t.Cleanup(func() { chatRetryBackoff = time.Millisecond })
+		g := oaiStub(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadGateway)
+		})
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+		defer cancel()
+		done := make(chan error, 1)
+		go func() { _, err := g.Generate(ctx, "s", nil); done <- err }()
+		select {
+		case err := <-done:
+			if err == nil || !strings.Contains(err.Error(), "context") {
+				t.Fatalf("want a context error, got %v", err)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatal("Generate did not abort the backoff on ctx cancel")
+		}
+	})
+}
+
 func TestNewOllamaOpenAIDefaults(t *testing.T) {
 	if g := NewOllama("http://x/", "").(*openAICompatGen); g.model != "gemma4:cloud" || g.apiKey != "" || g.baseURL != "http://x" {
 		t.Fatalf("ollama: %+v", g)
