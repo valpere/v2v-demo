@@ -108,7 +108,10 @@ Restart the bot between scenarios.
    - **Expect:** acknowledges; asks for **one or two** of the missing things
      (volume / deadline / recipient / delivery), **not all at once**.
 2. `Диплом і додаток, десь 3 сторінки`
-   - **Expect:** volume noted; asks for what's still missing.
+   - **Expect:** volume noted. Turn 1 asked for volume **and** deadline and
+     you answered only volume — the reply must **ask for the deadline again**
+     (not silently move on to recipient/delivery and leave `deadline` null).
+     `[R]` (skipped-question gap)
 3. `За тиждень`
    - **Expect:** deadline noted. `[R]` (short answer after a question that
      had a trailing explanatory sentence)
