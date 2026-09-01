@@ -17,7 +17,9 @@ build: ## compile the bot to ./bot
 
 .PHONY: run
 run: build ## run the bot (long-poll; needs .env)
-	@./$(BIN)   # exec the binary, not `go run` — Ctrl-C then exits 0, no "make: *** Error 1"
+	@./$(BIN) & pid=$$!; trap 'kill -INT $$pid 2>/dev/null; wait $$pid; exit 0' INT TERM; wait $$pid
+	# runs the binary (not `go run`) and swallows the Ctrl-C: the bot catches
+	# SIGINT, shuts down, and this recipe exits 0 — no "Error 1" / "Interrupt"
 
 .PHONY: install
 install: ## go install the bot into GOBIN
