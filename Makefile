@@ -16,8 +16,8 @@ build: ## compile the bot to ./bot
 	$(GO) build -o $(BIN) ./cmd/bot
 
 .PHONY: run
-run: ## run the bot (long-poll; needs .env)
-	$(GO) run ./cmd/bot
+run: build ## run the bot (long-poll; needs .env)
+	@./$(BIN)   # exec the binary, not `go run` — Ctrl-C then exits 0, no "make: *** Error 1"
 
 .PHONY: install
 install: ## go install the bot into GOBIN
