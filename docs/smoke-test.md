@@ -18,11 +18,11 @@ passing.
 make run            # starts the bot (Ctrl-C to stop)
 ```
 
-- There is **one chat**: you ↔ `@v2v_demo_bot`. A "fresh conversation" or
-  "restart between scenarios" means **stop the bot (Ctrl-C) and `make run`
-  again** — that clears the in-memory session (slots, history) and re-arms
-  the greeting. Nothing else resets it; the greeting is sent once per
-  chat per bot process.
+- There is **one chat**: you ↔ `@v2v_demo_bot`. "Restart the bot", "a fresh
+  conversation", or "restart between scenarios" all mean **stop the bot
+  (Ctrl-C) and `make run` again** — that clears the in-memory session
+  (slots, history) and re-arms the greeting. Nothing else resets it; the
+  greeting is sent once per chat per bot process.
 - The **first voice message ever** downloads the Whisper model (~1.5 GB) —
   that one turn takes minutes. After that, ≈ 12 s STT + ~40 s LLM per voice
   turn on the dev backends (the client config is much faster — see below).
