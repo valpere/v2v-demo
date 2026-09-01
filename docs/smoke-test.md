@@ -11,14 +11,15 @@ ground, to make a gross error unlikely to survive into the client demo.
 font` as a typed / pasted text message, verbatim.** Text is the default for
 the whole doc: it's faster, and it can be scripted with `minions/tgdrive/`.
 Only these need a real **voice message** (the microphone, not typing):
-§1d, §12's last two rows, all of §13, and the rows in §16 that say "voice".
+scenario 1d, the last two rows of section 12, all of section 13, and the
+rows in section 16 that say "voice".
 Those sections repeat the channel under their heading; every other section
 is text.
 
 `[R]` = a regression case for a bug already found and fixed. Those must keep
-passing. `§N` (and `§Na`) points at the numbered section (subsection) below
-— e.g. `§13` is "13. Voice", `§2a` is the first scenario under "2. Quote
-flow".
+passing. Cross-references use the section number, e.g. "section 13" is the
+one headed **13. Voice**; "scenario 2a" is the first block under **2. Quote
+flow**.
 
 ## Setup
 
@@ -43,7 +44,7 @@ make run            # starts the bot (Ctrl-C to stop)
 - Text turns can be scripted with `minions/tgdrive/` (drives an open,
   logged-in `web.telegram.org/a/` tab) — see `minions/TOOLS.md`.
 - **Before the client demo**, copy `.env.client` over `.env` and re-run
-  §2, §6, §7, §13 (§13 = voice — the thing the client judges). `.env.client`
+  sections 2, 6, 7, 13 (section 13 = voice — the thing the client judges). `.env.client`
   flips **three** backends together: `STT_BACKEND=openai` (whisper-1),
   `DIALOG_BACKEND=openai` `gpt-4o-mini` (D-20 — the Ollama free tier runs
   13–86 s/turn; gpt-4o-mini is ~2–5 s), and the ElevenLabs **Starter** UA
@@ -104,8 +105,8 @@ make run            # starts the bot (Ctrl-C to stop)
 
 ## 2. Quote flow — happy paths
 
-*Channel: **text** — type these (they can be scripted). §13 covers the
-voice path; §13 step 1 re-runs this whole quote flow spoken.*
+*Channel: **text** — type these (they can be scripted). Section 13 covers
+the voice path; its step 1 re-runs this whole quote flow spoken.*
 
 Restart the bot between scenarios.
 
@@ -180,7 +181,8 @@ recipient answer with each of these (fresh conversation each time is fine):
 
 ## 3. `lead_ready` discipline
 
-**3a — summary before `lead_ready`.** Do a full §2a-style quote. Watch the
+**3a — summary before `lead_ready`.** Do a full quote flow like scenario
+2a. Watch the
 turn that supplies the sixth value:
 
 - **Expect:** that turn **reads all six back** and only then emits
@@ -400,9 +402,9 @@ Restart between these.
 
 Do this on `.env.client` before the demo.
 
-1. **Run the whole §2a quote flow (all six turns to `lead_ready`) by
-   voice** — every turn a Ukrainian voice message, e.g. start with "Треба
-   перекласти диплом з української на німецьку".
+1. **Run the whole quote flow from scenario 2a (all six turns to
+   `lead_ready`) by voice** — every turn a Ukrainian voice message, e.g.
+   start with "Треба перекласти диплом з української на німецьку".
    - **Expect:** the "recording voice" status shows the whole time; every
      reply is a **voice note and** the same text (the text is **not** a
      caption on the voice note); the conversation reaches the same clean
@@ -489,7 +491,7 @@ this is a visible miss.
 | any normal dialogue turn | one `TurnRecord` in `turns.jsonl` with `time`, `signal`, `matched`, `slots`, `latency_ms` |
 | a `lead_ready` turn | a `TurnRecord` **and** one `LeadRecord` in `leads.jsonl` |
 | a `/voice …` turn or an sttFail | **no** `TurnRecord` |
-| a pre-LLM escalate (§7, §8) | `"matched": null` |
+| a pre-LLM escalate (sections 7, 8) | `"matched": null` |
 | a normal grounded answer | `matched` lists the KB sections used |
 | bot asks "Хто одержувач?", you answer `Для мого дядька в Торонто` | processed as a slot answer (short, follows a question) — **not** escalated even though it has no KB overlap `[R]` |
 | hold one conversation past **20 turns** with short answers | no error when the history trims; the final read-back still has all six values right (slot state is kept separately from history) |
@@ -504,7 +506,7 @@ this is a visible miss.
   thing the client judges (NFR-1).
 - The assistant asks only for what it doesn't know, **never quotes a final
   total**, reads all six values back before `lead_ready`, and hands off
-  cleanly on every §6b / §7 / §8 case.
+  cleanly on every section 6b / 7 / 8 case.
 - **No fabrication** — not a page count, a deadline, an address, a phone, a
   price, or a policy the client or the KB didn't provide.
 - **Language** never drifts to Russian; mid-conversation switches are
