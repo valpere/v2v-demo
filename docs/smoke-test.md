@@ -34,6 +34,10 @@ make run            # starts the bot (Ctrl-C to stop)
   turn on the dev backends (the client config is much faster — see below).
 - Keep a log tail open in another terminal:
   `tail -f data/turns.jsonl | jq .`   and   `cat data/leads.jsonl | jq .`
+- **Watch the bot's own console too.** A reply that arrives as **text only**
+  (no voice note) means TTS failed — `tts (chat …): …` on stderr says why
+  (transient → it already retried once; 4xx → bad key / quota / voice id).
+  Same for `dialog: generator error …` / `dialog: no valid trailer …`.
 - Text turns can be scripted with `minions/tgdrive/` (drives an open,
   logged-in `web.telegram.org/a/` tab) — see `minions/TOOLS.md`.
 - **Before the client demo**, copy `.env.client` over `.env` and re-run

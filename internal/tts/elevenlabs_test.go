@@ -15,6 +15,8 @@ func testEleven(srv *httptest.Server) *elevenLabs {
 	return &elevenLabs{apiKey: "k-test", baseURL: srv.URL, hc: &http.Client{Timeout: 5 * time.Second}}
 }
 
+func init() { speakRetryBackoff = time.Millisecond } // keep retry tests fast
+
 func TestElevenLabsSpeak(t *testing.T) {
 	var gotPath, gotQuery, gotKey, gotAccept string
 	var gotBody elevenRequest
@@ -78,6 +80,60 @@ func TestElevenLabsErrors(t *testing.T) {
 		_, err := testEleven(srv).Speak(context.Background(), "hi", "v", "en")
 		if err == nil || !strings.Contains(err.Error(), "empty audio") {
 			t.Fatalf("err = %v", err)
+		}
+	})
+}
+
+func TestElevenLabsRetry(t *testing.T) {
+	t.Run("retries past a 500", func(t *testing.T) {
+		var n int
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if n++; n == 1 {
+				w.WriteHeader(http.StatusBadGateway)
+				return
+			}
+			w.Write([]byte("OggS\x00ok"))
+		}))
+		defer srv.Close()
+		audio, err := testEleven(srv).Speak(context.Background(), "hi", "v", "uk")
+		if err != nil || !strings.HasPrefix(string(audio), "OggS") {
+			t.Fatalf("audio=%q err=%v", audio, err)
+		}
+		if n != 2 {
+			t.Fatalf("calls = %d, want 2", n)
+		}
+	})
+
+	t.Run("no retry on 4xx", func(t *testing.T) {
+		var n int
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			n++
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"detail":"quota exceeded"}`))
+		}))
+		defer srv.Close()
+		_, err := testEleven(srv).Speak(context.Background(), "hi", "v", "uk")
+		if err == nil || !strings.Contains(err.Error(), "quota exceeded") {
+			t.Fatalf("err = %v", err)
+		}
+		if n != 1 {
+			t.Fatalf("calls = %d, want 1 (4xx must not retry)", n)
+		}
+	})
+
+	t.Run("gives up after two transient failures", func(t *testing.T) {
+		var n int
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			n++
+			w.WriteHeader(http.StatusTooManyRequests)
+		}))
+		defer srv.Close()
+		_, err := testEleven(srv).Speak(context.Background(), "hi", "v", "uk")
+		if err == nil {
+			t.Fatal("want error after two 429s")
+		}
+		if n != 2 {
+			t.Fatalf("calls = %d, want 2", n)
 		}
 	})
 }

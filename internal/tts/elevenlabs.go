@@ -16,6 +16,12 @@ const (
 	elevenFormat = "opus_48000_128" // Ogg-encapsulated Opus — Telegram sendVoice ready
 )
 
+// speakRetryBackoff is the wait before the single retry. A var so tests can
+// shrink it. Mirrors internal/dialog/openai_compat.go — voice is the client's
+// headline criterion (NFR-1), so a one-off ElevenLabs blip should not silently
+// drop the whole turn to text.
+var speakRetryBackoff = 1500 * time.Millisecond
+
 type elevenLabs struct {
 	apiKey  string
 	baseURL string
@@ -48,11 +54,37 @@ func (e *elevenLabs) Speak(ctx context.Context, text, voiceID, _ string) ([]byte
 		return nil, fmt.Errorf("tts: elevenlabs: marshal: %w", err)
 	}
 
+	// One retry on a transient failure (transport error with a live context,
+	// 5xx, or 429). A 4xx (bad key, quota, bad voice) is not retried.
+	var lastErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("tts: elevenlabs: %w", ctx.Err())
+			case <-time.After(speakRetryBackoff):
+			}
+		}
+		data, transient, err := e.attempt(ctx, voiceID, body)
+		if err == nil {
+			return data, nil
+		}
+		lastErr = err
+		if !transient {
+			return nil, err
+		}
+	}
+	return nil, lastErr
+}
+
+// attempt makes one HTTP call. transient=true means the error may clear on a
+// retry.
+func (e *elevenLabs) attempt(ctx context.Context, voiceID string, body []byte) (data []byte, transient bool, err error) {
 	endpoint := fmt.Sprintf("%s/v1/text-to-speech/%s?output_format=%s",
 		e.baseURL, url.PathEscape(voiceID), elevenFormat)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("tts: elevenlabs: request: %w", err)
+		return nil, false, fmt.Errorf("tts: elevenlabs: request: %w", err)
 	}
 	req.Header.Set("xi-api-key", e.apiKey)
 	req.Header.Set("Content-Type", "application/json")
@@ -60,16 +92,17 @@ func (e *elevenLabs) Speak(ctx context.Context, text, voiceID, _ string) ([]byte
 
 	resp, err := e.hc.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("tts: elevenlabs: %w", err)
+		return nil, ctx.Err() == nil, fmt.Errorf("tts: elevenlabs: %w", err)
 	}
 	defer resp.Body.Close()
-	data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("tts: elevenlabs: %s: %s", resp.Status, tail(string(data), 400))
+		transient := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500
+		return nil, transient, fmt.Errorf("tts: elevenlabs: %s: %s", resp.Status, tail(string(raw), 400))
 	}
-	if len(data) == 0 {
-		return nil, fmt.Errorf("tts: elevenlabs: empty audio")
+	if len(raw) == 0 {
+		return nil, true, fmt.Errorf("tts: elevenlabs: empty audio")
 	}
-	return data, nil
+	return raw, false, nil
 }
