@@ -44,9 +44,10 @@ round and the I-10 recording are what's left).
 | Step 6 — alternates | **done** — `dialog` openai + gemini generators (openai_compat.go shared), `stt` whisper-1, `tts` azure. Backend switch = `newGenerator/Transcriber/Synthesizer` + config `validate()`. Wire format live-verified via quota errors (gemini/whisper-1 real keys → 429, not 400); azure build+httptest only (no key). |
 | Step 7 — README + smoke doc | **done** — `README.md` refreshed, `.env.example` checked against `config.go`, `docs/smoke-test.md` written (the scripted manual run). |
 | Live smoke round | **done** (2026-08-31) — CDP-driven `web.telegram.org/a/` (`minions/tgdrive/`, burner acct). Greeting, quote→lead_ready (clean LeadRecord), voice-out, gate/hardEscalate/small-talk, uk↔en switch, ru→uk, `/voice`. Fixed a real gate bug: normal Ukrainian was escalating (`isSlotAnswer` trailing-`?` too strict; `kbOverlap` missed inflection) → `contains "?"` + prefix/stem match (commit `055544f`). Voice-IN untested (web uploads `.ogg` as a file). |
-| Post-build tidy (2026-09-01) | `validate()` now requires the TTS voice ids; `system.md` nudges post-lead brevity (no re-summary); `minions/tgdrive/` promoted from `tmp/` + `minions/TOOLS.md`. `docs/smoke-test.md` broadened to 18 sections via an external-agent council. |
-| Left | full `docs/smoke-test.md` sweep (only ~10 categories run live) · alternate backends once balances are funded (§8) · the I-10 client recording (§8) |
-| `make check` (gofmt + vet + `go test -race`) | clean, 121 tests |
+| Post-build tidy (2026-09-01) | `validate()` requires the TTS voice ids; `system.md` nudges post-lead brevity; `minions/tgdrive/` promoted + `minions/TOOLS.md`; `docs/smoke-test.md` broadened to 18 sections (external-agent council). |
+| Demo-readiness review (2026-09-01) | **D-20** — dialogue LLM dual-mode: dev `gemma4:cloud`, client artefact `gpt-4o-mini` (Ollama free tier is 13–86 s/turn). New **`.env.client`** (3 backend flips together). `openai_compat.go` retries once on a transient. |
+| Left | full `docs/smoke-test.md` sweep on `.env.client` (only ~10 categories run, all on dev backends) · prepay OpenAI + ElevenLabs Starter · the I-10 recording (§8) |
+| `make check` (gofmt + vet + `go test -race`) | clean, 128 tests |
 | minions-curator | wired (`.claude/settings.local.json` + `.claude/skills/curate-minions/`), active. First `scan` → 0 candidates (Go files not scanned; `turn.sh` too thin) — `tgdrive` promoted by hand. |
 | Deps | `github.com/go-telegram/bot` v1.24.0; `github.com/pemistahl/lingua-go` v1.4.0 (language detection — D-19; +~126 MB binary, accepted) |
 
@@ -201,11 +202,12 @@ for a given step. The plan is precise enough for either path.
 - Direct-to-main convention for this repo (it has a GitHub remote). Commit and
   push freely once a build-order step passes `build && vet && test -race`.
 - Tracked: source, `Makefile`, `docs/`, `.agents/plan.md`, `minions/`,
-  `AGENTS.md`, `.env.example`, `HANDOFF.md`, `.claude/settings.json` (bash
-  allowlist for the build loop) + `.claude/hooks/` + `.claude/skills/`
-  (session-end / session-recall). Gitignored: `.env`,
-  `tmp/`, `.engage/`, `.agents/{changes,test-report,summary}.md`, `/bot`,
-  `*.db`, `.claude/settings.local.json`.
+  `AGENTS.md`, `.env.example`, **`.env.client`** (a template — no real keys),
+  `HANDOFF.md`, `.claude/settings.json` (bash allowlist for the build loop) +
+  `.claude/hooks/` + `.claude/skills/` (session-end / session-recall /
+  curate-minions). Gitignored: `.env` + `*.env`, `tmp/`, `.engage/`,
+  `.agents/{changes,test-report,summary}.md`, `/bot`, `*.db`,
+  `.claude/settings.local.json`.
 - End commit messages with:
   `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`
 
@@ -218,11 +220,15 @@ for a given step. The plan is precise enough for either path.
   2026-08-31). Steady-state ~12 s/short turn — most of it is Python startup
   + model load, which the CLI shell-out repeats every turn; a warm STT
   server would kill that but is out of scope (plan shells the CLI).
-- **I-10 client sample recording** (later): flip `STT_BACKEND=openai`
-  (+ prepay OpenAI $5), upgrade ElevenLabs to Starter, swap in the UA voice
-  IDs, record a 2–3 min conversation, attach to the client thread.
-- **Before the client demo:** fund the AI Studio project and re-enable
-  `GEMINI_API_KEY` (commented out in `.env` + `~/.bashrc:150` — the `.env`
-  key 429s, no credits). Development runs on `ollama` `gemma4:cloud`; the
-  `gemini` generator is built and wire-verified, just not fundable-yet.
+- **I-10 client sample recording** (later): copy in **`.env.client`** — it
+  flips three backends together: `STT_BACKEND=openai` (whisper-1),
+  `DIALOG_BACKEND=openai` `gpt-4o-mini` (**D-20** — `gemma4:cloud` on the
+  Ollama free tier is 13–86 s/turn), and the ElevenLabs **Starter** UA
+  library voices. Needs a prepaid OpenAI key ($5, covers both) + ElevenLabs
+  Starter ($6). Then run `docs/smoke-test.md` §2/§6/§7/§13 on that config,
+  record 2–3 min, attach to the client thread.
+- **Gemini** (only if that backend is wanted for the demo): fund the AI
+  Studio project ($25) and re-enable `GEMINI_API_KEY` (`.env` + `~/.bashrc`).
+  The `gemini` generator is built + wire-verified; the client path uses
+  `openai`, not `gemini`, so this is optional.
 - Host stays local (D-08) until the client gets an unattended link.

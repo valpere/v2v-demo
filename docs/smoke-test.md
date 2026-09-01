@@ -22,11 +22,13 @@ make run            # go run ./cmd/bot
 - Watch the logs: `tail -f data/turns.jsonl | jq .` and `data/leads.jsonl`.
 - Text turns can be driven from `tmp/tgdrive/` (a CDP driver for an open,
   logged-in `web.telegram.org/a/` tab).
-- **Before the client demo**, re-run §2, §6, §7, §11 with
-  `STT_BACKEND=openai` + the ElevenLabs **Starter** UA library voice IDs —
-  the dev defaults (local Whisper, premade voices) are *not* what the client
-  hears, and a 401/402 "voice not available on this plan" would only show up
-  here.
+- **Before the client demo**, copy `.env.client` in and re-run §2, §6, §7,
+  §13 (§13 = voice, the thing the client judges). That flips **three**
+  backends together — `STT_BACKEND=openai` (whisper-1), `DIALOG_BACKEND=openai`
+  `gpt-4o-mini` (D-20 — the Ollama free tier is 13–86 s/turn; gpt-4o-mini is
+  ~2–5 s), and the ElevenLabs **Starter** UA library voice IDs. None of that
+  stack has been through the bot end-to-end; a 401/402 "not on this plan" or
+  a slow/queued turn would only show up here.
 
 ---
 

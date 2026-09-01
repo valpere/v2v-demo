@@ -20,8 +20,9 @@ file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
    `dialog.Handle(ctx, sess, kb, gen, systemPrompt, transcript)`.
 3. `dialog.Handle` runs the sequence in **§"Behavioural spec (pseudocode)"**
    below — that section is authoritative; every step, constant, and edge case
-   is spelled out there. LLM default `ollama` (`gemma4:cloud`);
-   `DIALOG_BACKEND` switches to `openai` / `gemini` (D-13).
+   is spelled out there. LLM dev default `ollama` (`gemma4:cloud`);
+   `DIALOG_BACKEND` switches to `openai` (the client artefact — D-20) /
+   `gemini` (D-13).
 4. `Reply.Text` → `tts.Speak` (session voice) → OGG/Opus (default ElevenLabs
    `eleven_multilingual_v2`; `TTS_BACKEND=azure` — D-15).
 5. Telegram: `SendVoice` (no caption) then one `SendText(Reply.Text)`.
@@ -577,14 +578,18 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
   deferred to that step). Both impls
   satisfy `Transcribe(ctx, oggPath, langHint) (string, error)`; a failure does
   **not** auto-switch backends — only the `STT_BACKEND` env does.
-- **Dialogue Generator (D-13):** `Generate(ctx, systemPrompt, msgs) (string, error)`,
-  three impls, `DIALOG_BACKEND` picks:
-  - `ollama` (default) → `POST $OLLAMA_BASE_URL/v1/chat/completions` (OpenAI-compatible),
-    `DIALOG_MODEL` default `gemma4:cloud`. Request `"think": false` if supported.
-    Needs `ollama` logged in to a Pro/Max account. Verified on a UA dialogue
-    test (~5 s, fluent Ukrainian, correct grounding, valid JSON trailer).
-  - `openai` → `api.openai.com`, `DIALOG_MODEL` default `gpt-4o-mini`. First
-    alternate; shares the OpenAI key with the I-10 `whisper-1` STT flip.
+- **Dialogue Generator (D-13; dual-mode per D-20):** `Generate(ctx, systemPrompt, msgs) (string, error)`,
+  three impls, `DIALOG_BACKEND` picks. `ollama` + `openai` share
+  `openai_compat.go` — one retry on a transient (transport error / 5xx / 429).
+  - `ollama` (**dev default**) → `POST $OLLAMA_BASE_URL/v1/chat/completions` (OpenAI-compatible),
+    `DIALOG_MODEL` default `gemma4:cloud`. Needs `ollama` logged in to a
+    Pro/Max account. Free, good Ukrainian — but the cloud free tier's shared
+    queue runs **13–86 s/turn** (D-20), fine while building, too slow for a
+    live client demo.
+  - `openai` → `api.openai.com`, `DIALOG_MODEL` default `gpt-4o-mini`. The
+    **client-facing artefact** (I-10, D-20): dedicated infra, ~2–5 s/turn,
+    ~$0.01 per 10-turn conversation, shares the OpenAI key with the
+    `whisper-1` STT flip. See `.env.client`.
   - `gemini` (last resort) → native `POST generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`,
     header `x-goog-api-key: $GEMINI_API_KEY`, body `{systemInstruction, contents,
     generationConfig:{temperature}}`, `DIALOG_MODEL` default `gemini-flash-latest`.

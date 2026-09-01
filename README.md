@@ -42,19 +42,20 @@ Dev path needs:
 
 ## Backends (config only, no code change)
 
-| Concern | Env | Default | Alternate |
+| Concern | Env | Dev default | Client artefact / alternate |
 |--|--|--|--|
-| Dialogue LLM | `DIALOG_BACKEND` | `ollama` (`gemma4:cloud`) | `openai` (`gpt-4o-mini`), `gemini` (`gemini-flash-latest`) |
+| Dialogue LLM | `DIALOG_BACKEND` | `ollama` (`gemma4:cloud`) | `openai` (`gpt-4o-mini`) — D-20, for latency; `gemini` (`gemini-flash-latest`, last resort) |
 | STT | `STT_BACKEND` | `local` (whisper CLI) | `openai` (`whisper-1` API) |
-| TTS | `TTS_BACKEND` | `elevenlabs` | `azure` (`uk-UA-*Neural`) |
+| TTS | `TTS_BACKEND` | `elevenlabs` + premade voices | `elevenlabs` + Starter UA voices; `azure` (`uk-UA-*Neural`) |
 
 Each alternate needs its credential (`OPENAI_API_KEY`, `GEMINI_API_KEY`,
 `AZURE_SPEECH_KEY` + `AZURE_SPEECH_REGION`); the bot refuses to start
-otherwise. `gemini` is built but not fundable yet (429), `openai` is $0
-balance — both are for the client-recording milestone.
+otherwise.
 
-**Client sample recording** (`docs/` I-10): `STT_BACKEND=openai` (+ prepay
-OpenAI), ElevenLabs → Starter + UA library voice IDs, then record 2–3 min.
+**Client sample recording** (I-10): the dev defaults are free but slow
+(`gemma4:cloud` on the Ollama free tier: 13–86 s/turn). Copy **`.env.client`**
+in — it flips STT + dialogue + the UA library voices together — after a
+prepaid OpenAI key ($5) and ElevenLabs Starter ($6), then record 2–3 min.
 
 ## Testing
 
