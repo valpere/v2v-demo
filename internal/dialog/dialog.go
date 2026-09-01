@@ -115,6 +115,15 @@ func compactSlots(s QuoteSlots) string {
 	return string(b)
 }
 
+// truncate caps a string to n runes for log lines.
+func truncate(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
+}
+
 func trimTail(msgs []Msg, n int) []Msg {
 	if len(msgs) <= n {
 		return msgs
@@ -190,6 +199,7 @@ func Handle(
 	// 7 — generate; any error degrades to a fixed apology (never bubbles)
 	raw, err := gen.Generate(ctx, sysPrompt, hist)
 	if err != nil {
+		log.Printf("dialog: generator error, escalating: %v", err)
 		sess.Escalated = true
 		return Reply{Text: apologyLine(sessLang(sess)), Signal: SignalEscalate}, nil
 	}
@@ -197,6 +207,7 @@ func Handle(
 	// 8, 9 — parse; never speak untrailered raw output
 	spoken, tr := parseTrailer(raw)
 	if tr == nil {
+		log.Printf("dialog: no valid trailer in model output, escalating; raw=%q", truncate(raw, 300))
 		return esc()
 	}
 
