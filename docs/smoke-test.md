@@ -4,10 +4,16 @@ A scripted run through the demo, ~40–60 min for the full sweep. The point is
 to *hear* the voice and judge the conversation — and, by covering a lot of
 ground, to make a gross error unlikely to survive into the client demo.
 
-**How to read this.** Everything in `code font` is text to send to the bot
-**verbatim** (type it or paste it). Plain instructions ("restart the bot",
-"send a voice message") are actions. Each scenario says what to **expect** —
-compare against that.
+**How to read this.** Each scenario says what to **send** and what to
+**expect** — compare against that.
+
+**Channel — text or voice?** Unless a step says otherwise, **send `code
+font` as a typed / pasted text message, verbatim.** Text is the default for
+the whole doc: it's faster, and it can be scripted with `minions/tgdrive/`.
+Only these need a real **voice message** (the microphone, not typing):
+§1d, §12's last two rows, all of §13, and the rows in §16 that say "voice".
+Those sections repeat the channel under their heading; every other section
+is text.
 
 `[R]` = a regression case for a bug already found and fixed. Those must keep
 passing.
@@ -41,6 +47,8 @@ make run            # starts the bot (Ctrl-C to stop)
 ---
 
 ## 1. First contact & greeting
+
+*Channel: **text**, except 1d which is a **voice message**.*
 
 **1a — `/start` on a fresh bot.**
 
@@ -89,6 +97,8 @@ make run            # starts the bot (Ctrl-C to stop)
 ---
 
 ## 2. Quote flow — happy paths
+
+*Channel: **text**. (Run 2a once more by voice on `.env.client` as part of §13.)*
 
 Restart the bot between scenarios.
 
@@ -356,6 +366,8 @@ send the correction.
 
 ## 12. Language
 
+*Channel: **text**, except the last two rows (marked **voice**).*
+
 Restart between these.
 
 | Send (or sequence) | Expect |
@@ -372,6 +384,9 @@ Restart between these.
 ---
 
 ## 13. Voice (the client's actual criterion — NFR-1)
+
+*Channel: **voice message** for every step (that's the point), except
+`/voice b` / `/voice a` which are typed commands.*
 
 Do this on `.env.client` before the demo.
 
@@ -420,6 +435,9 @@ Do this on `.env.client` before the demo.
 ---
 
 ## 16. Robustness (upstream failures & odd inputs)
+
+*Channel: **text** for the message rows; the last row's PDF / photo /
+sticker / video-note / mp3 are their own Telegram attachment types.*
 
 | Send / do | Expect |
 | -- | -- |
