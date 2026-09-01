@@ -33,7 +33,7 @@ is a direct implementation of that section.
 
 ## Inputs
 
-- Report: `~/wrk/common/minions-curator/reports/<project-slug>/<week>.md`
+- Report: `~/wrk/common/reports/minions/<project-slug>/<week>.md`
   — `<project-slug>` is `discover.Slug()`'s output for the current
   project (its directory basename; check `internal/discover/discover.go`
   in the `minions-curator` repo if the slug is ambiguous).
@@ -48,7 +48,7 @@ is a direct implementation of that section.
 ```bash
 SLUG=$(basename "$(git rev-parse --show-toplevel)")
 WEEK="${1:-latest}"
-REPORTS_DIR=~/wrk/common/minions-curator/reports/"$SLUG"
+REPORTS_DIR=~/wrk/common/reports/minions/"$SLUG"
 if [[ "$WEEK" == "latest" ]]; then
   REPORT=$(ls -1t "$REPORTS_DIR"/2026-W*.md 2>/dev/null | head -1)
 else
@@ -149,6 +149,6 @@ reason to invent an ad hoc annotation scheme inside this skill.
   it as a bug in the report, not something to act on.
 - **This skill only edits the current project.** It never reaches into
   another project's `tmp/`/`minions/` even if its report is sitting
-  right there in the shared `~/wrk/common/minions-curator/reports/`
+  right there in the shared `~/wrk/common/reports/minions/`
   directory — that directory is shared storage for reports, not license
   to cross project boundaries from a single invocation.
