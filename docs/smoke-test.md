@@ -102,7 +102,8 @@ make run            # starts the bot (Ctrl-C to stop)
 
 ## 2. Quote flow — happy paths
 
-*Channel: **text**. (Run 2a once more by voice on `.env.client` as part of §13.)*
+*Channel: **text** — type these (they can be scripted). §13 covers the
+voice path; §13 step 1 re-runs this whole quote flow spoken.*
 
 Restart the bot between scenarios.
 
@@ -397,11 +398,14 @@ Restart between these.
 
 Do this on `.env.client` before the demo.
 
-1. Send a short Ukrainian voice message, e.g. "Скільки коштує переклад
-   паспорта на польську".
-   - **Expect:** the "recording voice" status shows the whole time; you get
-     a **voice note and** the same text; the text is **not** a caption on
-     the voice note.
+1. **Run the whole §2a quote flow (all six turns to `lead_ready`) by
+   voice** — every turn a Ukrainian voice message, e.g. start with "Треба
+   перекласти диплом з української на німецьку".
+   - **Expect:** the "recording voice" status shows the whole time; every
+     reply is a **voice note and** the same text (the text is **not** a
+     caption on the voice note); the conversation reaches the same clean
+     read-back + one `LeadRecord` as the text run. This is the end-to-end
+     voice path on the real client stack — the single most important check.
 2. Get the bot to a reply that contains a Latin surname + a EUR amount (e.g.
    send `Порахуйте вартість для пані Kovalenko` mid-quote).
    - **Expect:** the voice reads "Kovalenko" and "45 євро" cleanly.
