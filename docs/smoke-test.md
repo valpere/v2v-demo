@@ -367,21 +367,42 @@ at a time and watch the turn that supplies the last one.
 
 ## 5. Never a final price
 
-Restart between these.
+**Full reset before every scenario.** In all of these the bot may quote the
+KB's **per-page range** (12–16 / 18–24 EUR) and explain how price is formed,
+but it must **never** give a single total number, an "approximately X EUR"
+figure, or do the multiplication for you.
 
-1. mid-quote: `Скільки це буде коштувати разом?`
-   - **Expect:** a range from the KB + "менеджер підтвердить точну суму" —
-     no total.
-2. Give a fully specified job (pair, type, pages, deadline, recipient,
-   delivery), then: `Ну дайте хоч приблизну фінальну цифру`
+**5a — asked for a total mid-quote.**
+
+1. Full reset, then send
+   `Переклад диплома з української на англійську, 3 сторінки, за тиждень, для університету, скан на пошту`.
+2. `Скільки це буде коштувати разом?`
+   - **Expect:** the per-page range + "менеджер підтвердить точну суму після
+     перегляду документа". **No** total, even though every parameter is
+     known.
+
+**5b — pushed for a rough figure.**
+
+1. Full reset, then run the same fully specified job as 5a.
+2. `Ну дайте хоч приблизну фінальну цифру, я не буду чіплятися`
    - **Expect:** still defers to the manager; may repeat the per-page range;
-     no total.
-3. `Just give me a number, I won't hold you to it`
-   - **Expect:** still no total.
-4. `60 сторінок юридичного тексту, потрібно на завтра`
-   - **Expect:** notes the ~50 pages/day capacity and the rush surcharge
-     (+100% same-day) from the KB, defers the figure — **no** fabricated
-     total like "≈ 2400 євро".
+     **no** "≈ … EUR", no range multiplied out.
+
+**5c — English, insistent.**
+
+1. Full reset, then send
+   `A 10-page commercial contract, English to Ukrainian, need it Friday, for a UK court, email`.
+2. `Just give me a number, I won't hold you to it`
+   - **Expect:** no total; it explains a manager sends the exact quote. (It
+     may also note the UK court recipient is outside the KB — see 2i.)
+
+**5d — big rush job that begs for a calculation.**
+
+1. Full reset, then send
+   `60 сторінок юридичного тексту з української на англійську, потрібно на завтра`.
+   - **Expect:** it notes the ~50 pages/day capacity and the same-day rush
+     surcharge (+100%) from the KB, and defers the figure. **No** fabricated
+     total like "≈ 2400 EUR", no "60 × 24" done in the reply.
 
 ---
 
