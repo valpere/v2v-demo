@@ -148,17 +148,21 @@ waiting for each reply:
 
 1. Full reset, then send:
    `Hi, I need a certified translation of my birth certificate from Ukrainian to Polish, one page, by next Friday, email is fine — it's for a Polish registry office`
-   - **Expect:** fills language pair / doc type / volume / deadline /
-     delivery from the one message. Registry office → **notarized** (or sworn
-     for Poland) per the KB, **not** just "certified". It asks only for
-     whatever it genuinely couldn't settle, or goes straight to the
-     read-back.
-2. **Full reset**, then send:
+   - **Expect:** fills all six slots from the one message. It catches that a
+     Polish registry office needs **notarized** (or sworn for Poland), not
+     the "certified" you asked for — so it either goes straight to a
+     read-back with `certification: notarized`, **or** asks a single
+     confirmation ("shall I include notarization?"). Both are fine; an open
+     question means it stays `continue` — no `lead_ready` yet.
+2. If it asked, reply `Yes, notarized is fine`.
+   - **Expect:** now a **read-back of all six** → `signal: lead_ready` →
+     **one** row in `data/leads.jsonl` with `certification: notarized`.
+3. **Full reset**, then send:
    `Переклад медичного висновку з української на англійську, для лікарні в Лондоні, 8 сторінок, до понеділка, скан на пошту`
    - **Expect:** 5 slots from one message. A London hospital is **not** in
      the KB's recipient list → it must **ask** which certification level is
      needed, or fall back to "certified, a manager will confirm" — it must
-     **not** invent a rule. Then read-back → `lead_ready`.
+     **not** invent a rule. Then read-back → `lead_ready` → one more row.
 
 **2c — price question first, English.**
 
