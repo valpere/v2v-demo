@@ -221,10 +221,21 @@ document* and infers the level from the KB. Run each one like this:
 
 **2g — a German authority that rejects Ukrainian notarization → sworn.**
 
-1. Full reset, start the quote, then answer with
+Sworn is only offered *into* DE / PL / IT / FR / CZ, so the target language
+matters here — start this one into German:
+
+1. Full reset, send `Треба перекласти диплом з української на німецьку, 2 сторінки, за тиждень`,
+   then answer the recipient question with
    `Для німецького відомства, яке не приймає українське нотаріальне засвідчення`.
-   - **Expect:** `certification: sworn`, and the reply notes sworn
-     translation is only available for DE / PL / IT / FR / CZ.
+   - **Expect:** `certification: sworn`; the reply may note sworn is only
+     available for DE / PL / IT / FR / CZ. Then it collects delivery and
+     reads back → `lead_ready`.
+2. **[R]** Same again, but open into **English**
+   (`… з української на англійську …`). Now sworn isn't offered for the pair
+   → the bot must **not** build a sworn request: it says sworn translation
+   isn't available into English and **escalates** (or asks whether the
+   client actually needs it into German). No `lead_ready` with
+   `certification: sworn` + an English pair.
 
 **2h — Italian embassy → notarized, NOT sworn.**
 
