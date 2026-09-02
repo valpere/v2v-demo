@@ -344,12 +344,16 @@ at a time and watch the turn that supplies the last one.
      future date/timeframe, or notes rush pricing — and does **not** write
      `deadline: "вчора"` / "yesterday".
 
-**4d — sub-page job → the KB minimum.**
+**4d — sub-page job → the KB minimum.** `[R]`
 
 1. Full reset, then send
    `Треба перекласти одне речення з української на англійську, менше сторінки`.
-   - **Expect:** it states the KB **minimum order is 1 page** and quotes on
-     that basis. No made-up "half-page" price or a fabricated sub-page rate.
+   - **Expect:** it states the KB **minimum order is 1 page**, quotes on that
+     basis, and records `volume` as `"1 page"` (not `"half a page"` / "менше
+     сторінки"). No made-up sub-page rate.
+2. Also try answering `пів сторінки` when it asks for the volume mid-quote —
+   same expectation: `volume` lands on **1 page**, and the read-back never
+   says "half a page". `[R]` (seen carrying "пів сторінки" into the lead)
 
 **4e — characters → pages, done for the client.**
 
