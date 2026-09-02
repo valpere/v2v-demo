@@ -355,6 +355,46 @@ func TestHandleNoDuplicateLead(t *testing.T) {
 	}
 }
 
+func TestHandleCorrectionAfterLeadRecordsUpdatedLead(t *testing.T) {
+	full := map[string]string{
+		"language_pair": "uk->pl", "doc_type": "passport", "volume": "1 page",
+		"deadline": "Friday", "certification": "certified", "delivery": "email",
+	}
+	sess := &Session{}
+
+	gen := &fakeGen{reply: reply("Записала все.", "lead_ready", full)}
+	r, _ := dialogHandle(t, sess, gen, "certified translation delivery by email")
+	if r.Signal != SignalLeadReady {
+		t.Fatalf("first: sig=%s, want lead_ready", r.Signal)
+	}
+
+	// the client corrects the doc type after the summary — a real change,
+	// so the corrected lead_ready must go through (a fresh LeadRecord).
+	corrected := map[string]string{"doc_type": "birth certificate"}
+	gen2 := &fakeGen{reply: reply("Виправляю: свідоцтво про народження.", "lead_ready", corrected)}
+	r2, _ := dialogHandle(t, sess, gen2, "the certified translation is of a birth certificate not a passport")
+	if r2.Signal != SignalLeadReady {
+		t.Fatalf("correction lead_ready downgraded to %s — a real change must be recorded", r2.Signal)
+	}
+	if got := deref(sess.Slots.DocType); got != "birth certificate" {
+		t.Fatalf("doc_type = %q, want the correction", got)
+	}
+
+	// a third lead_ready with nothing changed is still a spurious re-trigger
+	gen3 := &fakeGen{reply: reply("Дякую.", "lead_ready", nil)}
+	r3, _ := dialogHandle(t, sess, gen3, "certified translation delivery by email")
+	if r3.Signal != SignalContinue {
+		t.Fatalf("unchanged re-trigger after the correction should downgrade, got %s", r3.Signal)
+	}
+}
+
+func deref(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
 // dialogHandle runs Handle with the shared test KB and a stub system prompt.
 func dialogHandle(t *testing.T, sess *Session, gen Generator, text string) (Reply, error) {
 	t.Helper()

@@ -48,7 +48,15 @@ type Session struct {
 	Voice     string // "a" | "b"; default "a"
 	Lang      string // "uk" | "en"; locked from the first non-empty user turn
 	Escalated bool
-	LeadDone  bool // a lead_ready already fired — later ones downgrade to continue (no duplicate lead)
+	LeadDone  bool // a lead_ready already fired this session
+
+	// leadSlots is the slot JSON at the last lead_ready that was allowed
+	// through. A later lead_ready with the *same* slots is a spurious
+	// re-trigger and is downgraded to continue; a later one with *different*
+	// slots is a real post-summary correction and is let through so a
+	// corrected LeadRecord gets written (consumers take the newest row per
+	// chat). Empty until the first lead.
+	leadSlots string
 }
 
 // Reply is the outcome of one turn.

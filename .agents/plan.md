@@ -156,7 +156,8 @@ type Session struct {
 	Voice     string // "a" | "b"; default "a"
 	Lang      string // "uk" | "en"; last turn detectLang was confident (mid-switch propagates); "" until then
 	Escalated bool
-	LeadDone  bool   // a lead_ready already fired — later ones downgrade to continue (test-5_1)
+	LeadDone  bool   // a lead_ready already fired this session
+	leadSlots string // slot JSON at the last recorded lead; repeat lead_ready — same slots -> continue (test-5_1), changed -> a corrected LeadRecord (11d)
 }
 
 type Generator interface {
@@ -407,9 +408,12 @@ handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil }`.
         log.Warn("lead_ready with incomplete slots", slots)
         signal = SignalContinue
     else if signal == SignalLeadReady && sess.LeadDone:       // a lead already fired this session
-        signal = SignalContinue                               // (no duplicate LeadRecord; added test-5_1)
+        if compactSlots(sess.Slots) == sess.leadSlots:
+            signal = SignalContinue                           // spurious re-trigger (test-5_1)
+        else:
+            sess.leadSlots = compactSlots(sess.Slots)         // a real correction -> a fresh LeadRecord (11d)
     else if signal == SignalLeadReady:
-        sess.LeadDone = true
+        sess.LeadDone = true; sess.leadSlots = compactSlots(sess.Slots)
     if signal == SignalEscalate:
         sess.Escalated = true
         spoken = handoffLine(sessLang(sess))          // A3: escalate always speaks the fixed line

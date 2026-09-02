@@ -73,7 +73,8 @@ repo is public).
   voice:     Enum["a","b"] @constraint(default: "a"),
   lang:      Enum["uk","en"] @constraint(rule: "set by detectLang (lingua-go) every turn it is confident — a mid-dialogue switch propagates; feeds STT langHint + the prompt language line + the fallback for handoff/apology lines (D-19)"),
   escalated: Bool @constraint(default: false),
-  lead_done: Bool @constraint(default: false, rule: "a lead_ready already fired this session; a later lead_ready is downgraded to continue (no duplicate LeadRecord)")
+  lead_done:  Bool @constraint(default: false, rule: "a lead_ready already fired this session"),
+  lead_slots: String @constraint(rule: "slot JSON at the last recorded lead; a repeat lead_ready with the same slots is a spurious re-trigger -> continue, one with different slots is a correction -> a fresh LeadRecord")
 }
 
 @schema Msg {
@@ -291,9 +292,14 @@ named constants are `@schema GateParams` in §1.
 21. [REQ-DLG-16] Signal resolution: `tr == nil` -> escalate, reply text is the
     fixed handoff line, logged. Otherwise the signal is `tr.Signal` verbatim,
     with two guards: (B4) a `lead_ready` while `QuoteSlots.Complete()` is false
-    is downgraded to `continue` and a warning logged; and a `lead_ready` after
-    one already fired this session (`Session.LeadDone`) is downgraded to
-    `continue` — no duplicate `LeadRecord` (2026-08-31 test-5_1). There is
+    is downgraded to `continue` and a warning logged; and a repeat `lead_ready`
+    after one already fired this session (`Session.LeadDone`) is downgraded to
+    `continue` **only when the slots are unchanged** from the recorded lead
+    (`Session.leadSlots`, JSON-compared) — a spurious re-trigger (2026-08-31
+    test-5_1). A repeat `lead_ready` whose slots *differ* is a post-summary
+    correction and IS let through, writing a fresh `LeadRecord`; consumers of
+    `leads.jsonl` take the newest row per `chat_id` (2026-09-02, smoke 11d).
+    There is
     **no `continue`->`lead_ready` upgrade** — the model owns the positive case
     and the system prompt ties it to the read-back summary (REQ-DLG-04). Any
     `escalate` (trailer, `hardEscalate`, gate, or parse failure) sets

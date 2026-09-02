@@ -58,7 +58,7 @@ flowchart TD
 | `internal/kb` | Load `KB_PATH`, split on `##` into titled sections — passed to the LLM in full, and to `kbOverlap` | FR-6, NFR-9 |
 | `internal/dialog` | `hardEscalate` + `kbOverlap` + grounding gate, LLM orchestration, trailer parse, slot merge, fixed lines. **The core.** LLM call goes through a `Generator` interface: **`ollama`** (Ollama OpenAI-compat, `gemma4:cloud`, dev default), **`openai`** (`gpt-4o-mini`, the client-facing artefact — D-20 dual-mode, for latency), **`gemini`** (native Gemini API, `gemini-flash-latest`; last resort — needs a $25 prepay). `openai_compat.go` (shared by ollama+openai) retries once on a transient. `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13, D-20 |
 | `internal/tts` | `Synthesizer` interface, two impls: **`elevenlabs`** (`eleven_multilingual_v2`) and **`azure`** (`uk-UA-*Neural`); both retry once on a transient and emit opus-in-ogg. `TTS_BACKEND` selects; **`none`** yields a nil synthesizer and the update loop replies text-only (dev / bulk smoke-testing). Google is a documented third impl, not built (D-15). | FR-10, NFR-1, D-15 |
-| `internal/store` | Append-only JSONL: one record per turn; one lead record on `lead_ready` | FR-8, FR-13 |
+| `internal/store` | Append-only JSONL: one record per turn; a lead record on each `lead_ready` that goes through — usually one per chat, two if the client corrects a value after the summary (newest row wins) | FR-8, FR-13 |
 | `cmd/bot` | Wiring, config, the update loop (per-chat goroutine + locks), `/voice`, the greeting, the recording ticker, STT, store calls | FR-11, NFR-3, NFR-4, NFR-6 |
 
 Runtime dependencies (dev path): a Telegram bot library (Go); a running Ollama
@@ -117,7 +117,8 @@ Session
   Voice    string         // "a" | "b" (FR-11)
   Lang     string         // "uk" | "en" — detectLang (lingua-go) each confident turn; feeds STT + prompt + fixed lines
   Escalated bool
-  LeadDone  bool          // a lead_ready already fired -> no duplicate LeadRecord
+  LeadDone  bool          // a lead_ready already fired this session
+  leadSlots string        // slot JSON at the last lead — repeat lead_ready: same slots -> continue, changed -> a corrected LeadRecord
 ```
 
 Per-chat turns are processed by one **serial worker goroutine per chat**

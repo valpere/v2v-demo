@@ -579,15 +579,15 @@ each of these instead:
 1. Full quote to `lead_ready`:
    `Переклад паспорта з української на польську, 1 сторінка, до п'ятниці, для університету, скан на пошту` → answer any follow-up → read-back → `lead_ready`. One row now in `data/leads.jsonl`.
 2. `Стоп, це не паспорт, а свідоцтво про народження`
-   - **Expect (conversation):** `doc_type` in the session becomes "свідоцтво
-     про народження", the bot gives a fresh read-back and hands off again;
-     `signal` on this turn is `continue` (the `LeadDone` guard — no second
-     `lead_ready`).
-   - **Known limitation:** `data/leads.jsonl` still has just the **one
-     original** row (with "паспорт") — the append-only lead log is not
-     updated in place, so a post-`lead_ready` correction reaches the manager
-     only through the conversation, not the record. Flag if this matters for
-     the demo. See `.agents/changes.md`.
+   - **Expect:** `doc_type` becomes "свідоцтво про народження", a fresh
+     read-back, `signal: lead_ready` **again**, and now **two rows** in
+     `data/leads.jsonl` — the original ("паспорт") and the correction
+     ("свідоцтво про народження"). The **newest** row is the one the manager
+     acts on; no "паспорт" in that newest row.
+3. `Дякую!` (nothing changed)
+   - **Expect:** a brief reply, `signal: continue`, **still two rows** — an
+     unchanged repeat `lead_ready` is suppressed (only a real slot change
+     writes another row). `[R]`
 
 ---
 

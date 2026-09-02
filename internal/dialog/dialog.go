@@ -237,10 +237,15 @@ func Handle(
 	case signal == SignalLeadReady && !sess.Slots.Complete(): // B4 guard
 		log.Printf("dialog: lead_ready with incomplete slots: %s", compactSlots(sess.Slots))
 		signal = SignalContinue
-	case signal == SignalLeadReady && sess.LeadDone: // a lead already fired this session
-		signal = SignalContinue
+	case signal == SignalLeadReady && sess.LeadDone:
+		if compactSlots(sess.Slots) == sess.leadSlots {
+			signal = SignalContinue // nothing changed — a spurious re-trigger
+		} else {
+			sess.leadSlots = compactSlots(sess.Slots) // a real correction — record the updated lead
+		}
 	case signal == SignalLeadReady:
 		sess.LeadDone = true
+		sess.leadSlots = compactSlots(sess.Slots)
 	}
 	if signal == SignalEscalate { // A3: escalate always speaks the fixed line
 		sess.Escalated = true
