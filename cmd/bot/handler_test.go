@@ -115,6 +115,39 @@ func TestTextOnlyWhenNoTTS(t *testing.T) {
 	}
 }
 
+func TestResetClearsSession(t *testing.T) {
+	gen := &fakeGen{}
+	a, tg := newTestApp(t, gen)
+
+	ctx := context.Background()
+	a.handleUpdate(ctx, telegram.Update{ChatID: 7, Text: "Треба перекласти диплом"}) // greeting + turn
+	a.session(7).Slots.DocType = strptr("диплом")
+
+	a.handleUpdate(ctx, telegram.Update{ChatID: 7, Text: "/reset"})
+	if a.session(7).Slots.DocType != nil {
+		t.Fatal("/reset should drop the session's slots")
+	}
+
+	before := 0
+	for _, s := range tg.sent() {
+		if s == "GREETING" {
+			before++
+		}
+	}
+	a.handleUpdate(ctx, telegram.Update{ChatID: 7, Text: "hi again"})
+	after := 0
+	for _, s := range tg.sent() {
+		if s == "GREETING" {
+			after++
+		}
+	}
+	if after != before+1 {
+		t.Fatalf("greeting re-armed count: before=%d after=%d, want +1", before, after)
+	}
+}
+
+func strptr(s string) *string { return &s }
+
 func TestUnknownCommandNotADialogueTurn(t *testing.T) {
 	gen := &fakeGen{}
 	a, _ := newTestApp(t, gen)

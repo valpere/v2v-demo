@@ -29,16 +29,18 @@ make run            # starts the bot (Ctrl-C to stop)
 
 - There is **one chat**: you ↔ `@v2v_demo_bot`. Two separate reset actions —
   the doc says which one each step needs:
-  - **Restart the bot** — stop it (Ctrl-C) and `make run` again. This is the
-    only way to clear the **in-memory session** (slots, history) and re-arm
-    the greeting (sent once per chat per bot process). It does **not** touch
-    the `data/` logs.
+  - **Reset the session** — clears the **in-memory session** (slots,
+    history, language, escalated flag) and re-arms the greeting. Two ways:
+    send **`/reset`** in the chat (fast, no interruption — a test aid),
+    **or** stop the bot (Ctrl-C) and `make run` again. `/start` does **not**
+    do this — it only re-sends the greeting text. Neither touches `data/`.
   - **Clear the logs** — with the bot stopped, `rm -f data/*.jsonl` (the bot
     recreates them). Do this when a step checks `data/leads.jsonl` for
     "one row" / "one new row" — it makes the count absolute instead of
     "one *more* than before".
-  - **Full reset** = both, in that order. Section 2 needs a full reset
-    before every lettered scenario.
+  - **Full reset** = both (`/reset` then clear the logs, or a bot restart
+    with the logs cleared). Section 2 needs a full reset before every
+    lettered scenario.
 - The **first voice message ever** downloads the Whisper model (~1.5 GB) —
   that one turn takes minutes. After that, ≈ 12 s STT + ~40 s LLM per voice
   turn on the dev backends (the client config is much faster — see below).

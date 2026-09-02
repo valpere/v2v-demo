@@ -452,8 +452,10 @@ handleUpdate(u Update):
     sess := getOrCreateSession(u.ChatID)              // no per-turn lock — the worker is the serialization
 
     // slash commands (after greeting, after transcript) are handled here,
-    // never reach dialog.Handle: "/voice a|b" switches sess.Voice; any other
-    // "/..." gets a one-line /voice usage hint.
+    // never reach dialog.Handle: "/voice a|b" switches sess.Voice;
+    // "/reset" | "/clean" drops this chat's session + seen entry (a smoke-test
+    // aid — same state as a bot restart, for one chat); any other "/..." gets
+    // a one-line /voice usage hint.
 
     if u.IsStart || firstMessage(u.ChatID):
         tg.SendText(ctx, u.ChatID, greet); markSeen(u.ChatID)

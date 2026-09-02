@@ -183,13 +183,22 @@ func (a *app) resolveText(ctx context.Context, sess *dialog.Session, u telegram.
 	return text, true
 }
 
-// handleCommand handles /voice (and swallows any other slash command with a
-// short hint, so a stray "/foo" never becomes a dialogue turn).
+// handleCommand handles /voice and /reset (and swallows any other slash
+// command with a short hint, so a stray "/foo" never becomes a dialogue turn).
 func (a *app) handleCommand(ctx context.Context, sess *dialog.Session, chatID int64, text string) {
 	switch cmd := strings.ToLower(strings.TrimSpace(text)); cmd {
 	case "/voice a", "/voice b":
 		sess.Voice = cmd[len(cmd)-1:]
 		a.send(ctx, chatID, dialog.VoiceSwitchedLine(sess))
+	case "/reset", "/clean":
+		// drop this chat's in-memory session and re-arm the greeting — the
+		// same state a bot restart gives, for one chat. A test aid; harmless
+		// if a real user finds it.
+		a.mu.Lock()
+		delete(a.sessions, chatID)
+		delete(a.seen, chatID)
+		a.mu.Unlock()
+		a.send(ctx, chatID, "Сесію очищено — почнімо спочатку. / Session cleared — starting over.")
 	default: // "/voice", "/start" after greeting, "/help", anything unknown
 		a.send(ctx, chatID, voiceHelp(sess))
 	}
