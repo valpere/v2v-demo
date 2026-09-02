@@ -538,40 +538,38 @@ checks).
 
 ## 11. Corrections & contradictions `[R]`
 
-One flow: **full reset**, set all six in the first message, let it reach
-`lead_ready`, then fix each slot with a one-line correction. Every
-correction must **overwrite** the slot (not append, not re-ask), trigger a
-fresh read-back, and — because the lead is already recorded — append a
-**new corrected row** to `data/leads.jsonl` (newest row wins).
+**Full reset**, then send this chain, one message at a time. The first sets
+all six and reaches `lead_ready`; each line after it corrects one slot with
+a different wording. Every correction must **overwrite** that slot (not
+append, not re-ask, not touch the others), give a fresh read-back, and —
+since the lead is already recorded — append **one more row** to
+`data/leads.jsonl` (newest row wins).
 
-1. **Full reset**, then send:
-   `Переклад паспорта з української на польську, 1 сторінка, до п'ятниці, для університету, скан на пошту`
-   - **Expect:** read-back of all six, `signal: lead_ready`, **1 row** in
-     `data/leads.jsonl` (`doc_type` паспорт, pair uk→pl, 1 page, Friday,
-     certified, email).
+```
+Переклад диплома з української на англійську, 1 сторінка, за тиждень, для університету, скан на пошту
+Ой, не диплом, а свідоцтво про народження
+Стоп, не англійська — німецька
+Wait, make it 4 pages
+І термін не тиждень, а два
+Це для суду, а не університету
+Доставку кур'єром, будь ласка, не сканом
+Дякую!
+```
 
-Now correct one thing per turn. After each: check the slot changed in
-`data/turns.jsonl`, the reply re-summarises, and `data/leads.jsonl` has
-**one more row** whose newest values reflect every correction so far.
+- After line 1: read-back of all six, `lead_ready`, **1 row**.
+- Lines 2–7: `doc_type` → свідоцтво про народження · `language_pair` →
+  uk→de · `volume` → 4 pages · `deadline` → 2 weeks · `certification` →
+  notarized (court) · `delivery` → courier. Each adds **one** row.
+- After line 7 the **newest** `leads.jsonl` row is: свідоцтво про
+  народження, uk→de, 4 pages, 2 weeks, notarized, courier — **nothing** from
+  the диплом/англійська/тиждень/університет/скан original survives in it.
+- Line 8 (`Дякую!`, nothing changed): brief reply, `signal: continue`,
+  **no new row**.
 
-| # | Send | The slot that must change |
-| -- | -- | -- |
-| 2 | `Насправді це не паспорт, а диплом` | `doc_type` → диплом |
-| 3 | `І не польська, а німецька` | `language_pair` → uk→de |
-| 4 | `Сторінок не одна, а чотири` | `volume` → 4 |
-| 5 | `Термін не п'ятниця — до кінця місяця` | `deadline` → кінець місяця |
-| 6 | `Це для суду, не для університету` | `certification` → notarized |
-| 7 | `Доставку зробіть кур'єром, не сканом` | `delivery` → courier |
-| 8 | `Дякую!` (nothing changed) | — no new row; `signal: continue` |
-
-After turn 7 the newest `leads.jsonl` row must read: диплом, uk→de,
-4 pages, end of month, notarized, courier — **nothing** from the original
-paspurt quote survives in it. Turn 8 must not add a row.
-
-**Also** — the model reads intent, there's no correction keyword. Re-run
-turns 2–7 once with these phrasings instead: `Ой, я помилився — …`,
-`Стоп, …`, `Wait, actually …`, `Забув сказати — насправді …` (a correction
-worded as an addition).
+The model reads intent — there's no correction keyword — so the mix of
+`Ой…` / `Стоп…` / `Wait…` / a bare contradiction above is the point. Worth
+one more pass with `Забув сказати — насправді …` (a correction worded as an
+addition).
 
 ---
 
