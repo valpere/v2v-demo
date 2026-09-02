@@ -39,9 +39,11 @@ var stopwords = func() map[string]bool {
 var escalateKeywords = []string{
 	"повернути гро", "повернення кош", "поверніть гро", "refund",
 	"скарг", "complaint",
-	// legal threats only — a bare "суд"/"court" also matched "для суду"
-	// (a court as the document's recipient — a normal certification case).
-	"до суду", "в суд ", "позов", "судити", "in court", "to court", "sue you", "lawsuit",
+	// legal threats only — a bare "суд"/"court" also matched "для суду" /
+	// "for a court" (a court as the document's recipient — a normal
+	// certification case). Keep the phrasings that are unambiguously threats.
+	"до суду", "в суд ", "позов", "судитися", "судовий позов",
+	"see you in court", "you to court", "sue you", "sue the", "lawsuit", "legal action",
 	"дайте людину", "з людиною", "справжн", "real person",
 	"talk to a person", "менеджера напряму",
 }

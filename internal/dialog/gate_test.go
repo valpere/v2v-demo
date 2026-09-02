@@ -88,6 +88,9 @@ func TestHardEscalate(t *testing.T) {
 		"Подам до суду",
 		"готую позов",
 		"see you in court",
+		"I'll take you to court",
+		"I will sue you for this",
+		"my lawyer is preparing a lawsuit",
 		"дайте людину нарешті",
 		"хочу поговорити з людиною",
 		"дайте справжню людину",
@@ -105,6 +108,9 @@ func TestHardEscalate(t *testing.T) {
 		"Для суду",
 		"Переклад диплома для суду в Німеччині",
 		"it's for a court in the UK",
+		"to court",
+		"send it to court",
+		"the document will be used in court",
 	}
 	for _, s := range hit {
 		if !hardEscalate(s) {
