@@ -65,6 +65,57 @@ func TestAzureErrors(t *testing.T) {
 	})
 }
 
+func TestAzureRetry(t *testing.T) {
+	t.Run("retries past a 500", func(t *testing.T) {
+		var n int
+		a := azureStub(t, func(w http.ResponseWriter, r *http.Request) {
+			if n++; n == 1 {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			w.Write([]byte("OggS\x00ok"))
+		})
+		audio, err := a.Speak(context.Background(), "hi", "uk-UA-PolinaNeural", "uk")
+		if err != nil || !strings.HasPrefix(string(audio), "OggS") {
+			t.Fatalf("audio=%q err=%v", audio, err)
+		}
+		if n != 2 {
+			t.Fatalf("calls = %d, want 2", n)
+		}
+	})
+
+	t.Run("no retry on 4xx", func(t *testing.T) {
+		var n int
+		a := azureStub(t, func(w http.ResponseWriter, r *http.Request) {
+			n++
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("bad key"))
+		})
+		_, err := a.Speak(context.Background(), "hi", "v", "uk")
+		if err == nil || !strings.Contains(err.Error(), "bad key") {
+			t.Fatalf("err = %v", err)
+		}
+		if n != 1 {
+			t.Fatalf("calls = %d, want 1 (4xx must not retry)", n)
+		}
+	})
+
+	t.Run("gives up after two 429s", func(t *testing.T) {
+		var n int
+		a := azureStub(t, func(w http.ResponseWriter, r *http.Request) {
+			n++
+			w.WriteHeader(http.StatusTooManyRequests)
+		})
+		_, err := a.Speak(context.Background(), "hi", "v", "uk")
+		if err == nil {
+			t.Fatal("want error after two 429s")
+		}
+		if n != 2 {
+			t.Fatalf("calls = %d, want 2", n)
+		}
+	})
+}
+
 func TestSSMLLang(t *testing.T) {
 	if ssmlLang("uk-UA-OstapNeural", "en") != "uk-UA" {
 		t.Error("voice locale should win over lang")

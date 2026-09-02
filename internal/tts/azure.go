@@ -40,9 +40,36 @@ func (a *azureTTS) Speak(ctx context.Context, text, voiceID, lang string) ([]byt
 		`<speak version='1.0' xml:lang='%s'><voice name='%s'>%s</voice></speak>`,
 		ssmlLang(voiceID, lang), voiceID, escapeXML(text))
 
+	// One retry on a transient failure (transport error with a live context,
+	// 5xx, or 429 — the F0 tier caps TTS at ~20 requests/min). Same shape as
+	// the ElevenLabs impl; shares speakRetryBackoff.
+	var lastErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("tts: azure: %w", ctx.Err())
+			case <-time.After(speakRetryBackoff):
+			}
+		}
+		data, transient, err := a.attempt(ctx, ssml)
+		if err == nil {
+			return data, nil
+		}
+		lastErr = err
+		if !transient {
+			return nil, err
+		}
+	}
+	return nil, lastErr
+}
+
+// attempt makes one HTTP call. transient=true means the error may clear on a
+// retry.
+func (a *azureTTS) attempt(ctx context.Context, ssml string) (data []byte, transient bool, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.endpoint(), strings.NewReader(ssml))
 	if err != nil {
-		return nil, fmt.Errorf("tts: azure: request: %w", err)
+		return nil, false, fmt.Errorf("tts: azure: request: %w", err)
 	}
 	req.Header.Set("Ocp-Apim-Subscription-Key", a.key)
 	req.Header.Set("Content-Type", "application/ssml+xml")
@@ -51,18 +78,19 @@ func (a *azureTTS) Speak(ctx context.Context, text, voiceID, lang string) ([]byt
 
 	resp, err := a.hc.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("tts: azure: %w", err)
+		return nil, ctx.Err() == nil, fmt.Errorf("tts: azure: %w", err)
 	}
 	defer resp.Body.Close()
-	data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("tts: azure: %s: %s", resp.Status, tail(string(data), 400))
+		t := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500
+		return nil, t, fmt.Errorf("tts: azure: %s: %s", resp.Status, tail(string(raw), 400))
 	}
-	if len(data) == 0 {
-		return nil, fmt.Errorf("tts: azure: empty audio")
+	if len(raw) == 0 {
+		return nil, true, fmt.Errorf("tts: azure: empty audio")
 	}
-	return data, nil
+	return raw, false, nil
 }
 
 // ssmlLang takes the locale from an "xx-YY-*" voice id (so the SSML matches
