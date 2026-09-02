@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -14,14 +17,20 @@ import (
 // ── fakes ───────────────────────────────────────────────────────
 
 type fakeTG struct {
-	mu    sync.Mutex
-	texts []string // chatID ignored — single-chat tests
+	mu     sync.Mutex
+	texts  []string // chatID ignored — single-chat tests
+	voices int
 }
 
 func (f *fakeTG) Updates(context.Context) (<-chan telegram.Update, error) { return nil, nil }
 func (f *fakeTG) DownloadVoice(context.Context, string) (string, error)   { return "", nil }
-func (f *fakeTG) SendVoice(context.Context, int64, []byte) error          { return nil }
-func (f *fakeTG) SendRecordingAction(context.Context, int64) error        { return nil }
+func (f *fakeTG) SendVoice(context.Context, int64, []byte) error {
+	f.mu.Lock()
+	f.voices++
+	f.mu.Unlock()
+	return nil
+}
+func (f *fakeTG) SendRecordingAction(context.Context, int64) error { return nil }
 func (f *fakeTG) SendText(_ context.Context, _ int64, text string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -91,6 +100,21 @@ func TestVoiceCommand(t *testing.T) {
 	}
 }
 
+func TestTextOnlyWhenNoTTS(t *testing.T) {
+	a, tg := newTestApp(t, &fakeGen{})
+	a.tts = nil // TTS_BACKEND=none
+	a.seen[7] = true
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, Text: "Скільки коштує?"})
+
+	if tg.voices != 0 {
+		t.Fatalf("SendVoice called %d times, want 0 when tts is nil", tg.voices)
+	}
+	if len(tg.sent()) == 0 {
+		t.Fatal("no text reply sent")
+	}
+}
+
 func TestUnknownCommandNotADialogueTurn(t *testing.T) {
 	gen := &fakeGen{}
 	a, _ := newTestApp(t, gen)
@@ -127,12 +151,13 @@ func TestPerChatFIFOOrdering(t *testing.T) {
 		a.dispatch(ctx, telegram.Update{ChatID: 7, Text: msg})
 	}
 
+	// Wait for the turn records — the *last* thing handleUpdate does — so no
+	// worker is still writing under t.TempDir() when Cleanup runs RemoveAll.
+	turnsPath := filepath.Join(a.cfg.DataDir, "turns.jsonl")
 	deadline := time.Now().Add(2 * time.Second)
-	for {
-		gen.mu.Lock()
-		done := len(gen.seen) == 5
-		gen.mu.Unlock()
-		if done || time.Now().After(deadline) {
+	for time.Now().Before(deadline) {
+		b, _ := os.ReadFile(turnsPath)
+		if bytes.Count(b, []byte("\n")) >= 5 {
 			break
 		}
 		time.Sleep(5 * time.Millisecond)

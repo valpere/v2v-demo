@@ -109,16 +109,23 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	}
 
 	start := time.Now()
-	stop := a.startRecordingTicker(ctx, u.ChatID)
-	reply, _ := dialog.Handle(ctx, sess, a.kb, a.gen, a.sys, text) // never returns a non-nil error
-	ogg, terr := a.tts.Speak(ctx, tts.Spoken(reply.Text, sess.Lang), voiceID(a.cfg, sess.Voice), sess.Lang)
-	stop()
-
-	if terr != nil {
-		log.Printf("tts (chat %d): %v", u.ChatID, terr)
-	} else if err := a.tg.SendVoice(ctx, u.ChatID, ogg); err != nil {
-		log.Printf("send voice (chat %d): %v", u.ChatID, err)
+	// TTS_BACKEND=none → text-only: no synthesizer, no "recording voice" action.
+	stopTicker := func() {}
+	if a.tts != nil {
+		stopTicker = a.startRecordingTicker(ctx, u.ChatID)
 	}
+	reply, _ := dialog.Handle(ctx, sess, a.kb, a.gen, a.sys, text) // never returns a non-nil error
+
+	if a.tts != nil {
+		ogg, terr := a.tts.Speak(ctx, tts.Spoken(reply.Text, sess.Lang), voiceID(a.cfg, sess.Voice), sess.Lang)
+		if terr != nil {
+			log.Printf("tts (chat %d): %v", u.ChatID, terr)
+		} else if err := a.tg.SendVoice(ctx, u.ChatID, ogg); err != nil {
+			log.Printf("send voice (chat %d): %v", u.ChatID, err)
+		}
+	}
+	stopTicker()
+
 	a.send(ctx, u.ChatID, reply.Text) // text always goes out once
 
 	if err := store.AppendTurn(a.cfg.DataDir, store.TurnRecord{

@@ -125,3 +125,14 @@ func TestLoadConfigValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadConfigTTSNone(t *testing.T) {
+	chdirWithEnv(t, "TELEGRAM_BOT_TOKEN=t\nTTS_BACKEND=none\n")
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("TTS_BACKEND=none should validate with no voice keys: %v", err)
+	}
+	if cfg.TTSBackend != "none" {
+		t.Fatalf("TTSBackend = %q", cfg.TTSBackend)
+	}
+}

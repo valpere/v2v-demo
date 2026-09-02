@@ -46,7 +46,7 @@ Dev path needs:
 |--|--|--|--|
 | Dialogue LLM | `DIALOG_BACKEND` | `ollama` (`gemma4:cloud`) | `openai` (`gpt-4o-mini`) — D-20, for latency; `gemini` (`gemini-flash-latest`, last resort) |
 | STT | `STT_BACKEND` | `local` (whisper CLI) | `openai` (`whisper-1` API) |
-| TTS | `TTS_BACKEND` | `elevenlabs` + premade voices | `elevenlabs` + Starter UA voices; `azure` (`uk-UA-*Neural`) |
+| TTS | `TTS_BACKEND` | `elevenlabs` + premade voices | `elevenlabs` + Starter UA voices; `azure` (`uk-UA-*Neural`); `none` (text-only, for bulk smoke-testing) |
 
 Each alternate needs its credential (`OPENAI_API_KEY`, `GEMINI_API_KEY`,
 `AZURE_SPEECH_KEY` + `AZURE_SPEECH_REGION`); the bot refuses to start

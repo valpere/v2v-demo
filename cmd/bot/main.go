@@ -166,9 +166,12 @@ func newTranscriber(cfg Config) (stt.Transcriber, error) {
 	}
 }
 
-// newSynthesizer selects the TTS backend (TTS_BACKEND).
+// newSynthesizer selects the TTS backend (TTS_BACKEND). "none" returns nil —
+// the update loop then skips SendVoice and replies with text only.
 func newSynthesizer(cfg Config) (tts.Synthesizer, error) {
 	switch cfg.TTSBackend {
+	case "none":
+		return nil, nil
 	case "elevenlabs":
 		return tts.NewElevenLabs(cfg.ElevenKey), nil
 	case "azure":

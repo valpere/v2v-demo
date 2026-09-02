@@ -104,6 +104,8 @@ func (c Config) validate() error {
 	}
 
 	switch c.TTSBackend {
+	case "none":
+		// voice replies disabled — text only (dev / bulk smoke-testing)
 	case "elevenlabs":
 		if c.ElevenKey == "" {
 			errs = append(errs, "ELEVENLABS_API_KEY is required for TTS_BACKEND=elevenlabs")
@@ -119,7 +121,7 @@ func (c Config) validate() error {
 			errs = append(errs, "AZURE_VOICE_A and AZURE_VOICE_B are required for TTS_BACKEND=azure")
 		}
 	default:
-		errs = append(errs, fmt.Sprintf("TTS_BACKEND %q: want elevenlabs|azure", c.TTSBackend))
+		errs = append(errs, fmt.Sprintf("TTS_BACKEND %q: want none|elevenlabs|azure", c.TTSBackend))
 	}
 
 	switch c.STTBackend {
