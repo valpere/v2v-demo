@@ -530,9 +530,9 @@ checks).
 | -- | -- |
 | `Привіт!` / `Hello` | a greeting back, a normal opening `[R]` |
 | `Дякую за допомогу, гарного дня!` | a polite close — **not** a handoff `[R]` |
-| `Ок` / `Зрозуміло` / `Добре` | handled gracefully (a short nudge back to the quote is fine) |
-| `Апостиль?` (bare, after a `/reset`) | **still escalates** — a lone "?" out of nowhere is not small talk |
-| `Яка зараз погода?` (after a `/reset`) | **still escalates** — an off-topic content question `[R]` |
+| `Ок` / `Зрозуміло` / `Добре` / `Гаразд` | handled gracefully — a short nudge back to the quote. **Not** a handoff. `[R]` (was escalating — acknowledgement words weren't small-talk markers) |
+| `Апостиль?` (bare, after a `/reset`) | **answers from the KB** — "апостиль" is a KB topic, so the gate lets it through; not small talk, not a spurious escalate either |
+| `Яка зараз погода?` (after a `/reset`) | **still escalates** — an off-topic content question, zero KB overlap `[R]` |
 
 ---
 

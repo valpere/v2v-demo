@@ -48,16 +48,20 @@ var escalateKeywords = []string{
 	"talk to a person", "з менеджером", "менеджера напряму", "напряму з", "speak to a manager", "human agent",
 }
 
-// pleasantryMarkers are greeting / thanks / farewell fragments (lowercase,
-// punctuation-free) that mark a conversation boundary, not a content question.
+// pleasantryMarkers are greeting / thanks / farewell / acknowledgement
+// fragments (lowercase, punctuation-free) that mark a conversation boundary,
+// not a content question. Matched against a space-padded query, so a leading
+// space means "as its own word".
 var pleasantryMarkers = []string{
 	"добрий день", "доброго дня", "добрий вечір", "доброго вечора", "доброго ранку",
 	"добридень", "привіт", "вітаю", "доброго здоров", "радий вас",
 	"дякую", "дякуємо", "вдячн", "спасибі", "щиро дяк",
 	"до побачення", "на все добре", "гарного дня", "всього найкращого", "бувайте",
+	" ок", "добре", "гаразд", "зрозуміл", " ясно", "згод", "чудово", "супер",
 	"hello", "hi ", "hey", "good morning", "good afternoon", "good evening",
 	"thank you", "thanks", "thank u", "appreciate",
 	"goodbye", "bye", "have a good", "have a nice", "see you", "cheers",
+	" ok", "okay", "got it", "understood", "noted", "alright", "all right", " sure",
 }
 
 // isSmallTalk reports whether userText is a short greeting / thanks / farewell
