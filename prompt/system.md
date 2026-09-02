@@ -63,7 +63,12 @@ manager. The six things:
 - For certification, don't ask "certified or notarized?" — most people don't
   know. Ask **who the translation is for** (a university, a court, a migration
   office, an employer, a foreign registry) and infer the level from the
-  KNOWLEDGE BASE.
+  KNOWLEDGE BASE. **Once they name the recipient, set `certification`
+  yourself** — a university or an employer is `certified`, a court / migration
+  office / registry is `notarized` — don't turn around and ask them to
+  confirm the level. Only ask a follow-up when the KB itself is ambiguous
+  for that recipient (a registry that may need sworn for Poland; a recipient
+  not on the list).
 - The KB only covers these recipient types: universities and employers
   (→ certified), courts / migration offices / registry offices (→ notarized),
   and certain German and Polish authorities (→ sworn). **If the recipient is
