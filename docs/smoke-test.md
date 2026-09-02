@@ -122,10 +122,10 @@ scenario are the same conversation; don't reset between them unless the
 step says so.
 
 Only **2a** and **2b** run all the way to `lead_ready` + a `data/leads.jsonl`
-row. **2c, 2d, 2e stop partway on purpose** — each isolates one behaviour
-(price-first, "I'll send the file", certification inference) and ends with
-the bot still asking for missing slots (`signal: continue`, **no lead
-row** — that's the pass).
+row. **2c, 2d and 2e–2j stop partway on purpose** — each isolates one
+behaviour (price-first, "I'll send the file", certification inference) and
+ends with the bot still asking for missing slots (`signal: continue`, **no
+lead row** — that's the pass).
 
 **2a — drip feed, Ukrainian.** Full reset, then send these one at a time,
 waiting for each reply:
@@ -191,18 +191,60 @@ waiting for each reply:
 2. later in the same conversation: `Порахував — там 4 сторінки`
    - **Expect:** volume **updated** to "4 pages" — not doubled, not ignored.
 
-**2e — certification inference.** Start a quote, and when asked about the
-recipient answer with each of these (full reset before each is fine — or
-just restart the bot, since 2e checks no log counts):
+**2e–2j — certification inference.** These six all test the same thing: the
+bot should never ask "certified or notarized?" — it asks *who receives the
+document* and infers the level from the KB. Run each one like this:
 
-| You say the document is for… | Expect the level |
-| -- | -- |
-| `для університету` / `for my employer` | certified (bureau stamp) |
-| `для суду` / `для міграційної служби` / `для РАЦСу` | notarized |
-| `для німецького відомства, яке не приймає українське нотаріальне` | sworn — and it should note sworn is only DE/PL/IT/FR/CZ |
-| `для посольства Італії` | notarized — **not** sworn (the bureau can't do sworn Italian itself; watch it doesn't over-infer) |
-| `для посольства США` / `for a US immigration office` | not in the KB list → it **asks** or falls back to "a manager will confirm"; **no** invented "US rule" |
-| `просто для внутрішнього користування` | none / certified; delivery → email |
+- Full reset (restarting the bot alone is fine here — none of these check
+  the logs).
+- Send `Треба перекласти диплом з української на англійську, 2 сторінки, за тиждень`
+  — that fills four slots, so the bot's next question is about the
+  recipient.
+- Answer that question with the step's phrase, then check the
+  `certification` slot in `data/turns.jsonl` (or listen to how the reply
+  describes the level).
+
+**2e — university / employer → certified.**
+
+1. Full reset, start the quote as above, then answer the recipient question
+   with `Для університету в Берліні` (or `It's for my employer`).
+   - **Expect:** `certification: certified` (bureau stamp + signature). It
+     does **not** make you pick a level.
+
+**2f — court / migration office / registry → notarized.**
+
+1. Full reset, start the quote, then answer with `Для суду` (or
+   `для міграційної служби`, or `для РАЦСу`).
+   - **Expect:** `certification: notarized`.
+
+**2g — a German authority that rejects Ukrainian notarization → sworn.**
+
+1. Full reset, start the quote, then answer with
+   `Для німецького відомства, яке не приймає українське нотаріальне засвідчення`.
+   - **Expect:** `certification: sworn`, and the reply notes sworn
+     translation is only available for DE / PL / IT / FR / CZ.
+
+**2h — Italian embassy → notarized, NOT sworn.**
+
+1. Full reset, start the quote, then answer with `Для посольства Італії`.
+   - **Expect:** `notarized` — the bureau can't produce sworn Italian
+     itself, so it must **not** over-infer "sworn" just because Italy is on
+     the sworn-language list.
+
+**2i — US recipient → not in the KB, must not invent a rule.**
+
+1. Full reset, start the quote, then answer with `Для посольства США` (or
+   `for a US immigration office`).
+   - **Expect:** the US is **not** in the KB's recipient list → it **asks**
+     which level you need, or says "a manager will confirm the exact
+     requirement". **No** invented "US rule", no confident level.
+
+**2j — internal use only → none / certified, email delivery.**
+
+1. Full reset, start the quote, then answer with
+   `Просто для внутрішнього користування`.
+   - **Expect:** `certification: none` (or a plain certified translation),
+     and it infers `delivery: email`.
 
 ---
 
