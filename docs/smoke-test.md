@@ -121,6 +121,12 @@ empty session and an empty `data/leads.jsonl`. Numbered steps *within* a
 scenario are the same conversation; don't reset between them unless the
 step says so.
 
+Only **2a** and **2b** run all the way to `lead_ready` + a `data/leads.jsonl`
+row. **2c, 2d, 2e stop partway on purpose** — each isolates one behaviour
+(price-first, "I'll send the file", certification inference) and ends with
+the bot still asking for missing slots (`signal: continue`, **no lead
+row** — that's the pass).
+
 **2a — drip feed, Ukrainian.** Full reset, then send these one at a time,
 waiting for each reply:
 
