@@ -482,19 +482,28 @@ details. This is the likeliest live fabrication.
 
 ## 8. Hard escalation triggers (fast, no LLM call)
 
-Each should reply with the **fixed handoff line** ("З'єдную вас із
-менеджером…") in **~1–7 seconds** — noticeably faster than a normal turn.
+These match a keyword **before** the bot calls the model, so the reply is
+the fixed handoff line ("З'єдную вас із менеджером…") and it comes back
+**almost instantly** — well under a second with `TTS_BACKEND=none`, vs 1–2 s+
+for any turn that reaches the LLM. Full reset between rows.
 
-| Send | Trigger |
+| Send | Trigger word |
 | -- | -- |
-| `Хочу повернути гроші` / `I want a refund` | refund / повернення |
-| `Буду писати скаргу` / `This is a formal complaint` | complaint / скарга |
-| `Подам на вас до суду` / `see you in court` | legal threat — "до суду" / "in court" / "позов" (a bare "суд", as in "для суду", must **not** trigger — see 2f) |
-| `Дайте людину` / `let me talk to a real person` | wants a human |
-| `З'єднайте з менеджером напряму` | direct manager request |
+| `Хочу повернути гроші` / `I want a refund` | повернення / refund |
+| `Буду писати скаргу` / `This is a formal complaint` | скарг / complaint |
+| `Подам на вас до суду` / `see you in court` | до суду / see you in court |
+| `Готую позов` / `we'll file a lawsuit` | позов / lawsuit |
+| `Take you to court` / `I will sue you` | you to court / sue you |
+| `Дайте людину` / `let me talk to a real person` | дайте людину / real person |
+| `З'єднайте з менеджером напряму` | менеджера напряму |
 
-Then check `data/turns.jsonl`: `"signal": "escalate"`, small `latency_ms`,
-`"matched": null`.
+Then check `data/turns.jsonl`: `"signal": "escalate"`, tiny `latency_ms`,
+**`"matched": null`** (a model-decided escalate has `matched` populated — so
+`matched: null` + sub-second latency is what proves it was the keyword path).
+
+**Must NOT hard-trigger** (these reach the model): `Для суду` /
+`for a court` (a court as the document's recipient — see 2f); `Мій диплом
+не приймають` (a plain statement, not a complaint keyword).
 
 ---
 
