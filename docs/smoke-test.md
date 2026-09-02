@@ -27,11 +27,18 @@ flow**.
 make run            # starts the bot (Ctrl-C to stop)
 ```
 
-- There is **one chat**: you ↔ `@v2v_demo_bot`. "Restart the bot", "a fresh
-  conversation", or "restart between scenarios" all mean **stop the bot
-  (Ctrl-C) and `make run` again** — that clears the in-memory session
-  (slots, history) and re-arms the greeting. Nothing else resets it; the
-  greeting is sent once per chat per bot process.
+- There is **one chat**: you ↔ `@v2v_demo_bot`. Two separate reset actions —
+  the doc says which one each step needs:
+  - **Restart the bot** — stop it (Ctrl-C) and `make run` again. This is the
+    only way to clear the **in-memory session** (slots, history) and re-arm
+    the greeting (sent once per chat per bot process). It does **not** touch
+    the `data/` logs.
+  - **Clear the logs** — with the bot stopped, `rm -f data/*.jsonl` (the bot
+    recreates them). Do this when a step checks `data/leads.jsonl` for
+    "one row" / "one new row" — it makes the count absolute instead of
+    "one *more* than before".
+  - **Full reset** = both, in that order. Section 2 needs a full reset
+    before every lettered scenario.
 - The **first voice message ever** downloads the Whisper model (~1.5 GB) —
   that one turn takes minutes. After that, ≈ 12 s STT + ~40 s LLM per voice
   turn on the dev backends (the client config is much faster — see below).
@@ -108,11 +115,13 @@ make run            # starts the bot (Ctrl-C to stop)
 *Channel: **text** — type these (they can be scripted). Section 13 covers
 the voice path; its step 1 re-runs this whole quote flow spoken.*
 
-**Restart the bot before every lettered scenario below** (2a, 2b, …) — each
-one needs a clean session. Numbered steps *within* a scenario are the same
-conversation; don't restart between them unless the step says so.
+**Full reset before every lettered scenario below** (2a, 2b, …) — restart
+the bot *and* clear the logs (see Setup), so each scenario starts from an
+empty session and an empty `data/leads.jsonl`. Numbered steps *within* a
+scenario are the same conversation; don't reset between them unless the
+step says so.
 
-**2a — drip feed, Ukrainian.** Restart, then send these one at a time,
+**2a — drip feed, Ukrainian.** Full reset, then send these one at a time,
 waiting for each reply:
 
 1. `Треба перекласти диплом з української на німецьку`
@@ -137,14 +146,14 @@ waiting for each reply:
 
 **2b — almost everything in the first message.**
 
-1. Restart, then send:
+1. Full reset, then send:
    `Hi, I need a certified translation of my birth certificate from Ukrainian to Polish, one page, by next Friday, email is fine — it's for a Polish registry office`
    - **Expect:** fills language pair / doc type / volume / deadline /
      delivery from the one message. Registry office → **notarized** (or sworn
      for Poland) per the KB, **not** just "certified". It asks only for
      whatever it genuinely couldn't settle, or goes straight to the
      read-back.
-2. **Restart**, then send:
+2. **Full reset**, then send:
    `Переклад медичного висновку з української на англійську, для лікарні в Лондоні, 8 сторінок, до понеділка, скан на пошту`
    - **Expect:** 5 slots from one message. A London hospital is **not** in
      the KB's recipient list → it must **ask** which certification level is
@@ -153,7 +162,7 @@ waiting for each reply:
 
 **2c — price question first, English.**
 
-1. Restart, then send `How much do you charge?`
+1. Full reset, then send `How much do you charge?`
    - **Expect:** explains price depends on language pair / subject / volume /
      deadline; gives the KB per-page range (12–16 general, 18–24
      specialised); **no total**; asks what needs translating.
@@ -163,14 +172,15 @@ waiting for each reply:
 
 **2d — "I'll send the file".**
 
-1. Restart, then send `Можу надіслати файл, там кілька документів`
+1. Full reset, then send `Можу надіслати файл, там кілька документів`
    - **Expect:** accepts "I'll send the file" as the volume answer (doesn't
      get stuck insisting on a page count); continues with the other slots.
 2. later in the same conversation: `Порахував — там 4 сторінки`
    - **Expect:** volume **updated** to "4 pages" — not doubled, not ignored.
 
 **2e — certification inference.** Start a quote, and when asked about the
-recipient answer with each of these (fresh conversation each time is fine):
+recipient answer with each of these (full reset before each is fine — or
+just restart the bot, since 2e checks no log counts):
 
 | You say the document is for… | Expect the level |
 | -- | -- |
@@ -185,9 +195,11 @@ recipient answer with each of these (fresh conversation each time is fine):
 
 ## 3. `lead_ready` discipline
 
-**3a — summary before `lead_ready`.** Do a full quote flow like scenario
-2a. Watch the
-turn that supplies the sixth value:
+**Full reset before every lettered scenario** — these all check
+`data/leads.jsonl` for an exact row count.
+
+**3a — summary before `lead_ready`.** Full reset, then do a full quote flow
+like scenario 2a. Watch the turn that supplies the sixth value:
 
 - **Expect:** that turn **reads all six back** and only then emits
   `lead_ready`. It must never emit `lead_ready` on the turn it learns the
@@ -196,7 +208,7 @@ turn that supplies the sixth value:
 
 **3b — B4 guard.**
 
-1. Restart, then send:
+1. Full reset, then send:
    `Дайте цитату на переклад водійських прав з української на польську, 1 сторінка, до четверга, поштою`
    - This gives five values but **not** the recipient (→ certification).
    - **Expect:** `certification` stays unset; it **asks** who the translation
@@ -204,7 +216,7 @@ turn that supplies the sixth value:
 
 **3c — no duplicate lead.**
 
-1. Finish a quote so you get a `lead_ready`.
+1. Full reset, then finish a quote so you get a `lead_ready`.
 2. Send `Дякую! А ще одне питання — ви робите терміново?`
    - **Expect:** it answers briefly. Check `data/leads.jsonl` — still **one**
      row, no duplicate, even if the reply repeats the summary. `[R]` (LeadDone)
@@ -362,8 +374,9 @@ Then check `data/turns.jsonl`: `"signal": "escalate"`, small `latency_ms`,
 
 ## 11. Corrections & contradictions
 
-Restart between these. Give the bot the first value, let it move on, then
-send the correction.
+Restart the bot between these (full reset before step 4 — it checks
+`data/leads.jsonl` for exactly one row). Give the bot the first value, let
+it move on, then send the correction.
 
 1. after "3 pages": `Перепрошую, не 3, а 12 сторінок`
    - **Expect:** volume becomes 12 — not "15", not asked again.
