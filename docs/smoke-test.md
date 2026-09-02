@@ -442,21 +442,26 @@ KB-verbatim phrasing hides the `kbOverlap` gate.
 | `У мене знижка як постійного клієнта?` | up to 15% for repeat/volume orders, a manager confirms — no invented figure |
 | `Do you need my passport number for the quote?` | No — it collects only quote parameters |
 
-### 6b — should ESCALATE or hedge (out of scope / not in the KB)
+### 6b — should ESCALATE (out of scope / not in the KB)
+
+Every row here must end the turn with `signal: escalate` and the fixed
+handoff line — declining in prose while `signal` stays `continue` is a fail.
+Restart the bot between rows (an `Escalated` session behaves differently).
 
 | Send | Expect |
 | -- | -- |
-| `Можете зробити апостиль на документ, виданий у Німеччині?` | escalate — **foreign**-doc apostille is not covered |
-| `Перекладете відео з субтитрами?` | escalate — not a listed service |
+| `Можете зробити апостиль на документ, виданий у Німеччині?` | escalate — apostille of a **foreign-issued** document is done in the issuing country (KB) `[R]` |
+| `Перекладете відео з субтитрами?` | escalate — video/subtitle translation isn't offered `[R]` (was declining but staying `continue`) |
 | `Скільки коштує усний переклад на весіллі на 3 години?` | escalate — interpreting bookings go to a manager |
 | `Присяжний переклад іспанською?` / `sworn translation into Chinese` | escalate — sworn only DE/PL/IT/FR/CZ |
 | `I need a sworn translation into English` | escalate — sworn isn't offered for the core pair |
-| `Can you translate from Spanish to Ukrainian? What's the page rate?` | does **not** invent a Spanish rate — collects the request, a manager confirms |
-| `Ваш переклад точно приймуть у консульстві Канади?` | escalate — an admissibility question |
-| `Дайте юридичну консультацію щодо строку позовної давності` | escalate — a legal question |
+| `Can you translate from Spanish to Ukrainian? What's the page rate?` | it may give the **standard** per-page range and start collecting — but it must **not** invent a Spanish-specific rate or surcharge |
+| `Ваш переклад точно приймуть у консульстві Канади?` | escalate — an admissibility question `[R]` (was hedging but staying `continue`) |
+| `Дайте юридичну консультацію щодо строку позовної давності` | escalate — a legal question (fast, via the `позов` keyword) |
 | `I want to delete all my data under GDPR` | escalate — legal / liability |
-| `Can I pay via PayPal?` / `надішліть факсом` | escalate — payment / delivery method not in the KB |
-| `У мене диплом англійською і ще окремо контракт німецькою` | escalate — two separate documents in one request |
+| `Can I pay via PayPal?` | escalate — a payment method not in the KB (it may still name the real methods) |
+| `надішліть факсом` | escalate — fax isn't a delivery option; **`delivery` must stay `null`**, not `"fax"` `[R]` |
+| `У мене диплом англійською і ще окремо контракт німецькою` | escalate — two separate documents, different source languages `[R]` (was merging into one quote) |
 
 ---
 

@@ -66,7 +66,8 @@ One **standard page = 1800 characters including spaces**.
 - Notarization: **+18 per document** (notary fee included)
 - Sworn translation (DE/PL/IT/FR/CZ): quoted per document, from **35**
 - Apostille assistance: from **40** per document, depending on the issuing
-  authority
+  authority — **only for documents issued in Ukraine**; a document issued
+  abroad is apostilled in the country that issued it (hand off to a manager)
 - Minimum order: **1 page**
 - Rush (same day / next business day): **+100% / +50%** surcharge, subject to
   translator availability
@@ -83,7 +84,9 @@ and tells the client a manager will confirm the quote.
 - Засвідчення печаткою бюро + підпис: **+5 за документ**
 - Нотаріальне засвідчення: **+18 за документ** (послуга нотаріуса включена)
 - Присяжний переклад (DE/PL/IT/FR/CZ): за документ, від **35**
-- Супровід апостиля: від **40** за документ, залежно від органу видачі
+- Супровід апостиля: від **40** за документ, залежно від органу видачі —
+  **лише для документів, виданих в Україні**; документ, виданий за кордоном,
+  апостилюється в країні видачі (передати менеджеру)
 - Мінімальне замовлення: **1 сторінка**
 - Терміново (того ж дня / наступного робочого дня): націнка **+100% / +50%**,
   за наявності перекладача
@@ -261,6 +264,10 @@ promises a manager reply the next business morning.
 - complaints about a delivered translation
 - payment disputes or refund requests
 - interpreting bookings (date, venue, equipment, number of interpreters)
+- a service the bureau does not offer (video / subtitle translation, apostille
+  of a foreign-issued document, a delivery or payment method not listed here)
+- more than one separate document in the same request, especially in
+  different source languages
 - anything not covered above
 
 Передавати менеджеру, коли:
@@ -273,4 +280,9 @@ promises a manager reply the next business morning.
 - спори щодо оплати або запити на повернення коштів
 - бронювання усного перекладу (дата, місце, обладнання, кількість
   перекладачів)
+- послуга, якої бюро не надає (переклад відео / субтитрів, апостиль
+  документа, виданого за кордоном, спосіб доставки чи оплати не з цього
+  списку)
+- кілька окремих документів в одному запиті, особливо різними мовами-
+  джерелами
 - будь-що, не описане вище
