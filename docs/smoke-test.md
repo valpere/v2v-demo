@@ -661,11 +661,12 @@ The client writes only in Russian, turn after turn:
 **12g — an English voice message.**
 
 1. Send a short **voice message** in English.
-   - **Expect:** with `WHISPER_LANG=uk` the transcript may garble English.
-     Decide before the demo: set `WHISPER_LANG=auto`, or tell the client the
-     voice path is Ukrainian-only. (`.env.client` sets `STT_BACKEND=openai`
-     `whisper-1`, which auto-detects — check whether this is still an issue
-     there.)
+   - **On `.env.client` (whisper-1): fine** — verified 2026-09-02, English
+     voice transcribes cleanly (whisper-1 auto-detects), the reply is
+     English. Since the demo runs on `.env.client`, this is a non-issue.
+   - **On the dev backend (local whisper + `WHISPER_LANG=uk`):** clear
+     English still came back clean in testing, but short/mumbled English may
+     garble. Only relevant if you demo on dev — then set `WHISPER_LANG=auto`.
 
 ---
 
