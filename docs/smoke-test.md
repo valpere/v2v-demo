@@ -538,22 +538,47 @@ checks).
 
 ## 11. Corrections & contradictions
 
-Restart the bot between these (full reset before step 4 — it checks
-`data/leads.jsonl` for exactly one row). Give the bot the first value, let
-it move on, then send the correction.
+**Full reset before every scenario.** Each one gives the bot a value, lets
+it move on, then contradicts it — the point is the slot is *overwritten*,
+not appended, re-asked, or misheard.
 
-1. after "3 pages": `Перепрошую, не 3, а 12 сторінок`
-   - **Expect:** volume becomes 12 — not "15", not asked again.
-2. after "з української на німецьку": `Стоп, на французьку, не німецьку`
-   - **Expect:** language pair updated to uk→fr.
-3. mid-quote (4 slots filled, in Ukrainian):
-   `Can we continue in English? And the deadline is Friday, not next week`
-   - **Expect:** one reply, **in English**, deadline overwritten, no churn
-     on the other slots.
-4. after a `lead_ready` + read-back:
-   `Стоп, це не паспорт, а свідоцтво про народження`
-   - **Expect:** doc type updated, re-summarised, **exactly one**
-     `LeadRecord` in `data/leads.jsonl`, no stale "passport". `[R]`
+**11a — correcting the volume.**
+
+1. `Треба перекласти договір з української на англійську, 3 сторінки`
+2. `За тиждень`
+3. `Перепрошую, не 3, а 12 сторінок`
+   - **Expect:** `volume` becomes `"12 сторінок"` — not "3", not "15", and
+     it doesn't ask for the page count again.
+
+**11b — correcting the language pair.**
+
+1. `Треба перекласти диплом з української на німецьку, 2 сторінки, за тиждень`
+2. When it asks the next thing: `Стоп, на французьку, не німецьку`
+   - **Expect:** `language_pair` becomes uk→fr; the other slots
+     (`doc_type`, `volume`, `deadline`) are untouched.
+
+**11c — switching language mid-quote + overriding a value in one message.**
+
+1. Build four slots in Ukrainian: `Переклад медичного висновку з української на англійську` → `5 сторінок` → `наступного тижня` → `для лікарні в Берліні`.
+2. `Can we continue in English? And the deadline is Friday, not next week`
+   - **Expect:** **one** reply, **in English**, `deadline` overwritten to
+     Friday, no churn on `language_pair` / `doc_type` / `volume` /
+     `certification`.
+
+**11d — correcting after the lead is already recorded.** `[R]`
+
+1. Full quote to `lead_ready`:
+   `Переклад паспорта з української на польську, 1 сторінка, до п'ятниці, для університету, скан на пошту` → answer any follow-up → read-back → `lead_ready`. One row now in `data/leads.jsonl`.
+2. `Стоп, це не паспорт, а свідоцтво про народження`
+   - **Expect (conversation):** `doc_type` in the session becomes "свідоцтво
+     про народження", the bot gives a fresh read-back and hands off again;
+     `signal` on this turn is `continue` (the `LeadDone` guard — no second
+     `lead_ready`).
+   - **Known limitation:** `data/leads.jsonl` still has just the **one
+     original** row (with "паспорт") — the append-only lead log is not
+     updated in place, so a post-`lead_ready` correction reaches the manager
+     only through the conversation, not the record. Flag if this matters for
+     the demo. See `.agents/changes.md`.
 
 ---
 
