@@ -97,6 +97,9 @@ func TestHardEscalate(t *testing.T) {
 		"can I talk to a real person",
 		"just let me talk to a person",
 		"дайте менеджера напряму",
+		"З'єднайте з менеджером напряму",
+		"хочу поговорити з менеджером",
+		"can I speak to a manager",
 	}
 	miss := []string{
 		"Скільки коштує переклад диплома?",

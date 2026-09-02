@@ -495,7 +495,7 @@ for any turn that reaches the LLM. Full reset between rows.
 | `Готую позов` / `we'll file a lawsuit` | позов / lawsuit |
 | `Take you to court` / `I will sue you` | you to court / sue you |
 | `Дайте людину` / `let me talk to a real person` | дайте людину / real person |
-| `З'єднайте з менеджером напряму` | менеджера напряму |
+| `З'єднайте з менеджером напряму` / `can I speak to a manager` | з менеджером / speak to a manager `[R]` (case: "менеджером" ≠ "менеджера") |
 
 Then check `data/turns.jsonl`: `"signal": "escalate"`, tiny `latency_ms`,
 **`"matched": null`** (a model-decided escalate has `matched` populated — so

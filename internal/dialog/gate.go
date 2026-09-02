@@ -45,7 +45,7 @@ var escalateKeywords = []string{
 	"до суду", "в суд ", "позов", "судитися", "судовий позов",
 	"see you in court", "you to court", "sue you", "sue the", "lawsuit", "legal action",
 	"дайте людину", "з людиною", "справжн", "real person",
-	"talk to a person", "менеджера напряму",
+	"talk to a person", "з менеджером", "менеджера напряму", "напряму з", "speak to a manager", "human agent",
 }
 
 // pleasantryMarkers are greeting / thanks / farewell fragments (lowercase,
