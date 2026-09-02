@@ -628,11 +628,21 @@ on `.env.client`).* **`/reset` before every scenario.**
    - **Expect:** switches **back to Ukrainian**; slots collected so far are
      intact.
 
-**12d — Russian in → Ukrainian out.** `[R]`
+**12d — Russian in → Ukrainian out, the whole way.** `[R]`
+
+The client writes only in Russian, turn after turn:
 
 1. `Добрый день, сколько стоит перевод паспорта?`
-   - **Expect:** a normal answer **in Ukrainian** — never Russian, and it
-     doesn't refuse or lecture about the language.
+2. `Паспорт с русского на английский`
+3. `Для посольства США`
+4. `Срочно, завтра` → `Скан на почту`
+   - **Expect on every turn:** the reply is **Ukrainian** — never Russian,
+     and it doesn't refuse, switch to Russian, or lecture about the
+     language. It still collects the quote normally.
+   - `language_pair` may be recorded as ru→en (the bureau does translate
+     from Russian) — but it must **not** quote a Russian-specific rate.
+   - `Для посольства США` → `certification: "manager to confirm"` (an
+     embassy is off the KB recipient list — same as scenario 2i).
 
 **12e — political off-topic.**
 
