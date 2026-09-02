@@ -598,7 +598,7 @@ Wait, make it 4 pages
 
 ## 12. Language
 
-*Channel: **text**, except 12g / 12h which are **voice messages** (run those
+*Channel: **text**, except 12f / 12g which are **voice messages** (run those
 on `.env.client`).* **`/reset` before every scenario.**
 
 **12a — a Ukrainian conversation stays Ukrainian.**
@@ -650,7 +650,7 @@ The client writes only in Russian, turn after turn:
    - **Expect:** a short **Ukrainian** reply that hands off / declines as
      off-topic. **No political statement either way.**
 
-**12g — a sloppy Ukrainian voice message.** `[R]`
+**12f — a sloppy Ukrainian voice message.** `[R]`
 
 1. Send a **voice message** in casual, slightly mumbled Ukrainian
    (e.g. "здоров, короче, треба перекласти довідку, шо там по цінах").
@@ -658,7 +658,7 @@ The client writes only in Russian, turn after turn:
      doesn't flip short colloquial clips to Russian — "шо"/"по цінах", not
      "что"/"по ценам"), and the reply is Ukrainian.
 
-**12h — an English voice message.**
+**12g — an English voice message.**
 
 1. Send a short **voice message** in English.
    - **Expect:** with `WHISPER_LANG=uk` the transcript may garble English.
