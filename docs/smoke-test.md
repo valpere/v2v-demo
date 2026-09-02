@@ -660,9 +660,11 @@ The client writes only in Russian, turn after turn:
 
 **12g — an English voice message.**
 
-1. Send a short **voice message** in English, e.g. "Hi, I need to translate
-   my diploma from Ukrainian into English. How much does it cost and how
-   fast can you do it?"
+1. Send a short **voice message** in English — one of:
+   - "Hi, I need to translate my diploma from Ukrainian into English. How
+     much does it cost and how fast can you do it?"
+   - "How much is a certified translation of a birth certificate into
+     English?"
    - **On `.env.client` (whisper-1): fine** — verified 2026-09-02, English
      voice transcribes cleanly (whisper-1 auto-detects), the reply is
      English. Since the demo runs on `.env.client`, this is a non-issue.
