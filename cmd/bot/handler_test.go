@@ -128,21 +128,18 @@ func TestResetClearsSession(t *testing.T) {
 		t.Fatal("/reset should drop the session's slots")
 	}
 
-	before := 0
-	for _, s := range tg.sent() {
-		if s == "GREETING" {
-			before++
+	greetings := func() (n int) {
+		for _, s := range tg.sent() {
+			if s == "GREETING" {
+				n++
+			}
 		}
+		return
 	}
+	before := greetings()
 	a.handleUpdate(ctx, telegram.Update{ChatID: 7, Text: "hi again"})
-	after := 0
-	for _, s := range tg.sent() {
-		if s == "GREETING" {
-			after++
-		}
-	}
-	if after != before+1 {
-		t.Fatalf("greeting re-armed count: before=%d after=%d, want +1", before, after)
+	if greetings() != before {
+		t.Fatalf("greeting replayed after /reset (%d → %d); it should not", before, greetings())
 	}
 }
 

@@ -191,14 +191,14 @@ func (a *app) handleCommand(ctx context.Context, sess *dialog.Session, chatID in
 		sess.Voice = cmd[len(cmd)-1:]
 		a.send(ctx, chatID, dialog.VoiceSwitchedLine(sess))
 	case "/reset", "/clean":
-		// drop this chat's in-memory session and re-arm the greeting — the
-		// same state a bot restart gives, for one chat. A test aid; harmless
-		// if a real user finds it.
+		// drop this chat's in-memory session (slots, history, language,
+		// escalated flag) — a smoke-test aid. `seen` is kept, so the greeting
+		// does NOT replay; testing first-contact / the greeting itself needs
+		// a real bot restart. Harmless if a real user finds it.
 		a.mu.Lock()
 		delete(a.sessions, chatID)
-		delete(a.seen, chatID)
 		a.mu.Unlock()
-		a.send(ctx, chatID, "Сесію очищено — почнімо спочатку. / Session cleared — starting over.")
+		a.send(ctx, chatID, "Сесію очищено. / Session cleared.")
 	default: // "/voice", "/start" after greeting, "/help", anything unknown
 		a.send(ctx, chatID, voiceHelp(sess))
 	}

@@ -453,9 +453,9 @@ handleUpdate(u Update):
 
     // slash commands (after greeting, after transcript) are handled here,
     // never reach dialog.Handle: "/voice a|b" switches sess.Voice;
-    // "/reset" | "/clean" drops this chat's session + seen entry (a smoke-test
-    // aid — same state as a bot restart, for one chat); any other "/..." gets
-    // a one-line /voice usage hint.
+    // "/reset" | "/clean" drops this chat's dialog.Session (slots/history/
+    // lang/escalated) — a smoke-test aid; `seen` is kept so the greeting does
+    // not replay. Any other "/..." gets a one-line /voice usage hint.
 
     if u.IsStart || firstMessage(u.ChatID):
         tg.SendText(ctx, u.ChatID, greet); markSeen(u.ChatID)

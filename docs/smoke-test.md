@@ -30,16 +30,18 @@ make run            # starts the bot (Ctrl-C to stop)
 - There is **one chat**: you ↔ `@v2v_demo_bot`. Two separate reset actions —
   the doc says which one each step needs:
   - **Reset the session** — clears the **in-memory session** (slots,
-    history, language, escalated flag) and re-arms the greeting. Two ways:
-    send **`/reset`** in the chat (fast, no interruption — a test aid),
-    **or** stop the bot (Ctrl-C) and `make run` again. `/start` does **not**
-    do this — it only re-sends the greeting text. Neither touches `data/`.
+    history, language, escalated flag). Send **`/reset`** in the chat (fast,
+    no interruption, and **no greeting replay** — a test aid). A bot restart
+    (Ctrl-C + `make run`) also clears it *and* re-arms the greeting — use
+    that for section 1 (first-contact / greeting tests); `/reset` for
+    everything else. `/start` only re-sends the greeting text, clears
+    nothing. Neither touches `data/`.
   - **Clear the logs** — with the bot stopped, `rm -f data/*.jsonl` (the bot
     recreates them). Do this when a step checks `data/leads.jsonl` for
     "one row" / "one new row" — it makes the count absolute instead of
     "one *more* than before".
-  - **Full reset** = both (`/reset` then clear the logs, or a bot restart
-    with the logs cleared). Section 2 needs a full reset before every
+  - **Full reset** = `/reset` **and** clear the logs. Section 2 (and any
+    step checking a `leads.jsonl` row count) needs a full reset before every
     lettered scenario.
 - The **first voice message ever** downloads the Whisper model (~1.5 GB) —
   that one turn takes minutes. After that, ≈ 12 s STT + ~40 s LLM per voice
