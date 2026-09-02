@@ -244,13 +244,17 @@ matters here — start this one into German:
      itself, so it must **not** over-infer "sworn" just because Italy is on
      the sworn-language list.
 
-**2i — US recipient → not in the KB, must not invent a rule.**
+**2i — US recipient → not in the KB, must not invent a rule.** `[R]`
 
 1. Full reset, start the quote, then answer with `Для посольства США` (or
    `for a US immigration office`).
-   - **Expect:** the US is **not** in the KB's recipient list → it **asks**
-     which level you need, or says "a manager will confirm the exact
-     requirement". **No** invented "US rule", no confident level.
+   - **Expect:** an embassy / a US authority is **not** in the KB's recipient
+     list, so it must **not** say a certified translation is "usually
+     enough" or infer any concrete level. It says the exact certification
+     depends on that authority and a manager will confirm, and sets
+     `certification: "manager to confirm"` (not `certified`/`notarized`).
+     The quote can still complete with that value. `[R]` (it used to invent
+     "US embassy → certified")
 
 **2j — internal use only → none / certified, email delivery.**
 
