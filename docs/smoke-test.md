@@ -163,7 +163,10 @@ waiting for each reply:
 2. If it asked, reply `Yes, notarized is fine`.
    - **Expect:** now a **read-back of all six** → `signal: lead_ready` →
      **one** row in `data/leads.jsonl` with `certification: notarized`.
-3. **Full reset**, then send:
+3. **Full reset — this one matters.** Do *not* just keep typing after step 2:
+   a second full spec in the same session inherits the finished lead's
+   `certification` / `delivery` (the model can't clear a filled slot — a
+   known limitation, see `.agents/changes.md`). After a proper reset, send:
    `Переклад медичного висновку з української на англійську, для лікарні в Лондоні, 8 сторінок, до понеділка, скан на пошту`
    - **Expect:** 5 slots from one message. A London hospital is **not** in
      the KB's recipient list → it must **ask** which certification level is
