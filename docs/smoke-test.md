@@ -108,9 +108,12 @@ make run            # starts the bot (Ctrl-C to stop)
 *Channel: **text** — type these (they can be scripted). Section 13 covers
 the voice path; its step 1 re-runs this whole quote flow spoken.*
 
-Restart the bot between scenarios.
+**Restart the bot before every lettered scenario below** (2a, 2b, …) — each
+one needs a clean session. Numbered steps *within* a scenario are the same
+conversation; don't restart between them unless the step says so.
 
-**2a — drip feed, Ukrainian.** Send these one at a time, waiting for each reply:
+**2a — drip feed, Ukrainian.** Restart, then send these one at a time,
+waiting for each reply:
 
 1. `Треба перекласти диплом з української на німецьку`
    - **Expect:** acknowledges; asks for **one or two** of the missing things
@@ -141,7 +144,8 @@ Restart the bot between scenarios.
      for Poland) per the KB, **not** just "certified". It asks only for
      whatever it genuinely couldn't settle, or goes straight to the
      read-back.
-2. `Переклад медичного висновку з української на англійську, для лікарні в Лондоні, 8 сторінок, до понеділка, скан на пошту`
+2. **Restart**, then send:
+   `Переклад медичного висновку з української на англійську, для лікарні в Лондоні, 8 сторінок, до понеділка, скан на пошту`
    - **Expect:** 5 slots from one message. A London hospital is **not** in
      the KB's recipient list → it must **ask** which certification level is
      needed, or fall back to "certified, a manager will confirm" — it must
@@ -149,7 +153,7 @@ Restart the bot between scenarios.
 
 **2c — price question first, English.**
 
-1. `How much do you charge?`
+1. Restart, then send `How much do you charge?`
    - **Expect:** explains price depends on language pair / subject / volume /
      deadline; gives the KB per-page range (12–16 general, 18–24
      specialised); **no total**; asks what needs translating.
@@ -159,7 +163,7 @@ Restart the bot between scenarios.
 
 **2d — "I'll send the file".**
 
-1. `Можу надіслати файл, там кілька документів`
+1. Restart, then send `Можу надіслати файл, там кілька документів`
    - **Expect:** accepts "I'll send the file" as the volume answer (doesn't
      get stuck insisting on a page count); continues with the other slots.
 2. later in the same conversation: `Порахував — там 4 сторінки`
