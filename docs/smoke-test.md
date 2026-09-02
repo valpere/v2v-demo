@@ -536,14 +536,43 @@ checks).
 
 ---
 
-## 11. Corrections & contradictions `[R]`
+## 11. Corrections & contradictions
 
-**Full reset**, then send this chain, one message at a time. The first sets
-all six and reaches `lead_ready`; each line after it corrects one slot with
-a different wording. Every correction must **overwrite** that slot (not
-append, not re-ask, not touch the others), give a fresh read-back, and —
-since the lead is already recorded — append **one more row** to
-`data/leads.jsonl` (newest row wins).
+**Full reset before every scenario.** Each one gives the bot a value, lets
+it move on, then contradicts it — the point is the slot is *overwritten*,
+not appended, re-asked, or misheard. There's no keyword for "correction" —
+the model reads intent — so vary the wording (`Стоп…` / `Ой, помилився…` /
+`Wait, actually…` / a bare contradiction / a correction worded as an
+addition: `Забув сказати — насправді…`).
+
+**11a — correcting the volume.**
+
+1. `Треба перекласти договір з української на англійську, 3 сторінки`
+2. `За тиждень`
+3. `Перепрошую, не 3, а 12 сторінок`
+   - **Expect:** `volume` becomes `"12 сторінок"` — not "3", not "15", and
+     it doesn't ask for the page count again.
+
+**11b — correcting the language pair.**
+
+1. `Треба перекласти диплом з української на німецьку, 2 сторінки, за тиждень`
+2. When it asks the next thing: `Стоп, на французьку, не німецьку`
+   - **Expect:** `language_pair` becomes uk→fr; `doc_type` / `volume` /
+     `deadline` are untouched.
+
+**11c — switching language mid-quote + overriding a value in one message.**
+
+1. Build four slots in Ukrainian: `Переклад медичного висновку з української на англійську` → `5 сторінок` → `наступного тижня` → `для лікарні в Берліні`.
+2. `Can we continue in English? And the deadline is Friday, not next week`
+   - **Expect:** **one** reply, **in English**, `deadline` overwritten to
+     Friday. `language_pair` stays uk→en (that's the translation direction,
+     not the chat language) and `doc_type` / `volume` / `certification`
+     don't churn.
+
+**11d — correcting after the lead is recorded.** `[R]`
+
+Full reset, then send this chain one message at a time — line 1 reaches
+`lead_ready`, each line after it fixes one slot:
 
 ```
 Переклад диплома з української на англійську, 1 сторінка, за тиждень, для університету, скан на пошту
@@ -556,20 +585,14 @@ Wait, make it 4 pages
 Дякую!
 ```
 
-- After line 1: read-back of all six, `lead_ready`, **1 row**.
-- Lines 2–7: `doc_type` → свідоцтво про народження · `language_pair` →
-  uk→de · `volume` → 4 pages · `deadline` → 2 weeks · `certification` →
-  notarized (court) · `delivery` → courier. Each adds **one** row.
-- After line 7 the **newest** `leads.jsonl` row is: свідоцтво про
-  народження, uk→de, 4 pages, 2 weeks, notarized, courier — **nothing** from
-  the диплом/англійська/тиждень/університет/скан original survives in it.
-- Line 8 (`Дякую!`, nothing changed): brief reply, `signal: continue`,
+- Line 1 → read-back of all six, `lead_ready`, **1 row** in `data/leads.jsonl`.
+- Lines 2–7 each overwrite one slot (`doc_type` → свідоцтво · `language_pair`
+  → uk→de · `volume` → 4 pages · `deadline` → 2 weeks · `certification` →
+  notarized · `delivery` → courier), re-summarise, and append **one more
+  row** (newest wins). After line 7 the newest row is свідоцтво / uk→de /
+  4 pages / 2 weeks / notarized / courier — nothing from the original.
+- Line 8 (`Дякую!`, nothing changed) → brief reply, `signal: continue`,
   **no new row**.
-
-The model reads intent — there's no correction keyword — so the mix of
-`Ой…` / `Стоп…` / `Wait…` / a bare contradiction above is the point. Worth
-one more pass with `Забув сказати — насправді …` (a correction worded as an
-addition).
 
 ---
 
