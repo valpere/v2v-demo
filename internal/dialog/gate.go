@@ -39,7 +39,9 @@ var stopwords = func() map[string]bool {
 var escalateKeywords = []string{
 	"повернути гро", "повернення кош", "поверніть гро", "refund",
 	"скарг", "complaint",
-	"суд", "позов", "court",
+	// legal threats only — a bare "суд"/"court" also matched "для суду"
+	// (a court as the document's recipient — a normal certification case).
+	"до суду", "в суд ", "позов", "судити", "in court", "to court", "sue you", "lawsuit",
 	"дайте людину", "з людиною", "справжн", "real person",
 	"talk to a person", "менеджера напряму",
 }

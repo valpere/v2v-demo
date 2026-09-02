@@ -100,6 +100,11 @@ func TestHardEscalate(t *testing.T) {
 		"How much for a certified translation?",
 		"Мені потрібен переклад договору",
 		"nothing suspicious here",
+		// a court / registry as the document's recipient is a normal
+		// certification case, not a legal threat
+		"Для суду",
+		"Переклад диплома для суду в Німеччині",
+		"it's for a court in the UK",
 	}
 	for _, s := range hit {
 		if !hardEscalate(s) {

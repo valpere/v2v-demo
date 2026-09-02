@@ -215,7 +215,9 @@ document* and infers the level from the KB. Run each one like this:
 
 1. Full reset, start the quote, then answer with `Для суду` (or
    `для міграційної служби`, or `для РАЦСу`).
-   - **Expect:** `certification: notarized`.
+   - **Expect:** `certification: notarized`. It must **not** hand off — a
+     court as the *recipient* is a normal case, not a legal threat.
+     `[R]` (a bare "суд" used to trigger hardEscalate)
 
 **2g — a German authority that rejects Ukrainian notarization → sworn.**
 
@@ -396,7 +398,7 @@ Each should reply with the **fixed handoff line** ("З'єдную вас із
 | -- | -- |
 | `Хочу повернути гроші` / `I want a refund` | refund / повернення |
 | `Буду писати скаргу` / `This is a formal complaint` | complaint / скарга |
-| `Подам на вас до суду` / `see you in court` | court / суд / позов |
+| `Подам на вас до суду` / `see you in court` | legal threat — "до суду" / "in court" / "позов" (a bare "суд", as in "для суду", must **not** trigger — see 2f) |
 | `Дайте людину` / `let me talk to a real person` | wants a human |
 | `З'єднайте з менеджером напряму` | direct manager request |
 
