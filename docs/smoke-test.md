@@ -314,25 +314,50 @@ at a time and watch the turn that supplies the last one.
 
 ## 4. No fabrication of slot values
 
-Restart between these.
+**Full reset before every scenario.**
 
-1. `Переклад договору з української на англійську, для партнерів з Австралії`
-   (note: no page count, no deadline)
-   - **Expect:** `volume` and `deadline` stay unset; the reply **asks** for
-     them. Later, the read-back must **not** contain an invented page count
-     like "20 pages". `[R]` (test-5_2)
-2. mid-quote, before you've given a volume: `Порахуйте вартість`
-   - **Expect:** it does **not** guess a volume to produce a number — it
-     asks for the page count first.
-3. `Мені треба було ще вчора`
-   - **Expect:** it asks for a real (future) deadline; it does **not** write
-     "yesterday" as the deadline.
-4. `Мені лише одне речення, менше сторінки`
-   - **Expect:** states the KB minimum order — **1 page**. No made-up
-     sub-page price.
-5. `У мене текст на 3600 знаків із пробілами`
-   - **Expect:** maps it to **2 standard pages** (1 page = 1800 chars)
-     without asking you to convert to pages yourself.
+**4a — no invented volume / deadline.** `[R]` (test-5_2)
+
+1. Full reset, then send
+   `Переклад договору з української на англійську, для партнерів з Австралії`
+   — no page count, no deadline in the message.
+   - **Expect:** `volume` and `deadline` stay `null`; the reply **asks** for
+     both.
+2. `Для внутрішнього використання, доставка на пошту` (gives certification +
+   delivery, still no volume/deadline).
+   - **Expect:** it still **asks** for volume and deadline — it does **not**
+     move to a read-back, and it never invents "20 pages" or a deadline.
+
+**4b — won't guess a volume just to give a number.**
+
+1. Full reset, then send `Треба перекласти статут з української на англійську`.
+2. Before giving any page count: `Порахуйте вартість, будь ласка`.
+   - **Expect:** it explains how price is formed and gives the per-page
+     range, but **asks for the page count** — it does **not** pick a number
+     of pages on its own.
+
+**4c — a past deadline is not a deadline.**
+
+1. Full reset, then send `Треба перекласти диплом з української на польську, 2 сторінки`.
+2. When it asks about the deadline: `Мені треба було ще вчора`.
+   - **Expect:** it treats this as "urgent, no firm date" — asks for a real
+     future date/timeframe, or notes rush pricing — and does **not** write
+     `deadline: "вчора"` / "yesterday".
+
+**4d — sub-page job → the KB minimum.**
+
+1. Full reset, then send
+   `Треба перекласти одне речення з української на англійську, менше сторінки`.
+   - **Expect:** it states the KB **minimum order is 1 page** and quotes on
+     that basis. No made-up "half-page" price or a fabricated sub-page rate.
+
+**4e — characters → pages, done for the client.**
+
+1. Full reset, then send
+   `Переклад довідки з української на англійську, у мене 3600 знаків із пробілами`.
+   - **Expect:** it maps 3600 chars to **2 standard pages** itself
+     (1 page = 1800 chars, per the KB) — it does **not** ask you to convert
+     to pages, and does **not** invent a different page size.
 
 ---
 
