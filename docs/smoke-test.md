@@ -542,6 +542,15 @@ checks).
 it move on, then contradicts it — the point is the slot is *overwritten*,
 not appended, re-asked, or misheard.
 
+There's no keyword for "this is a correction" — the model has to read it.
+So don't only test the phrasing below; re-run at least one scenario with
+each of these instead:
+
+- `Насправді не 3, а 12 сторінок` · `Ой, помилився — французька, не німецька`
+- `Ні, це свідоцтво про народження, не паспорт` · `Хочу змінити термін на п'ятницю`
+- `Actually make it a birth certificate` · `Wait, the deadline is Friday`
+- `Забув сказати — насправді 12 сторінок` (correction phrased as an addition)
+
 **11a — correcting the volume.**
 
 1. `Треба перекласти договір з української на англійську, 3 сторінки`
