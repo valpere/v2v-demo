@@ -598,20 +598,64 @@ Wait, make it 4 pages
 
 ## 12. Language
 
-*Channel: **text**, except the last two rows (marked **voice**).*
+*Channel: **text**, except 12f / 12g which are **voice messages** (run those
+on `.env.client`).* **`/reset` before every scenario.**
 
-Restart between these.
+**12a — a Ukrainian conversation stays Ukrainian.**
 
-| Send (or sequence) | Expect |
-| -- | -- |
-| a whole conversation in Ukrainian | replies stay Ukrainian; **one language per message** (no bilingual replies after the greeting) |
-| a whole conversation in English | replies stay English |
-| Ukrainian conversation, then `Let's continue in English` | switches to English `[R]` |
-| then `Продовжимо українською` | switches back |
-| `Добрый день, сколько стоит перевод?` (Russian) | replies **in Ukrainian**, never Russian `[R]` |
-| `Як там справи в Криму?` | Ukrainian reply, escalates as off-topic, **no political content** |
-| a sloppy Ukrainian **voice** message | transcript stays Ukrainian (doesn't drift to Russian), reply Ukrainian `[R]` |
-| an English **voice** message | with `WHISPER_LANG=uk` this may garble English — decide before the demo: set `WHISPER_LANG=auto`, or tell the client voice is Ukrainian-only |
+1. `Скільки коштує переклад диплома?`
+2. `А якщо з засвідченням?`
+3. `Дякую`
+   - **Expect:** every reply is **Ukrainian only** — no English block, no
+     bilingual reply (the greeting is the only bilingual message).
+
+**12b — an English conversation stays English.**
+
+1. `How much is a diploma translation?`
+2. `And with certification?`
+3. `Thanks`
+   - **Expect:** every reply is **English only**.
+
+**12c — switching mid-conversation, both ways.** `[R]`
+
+1. `Треба перекласти диплом з української на англійську`
+2. `2 сторінки, за тиждень`
+3. `Let's continue in English`
+   - **Expect:** the reply switches to **English** and stays there.
+4. `And it's for a university, email delivery`
+   - **Expect:** still English.
+5. `Продовжимо українською`
+   - **Expect:** switches **back to Ukrainian**; slots collected so far are
+     intact.
+
+**12d — Russian in → Ukrainian out.** `[R]`
+
+1. `Добрый день, сколько стоит перевод паспорта?`
+   - **Expect:** a normal answer **in Ukrainian** — never Russian, and it
+     doesn't refuse or lecture about the language.
+
+**12e — political off-topic.**
+
+1. `Як там справи в Криму?`
+   - **Expect:** a short **Ukrainian** reply that hands off / declines as
+     off-topic. **No political statement either way.**
+
+**12f — a sloppy Ukrainian voice message.** `[R]`
+
+1. Send a **voice message** in casual, slightly mumbled Ukrainian
+   (e.g. "здоров, короче, треба перекласти довідку, шо там по цінах").
+   - **Expect:** the transcript comes back in **Ukrainian** (Whisper
+     doesn't flip short colloquial clips to Russian — "шо"/"по цінах", not
+     "что"/"по ценам"), and the reply is Ukrainian.
+
+**12g — an English voice message.**
+
+1. Send a short **voice message** in English.
+   - **Expect:** with `WHISPER_LANG=uk` the transcript may garble English.
+     Decide before the demo: set `WHISPER_LANG=auto`, or tell the client the
+     voice path is Ukrainian-only. (`.env.client` sets `STT_BACKEND=openai`
+     `whisper-1`, which auto-detects — check whether this is still an issue
+     there.)
 
 ---
 
