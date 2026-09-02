@@ -519,13 +519,20 @@ Then check `data/turns.jsonl`: `"signal": "escalate"`, tiny `latency_ms`,
 
 ## 10. Small talk — must NOT escalate
 
+Rows 1–3 are real small talk (greeting / thanks / "ok") and bypass the gate
+on their own — run them back to back. Rows 4–5 are short off-topic
+questions: **`/reset` before each**, so the bot's previous reply isn't a
+question (a `≤6`-token message right after a "?" gets the slot-answer
+bypass and skips the gate — which would mask the escalation this row
+checks).
+
 | Send | Expect |
 | -- | -- |
 | `Привіт!` / `Hello` | a greeting back, a normal opening `[R]` |
 | `Дякую за допомогу, гарного дня!` | a polite close — **not** a handoff `[R]` |
-| `Ок` / `Зрозуміло` / `Добре` | handled gracefully |
-| `Апостиль?` (bare, nothing before it) | **still escalates** — a short "?" out of nowhere is not small talk |
-| `Яка зараз погода?` | **still escalates** — an off-topic content question `[R]` |
+| `Ок` / `Зрозуміло` / `Добре` | handled gracefully (a short nudge back to the quote is fine) |
+| `Апостиль?` (bare, after a `/reset`) | **still escalates** — a lone "?" out of nowhere is not small talk |
+| `Яка зараз погода?` (after a `/reset`) | **still escalates** — an off-topic content question `[R]` |
 
 ---
 
