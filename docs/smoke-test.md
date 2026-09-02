@@ -536,58 +536,42 @@ checks).
 
 ---
 
-## 11. Corrections & contradictions
+## 11. Corrections & contradictions `[R]`
 
-**Full reset before every scenario.** Each one gives the bot a value, lets
-it move on, then contradicts it — the point is the slot is *overwritten*,
-not appended, re-asked, or misheard.
+One flow: **full reset**, set all six in the first message, let it reach
+`lead_ready`, then fix each slot with a one-line correction. Every
+correction must **overwrite** the slot (not append, not re-ask), trigger a
+fresh read-back, and — because the lead is already recorded — append a
+**new corrected row** to `data/leads.jsonl` (newest row wins).
 
-There's no keyword for "this is a correction" — the model has to read it.
-So don't only test the phrasing below; re-run at least one scenario with
-each of these instead:
+1. **Full reset**, then send:
+   `Переклад паспорта з української на польську, 1 сторінка, до п'ятниці, для університету, скан на пошту`
+   - **Expect:** read-back of all six, `signal: lead_ready`, **1 row** in
+     `data/leads.jsonl` (`doc_type` паспорт, pair uk→pl, 1 page, Friday,
+     certified, email).
 
-- `Насправді не 3, а 12 сторінок` · `Ой, помилився — французька, не німецька`
-- `Ні, це свідоцтво про народження, не паспорт` · `Хочу змінити термін на п'ятницю`
-- `Actually make it a birth certificate` · `Wait, the deadline is Friday`
-- `Забув сказати — насправді 12 сторінок` (correction phrased as an addition)
+Now correct one thing per turn. After each: check the slot changed in
+`data/turns.jsonl`, the reply re-summarises, and `data/leads.jsonl` has
+**one more row** whose newest values reflect every correction so far.
 
-**11a — correcting the volume.**
+| # | Send | The slot that must change |
+| -- | -- | -- |
+| 2 | `Насправді це не паспорт, а диплом` | `doc_type` → диплом |
+| 3 | `І не польська, а німецька` | `language_pair` → uk→de |
+| 4 | `Сторінок не одна, а чотири` | `volume` → 4 |
+| 5 | `Термін не п'ятниця — до кінця місяця` | `deadline` → кінець місяця |
+| 6 | `Це для суду, не для університету` | `certification` → notarized |
+| 7 | `Доставку зробіть кур'єром, не сканом` | `delivery` → courier |
+| 8 | `Дякую!` (nothing changed) | — no new row; `signal: continue` |
 
-1. `Треба перекласти договір з української на англійську, 3 сторінки`
-2. `За тиждень`
-3. `Перепрошую, не 3, а 12 сторінок`
-   - **Expect:** `volume` becomes `"12 сторінок"` — not "3", not "15", and
-     it doesn't ask for the page count again.
+After turn 7 the newest `leads.jsonl` row must read: диплом, uk→de,
+4 pages, end of month, notarized, courier — **nothing** from the original
+paspurt quote survives in it. Turn 8 must not add a row.
 
-**11b — correcting the language pair.**
-
-1. `Треба перекласти диплом з української на німецьку, 2 сторінки, за тиждень`
-2. When it asks the next thing: `Стоп, на французьку, не німецьку`
-   - **Expect:** `language_pair` becomes uk→fr; the other slots
-     (`doc_type`, `volume`, `deadline`) are untouched.
-
-**11c — switching language mid-quote + overriding a value in one message.**
-
-1. Build four slots in Ukrainian: `Переклад медичного висновку з української на англійську` → `5 сторінок` → `наступного тижня` → `для лікарні в Берліні`.
-2. `Can we continue in English? And the deadline is Friday, not next week`
-   - **Expect:** **one** reply, **in English**, `deadline` overwritten to
-     Friday, no churn on `language_pair` / `doc_type` / `volume` /
-     `certification`.
-
-**11d — correcting after the lead is already recorded.** `[R]`
-
-1. Full quote to `lead_ready`:
-   `Переклад паспорта з української на польську, 1 сторінка, до п'ятниці, для університету, скан на пошту` → answer any follow-up → read-back → `lead_ready`. One row now in `data/leads.jsonl`.
-2. `Стоп, це не паспорт, а свідоцтво про народження`
-   - **Expect:** `doc_type` becomes "свідоцтво про народження", a fresh
-     read-back, `signal: lead_ready` **again**, and now **two rows** in
-     `data/leads.jsonl` — the original ("паспорт") and the correction
-     ("свідоцтво про народження"). The **newest** row is the one the manager
-     acts on; no "паспорт" in that newest row.
-3. `Дякую!` (nothing changed)
-   - **Expect:** a brief reply, `signal: continue`, **still two rows** — an
-     unchanged repeat `lead_ready` is suppressed (only a real slot change
-     writes another row). `[R]`
+**Also** — the model reads intent, there's no correction keyword. Re-run
+turns 2–7 once with these phrasings instead: `Ой, я помилився — …`,
+`Стоп, …`, `Wait, actually …`, `Забув сказати — насправді …` (a correction
+worded as an addition).
 
 ---
 
