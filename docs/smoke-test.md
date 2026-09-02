@@ -270,28 +270,45 @@ matters here — start this one into German:
 **Full reset before every lettered scenario** — these all check
 `data/leads.jsonl` for an exact row count.
 
-**3a — summary before `lead_ready`.** Full reset, then do a full quote flow
-like scenario 2a. Watch the turn that supplies the sixth value:
+**3a — the summary must come before `lead_ready`.** Feed the six values one
+at a time and watch the turn that supplies the last one.
 
-- **Expect:** that turn **reads all six back** and only then emits
-  `lead_ready`. It must never emit `lead_ready` on the turn it learns the
-  last value without a summary. Check `data/turns.jsonl` for `"signal":
-  "lead_ready"` and `data/leads.jsonl` for exactly one row.
+1. Full reset, then send `Треба перекласти диплом з української на польську`.
+2. `2 сторінки`
+3. `За тиждень`
+4. `Для університету у Варшаві`
+5. `Скан на пошту` — this is the sixth value.
+   - **Expect on this turn:** the reply **reads all six values back** in one
+     short summary ("Отже: диплом, українська→польська, 2 сторінки, …") and
+     *then* `signal: lead_ready`. It must **not** fire `lead_ready` on a turn
+     whose reply is just "готово, передаю менеджеру" with no read-back.
+   - Check `data/turns.jsonl`: the `lead_ready` turn's `reply_text` contains
+     all six values. `data/leads.jsonl`: **exactly one** row.
 
-**3b — B4 guard.**
+**3b — B4 guard: `lead_ready` with a slot still empty.** `[R]`
 
 1. Full reset, then send:
    `Дайте цитату на переклад водійських прав з української на польську, 1 сторінка, до четверга, поштою`
-   - This gives five values but **not** the recipient (→ certification).
-   - **Expect:** `certification` stays unset; it **asks** who the translation
-     is for; it does **not** emit a `lead_ready`. `[R]`
+   - Five values in one message, but **no recipient** → `certification`
+     stays `null`.
+   - **Expect:** it **asks** who will receive the document; `signal` stays
+     `continue`; **no** `lead_ready`, **no** row in `data/leads.jsonl` — even
+     though five of six slots are full.
+2. `Для міграційної служби`
+   - **Expect:** now `certification: notarized`, a read-back, `lead_ready`,
+     one row.
 
-**3c — no duplicate lead.**
+**3c — no duplicate lead after the summary.** `[R]` (LeadDone)
 
-1. Full reset, then finish a quote so you get a `lead_ready`.
-2. Send `Дякую! А ще одне питання — ви робите терміново?`
-   - **Expect:** it answers briefly. Check `data/leads.jsonl` — still **one**
-     row, no duplicate, even if the reply repeats the summary. `[R]` (LeadDone)
+1. Full reset, then run a quick full quote:
+   `Переклад паспорта з української на англійську, 1 сторінка, до п'ятниці, для роботодавця, скан на пошту`
+   - **Expect:** read-back → `lead_ready` → one row in `data/leads.jsonl`.
+2. `Дякую! А ще одне питання — ви робите терміново?`
+   - **Expect:** a short answer about rush pricing (from the KB). It may or
+     may not repeat the summary, but `data/leads.jsonl` still has **exactly
+     one** row — no second `LeadRecord`.
+3. `Дякую, до побачення`
+   - **Expect:** a brief farewell, `signal: continue`, still one row.
 
 ---
 
