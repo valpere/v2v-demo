@@ -33,8 +33,8 @@ repo is public).
   whisper_bin:      String @constraint(default: "whisper", rule: "the openai-whisper CLI (pipx-installed); used only when stt_backend=local"),
   whisper_model:    String @constraint(default: "turbo", rule: "openai-whisper model NAME (tiny|base|small|medium|large-v3|turbo), auto-downloaded to ~/.cache/whisper on first use; used only when stt_backend=local. turbo = large-v3-turbo: faster than medium on CPU AND better Ukrainian (benchmarked 2026-08-31, Ryzen 7700: turbo 12s vs medium 15s on a 4.6s clip)"),
   whisper_lang:     Enum["auto","uk","en"] @constraint(default: "uk", rule: "pins Whisper's language; default uk because auto-detect drifts short Ukrainian clips to Russian and the model then mirrors it (2026-08-31 test-5_1). auto/en only to test English voice messages"),
-  dialog_backend:   Enum["ollama","openai","gemini"] @constraint(default: "ollama", rule: "D-20 dual-mode: dev default ollama gemma4:cloud (free, good uk, latency irrelevant while building); the client-facing artefact (I-10) flips to openai gpt-4o-mini — the Ollama cloud free tier runs 13–86 s/turn (shared queue), gpt-4o-mini is ~2–5 s on dedicated infra, same OpenAI key as whisper-1. gemini stays last resort (needs a $25 AI Studio prepay, 429)"),
-  dialog_model:     String @constraint(rule: "blank → the backend's default: ollama gemma4:cloud, openai gpt-4o-mini, gemini gemini-flash-latest; set explicitly to override"),
+  dialog_backend:   Enum["ollama","openai","gemini"] @constraint(default: "ollama", rule: "D-20 dual-mode: dev default ollama gemma4:cloud (free, good uk, latency irrelevant while building); the client-facing artefact (I-10) flips to openai gpt-4.1-mini — the Ollama cloud free tier runs 13–86 s/turn (shared queue), gpt-4.1-mini is ~2–5 s on dedicated infra, same OpenAI key as whisper-1. gpt-4o-mini was tried first but followed the certification/grounding rules poorly (2026-09-03, .engage/conversation-style.md). gemini stays last resort (needs a $25 AI Studio prepay, 429)"),
+  dialog_model:     String @constraint(rule: "blank → the backend's default: ollama gemma4:cloud, openai gpt-4.1-mini, gemini gemini-flash-latest; set explicitly to override. gpt-4.1-mini is a protected model — the OpenAI org must be verified and the project must allow it"),
   gemini_key:       String @constraint(rule: "required when dialog_backend=gemini"),
   ollama_base_url:  String @constraint(default: "http://localhost:11434"),
   openai_key:       String @constraint(rule: "required when stt_backend=openai (the I-10 client recording) or dialog_backend=openai; not needed for the dev default"),
@@ -521,8 +521,9 @@ project); revisit as the default only if that is paid and a Ukrainian dialogue
 test then passes.
 
 **Resolved:** dialogue **dual-mode** (D-20) — dev default Ollama
-`gemma4:cloud`, client-facing artefact `gpt-4o-mini` (Ollama cloud free tier
-is 13–86 s/turn; gpt-4o-mini ~2–5 s); Gemini Flash the last-resort alternate;
+`gemma4:cloud`, client-facing artefact `gpt-4.1-mini` (Ollama cloud free tier
+is 13–86 s/turn; gpt-4.1-mini ~2–5 s; gpt-4o-mini was tried first but broke
+the cert/grounding rules); Gemini Flash the last-resort alternate;
 STT dual-mode — local Whisper for dev, `whisper-1` a mandatory flip for the
 I-10 client recording; ElevenLabs Free
 during build (premade Sarah/George — library/UA voices need Starter) then

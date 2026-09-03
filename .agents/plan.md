@@ -279,7 +279,7 @@ const (
 ```
 
 **B1 decision (2026-08-29):** the *whole* KB goes into every system prompt
-(gemma4:cloud / Gemini Flash / gpt-4o-mini all have the headroom).
+(gemma4:cloud / Gemini Flash / gpt-4.1-mini all have the headroom).
 There is **no retrieval-for-context**. A keyword-overlap score is computed
 *only* to feed the grounding gate. If exact-match overlap proves too weak for
 inflected Ukrainian in testing, add a stemmer (B1 fallback — candidates:
@@ -617,7 +617,7 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
     Pro/Max account. Free, good Ukrainian — but the cloud free tier's shared
     queue runs **13–86 s/turn** (D-20), fine while building, too slow for a
     live client demo.
-  - `openai` → `api.openai.com`, `DIALOG_MODEL` default `gpt-4o-mini`. The
+  - `openai` → `api.openai.com`, `DIALOG_MODEL` default `gpt-4.1-mini`. The
     **client-facing artefact** (I-10, D-20): dedicated infra, ~2–5 s/turn,
     ~$0.01 per 10-turn conversation, shares the OpenAI key with the
     `whisper-1` STT flip. See `.env.client`.

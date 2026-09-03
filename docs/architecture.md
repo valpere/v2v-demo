@@ -37,7 +37,7 @@ flowchart TD
         R[kbOverlap + hardEscalate] --> G{gate: overlap >= floor?\nor a slot answer?}
         G -->|no, 1st time| CL[clarify line, no LLM\ncontinue + gateStrike]
         G -->|no, 2nd in a row| ESC[handoff line, no LLM]
-        G -->|yes / slot answer / small talk| LLM[LLM call\ngemma4:cloud\n· gpt-4o-mini · gemini-flash]
+        G -->|yes / slot answer / small talk| LLM[LLM call\ngemma4:cloud\n· gpt-4.1-mini · gemini-flash]
         LLM --> P[parse: spoken_reply + slot_updates + signal]
         P --> M[merge slots\nvalidate, never silently unset]
     end
@@ -57,7 +57,7 @@ flowchart TD
 | `internal/telegram` | Transport only: long-poll `getUpdates`, download voice files, `SendVoice`/`SendText`/`SendRecordingAction`. No command or session logic. | FR-1, FR-3, FR-10, NFR-2 |
 | `internal/stt` | `Transcriber` interface, two impls: **`local`** (shell out to the `openai-whisper` CLI, which decodes the ogg via its own ffmpeg call; model name from `WHISPER_MODEL`, default `turbo` (= large-v3-turbo — faster than `medium` on CPU + better Ukrainian) — dev default, free) and **`openai`** (`whisper-1` API — mandatory for the I-10 client recording, CPU-local is too slow live). `STT_BACKEND` selects. | FR-2, D-13 |
 | `internal/kb` | Load `KB_PATH`, split on `##` into titled sections — passed to the LLM in full, and to `kbOverlap` | FR-6, NFR-9 |
-| `internal/dialog` | `hardEscalate` + `kbOverlap` + grounding gate, LLM orchestration, trailer parse, slot merge, fixed lines. **The core.** LLM call goes through a `Generator` interface: **`ollama`** (Ollama OpenAI-compat, `gemma4:cloud`, dev default), **`openai`** (`gpt-4o-mini`, the client-facing artefact — D-20 dual-mode, for latency), **`gemini`** (native Gemini API, `gemini-flash-latest`; last resort — needs a $25 prepay). `openai_compat.go` (shared by ollama+openai) retries once on a transient. `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13, D-20 |
+| `internal/dialog` | `hardEscalate` + `kbOverlap` + grounding gate, LLM orchestration, JSON-response parse, slot merge, fixed lines. **The core.** LLM call goes through a `Generator` interface: **`ollama`** (Ollama OpenAI-compat, `gemma4:cloud`, dev default), **`openai`** (`gpt-4.1-mini`, the client-facing artefact — D-20 dual-mode, for latency + rule-following), **`gemini`** (native Gemini API, `gemini-flash-latest`; last resort — needs a $25 prepay). `openai_compat.go` (shared by ollama+openai) retries once on a transient. `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13, D-20 |
 | `internal/tts` | `Synthesizer` interface, two impls: **`elevenlabs`** (`eleven_multilingual_v2`) and **`azure`** (`uk-UA-*Neural`); both retry once on a transient and emit opus-in-ogg. `TTS_BACKEND` selects; **`none`** yields a nil synthesizer and the update loop replies text-only (dev / bulk smoke-testing). Google is a documented third impl, not built (D-15). | FR-10, NFR-1, D-15 |
 | `internal/store` | Append-only JSONL: one record per turn; a lead record on each `lead_ready` that goes through — usually one per chat, two if the client corrects a value after the summary (newest row wins) | FR-8, FR-13 |
 | `cmd/bot` | Wiring, config, the update loop (per-chat goroutine + locks), `/voice`, the greeting, the recording ticker, STT, store calls | FR-11, NFR-3, NFR-4, NFR-6 |
@@ -194,7 +194,7 @@ The demo validates the *conversation design*; the MVP swaps the *substrate*.
 | JSONL turn log | SQLite `message` + `audit_log` tables |
 | lead record written to the log | real Zoho lead via REST (`.eu` base) |
 | Telegram voice glue in `internal/telegram` | a reusable `channel/voice` adapter |
-| gpt-4o-mini, single provider | model router + multi-provider failover |
+| single provider (gpt-4.1-mini) | model router + multi-provider failover |
 
 ### 7.1 Datastore (MVP) — SQLite by default
 

@@ -44,7 +44,7 @@ Dev path needs:
 
 | Concern | Env | Dev default | Client artefact / alternate |
 |--|--|--|--|
-| Dialogue LLM | `DIALOG_BACKEND` | `ollama` (`gemma4:cloud`) | `openai` (`gpt-4o-mini`) — D-20, for latency; `gemini` (`gemini-flash-latest`, last resort) |
+| Dialogue LLM | `DIALOG_BACKEND` | `ollama` (`gemma4:cloud`) | `openai` (`gpt-4.1-mini`) — D-20, for latency + rule-following; `gemini` (`gemini-flash-latest`, last resort) |
 | STT | `STT_BACKEND` | `local` (whisper CLI) | `openai` (`whisper-1` API) |
 | TTS | `TTS_BACKEND` | `elevenlabs` + premade voices | `elevenlabs` + Starter UA voices; `azure` (`uk-UA-*Neural`); `none` (text-only, for bulk smoke-testing) |
 

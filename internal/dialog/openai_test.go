@@ -195,7 +195,7 @@ func TestNewOllamaOpenAIDefaults(t *testing.T) {
 	if g := NewOllama("http://x/", "").(*openAICompatGen); g.model != "gemma4:cloud" || g.apiKey != "" || g.baseURL != "http://x" {
 		t.Fatalf("ollama: %+v", g)
 	}
-	if g := NewOpenAI("k", "").(*openAICompatGen); g.model != "gpt-4o-mini" || g.apiKey != "k" {
+	if g := NewOpenAI("k", "").(*openAICompatGen); g.model != "gpt-4.1-mini" || g.apiKey != "k" || !g.jsonMode {
 		t.Fatalf("openai: %+v", g)
 	}
 	if g := NewOpenAI("k", "gpt-4o").(*openAICompatGen); g.model != "gpt-4o" {
