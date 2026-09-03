@@ -46,6 +46,22 @@ Per turn it prints the resolved `signal`, latency, whether the gate or the
 LLM answered (`pre-LLM` / `N KB`), the slot delta, and a reply preview
 (`-v` for the full text, `-slots` for the slot JSON).
 
+## `i10-sample/` — build the I-10 demo audio
+
+Runs the three `.engage/client-demo.md` §3 dialogues through the real
+`dialog.Handle` pipeline (`DIALOG_BACKEND`/`DIALOG_MODEL` from `.env`), voices
+every line with ElevenLabs — **Vira on voice A, the client on voice B** — and
+stitches them into one mp3 (`tmp/i10-sample.mp3`). A *synthesised* sample,
+not a live recording; the client makes their own in the bot.
+
+```
+go run ./minions/i10-sample                 # -> tmp/i10-sample.mp3
+go run ./minions/i10-sample -out x.mp3 -pause 0.6 -gap 2.0
+```
+
+Needs `OPENAI_API_KEY` + `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_A/B` in
+`.env`, and `ffmpeg`. Part of the main module (imports `internal/`).
+
 ## `tgdrive/` — drive the live bot as a real user (CDP)
 
 A tiny Chrome DevTools Protocol client that drives an already-open,
