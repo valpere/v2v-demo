@@ -52,13 +52,12 @@ make run            # starts the bot (Ctrl-C to stop)
   Same for `dialog: generator error …` / `dialog: no valid trailer …`.
 - Text turns can be scripted with `minions/tgdrive/` (drives an open,
   logged-in `web.telegram.org/a/` tab) — see `minions/TOOLS.md`.
-- **Before the client demo**, copy `.env.client` over `.env` and re-run
-  sections 2, 6, 7, 13 (section 13 = voice — the thing the client judges). `.env.client`
-  flips **three** backends together: `STT_BACKEND=openai` (whisper-1),
-  `DIALOG_BACKEND=openai` `gpt-4o-mini` (D-20 — the Ollama free tier runs
-  13–86 s/turn; gpt-4o-mini is ~2–5 s), and the ElevenLabs **Starter** UA
-  library voices. None of that stack has been through the bot end-to-end;
-  a 401/402 "not on this plan" or a slow/queued turn would only surface here.
+- **Client demo config** = `.env.client` flips: `STT_BACKEND=openai`
+  (whisper-1), `DIALOG_BACKEND=openai` `gpt-4.1-mini` (D-20 — Ollama free
+  tier is 13–86 s/turn; gpt-4.1-mini ~2–8 s; gpt-4o-mini was tried and
+  dropped, see `.engage/conversation-style.md`), ElevenLabs **Starter** UA
+  library voices. §2 and §6/§7/§8 verified on this stack 2026-09-03 (§6/§7/§8
+  via `minions/dialog-probe`); §13 (voice) is being swept now.
 
 ---
 
@@ -824,6 +823,9 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
    - Laughter ("хахаха") transcribes to something real → it's **not** an
      sttFail; it hits the gate and gets the clarification line (`continue`,
      `matched: null`, and a turn record). That's fine — not silence.
+   - **Verified 2026-09-03** (client stack, whisper-1) — non-speech →
+     "Не розчув(ла), повторіть, будь ласка." (text only), **no** `13e` row
+     in `data/turns.jsonl`.
 
 **13f — a long, rambling voice message.**
 
