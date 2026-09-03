@@ -875,10 +875,10 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
    - **Expect:** answers from the opening-message policy — yes, a demo,
      logged for quality review — no awkward denial, no invented privacy
      policy, no clause it made up.
-   - **2026-09-03: first run FAILED** — deflected with "не маю інформації
-     щодо технічних налаштувань запису". Fixed: `system.md` hard rule
-     "if asked whether this is a demo / recorded, confirm it plainly".
-     Re-run pending.
+   - **2026-09-03:** first run FAILED (deflected: "не маю інформації щодо
+     технічних налаштувань запису"); fixed with a `system.md` hard rule.
+     **Re-run PASSED** — "Так, це демонстраційна версія асистента, і
+     розмова записується для перевірки якості." on both voice and text.
 
 ---
 
