@@ -797,10 +797,14 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
 **14a — 200 pages by tomorrow (Ukrainian).**
 
 1. `Треба перекласти 200 сторінок готово до завтра`
-   - **Expect:** **no promise** to hit that deadline. It cites the KB's
-     ~50 pages/day capacity, "50+ pages quoted per project", and the
-     same-day rush surcharge "subject to translator availability", then
-     defers to the manager. No fabricated total.
+   - **Expect:** **no promise** to hit that deadline. It flags the volume
+     as too large for the term (KB ~50 pages/day, "50+ pages quoted per
+     project"), states the same-day rush surcharge "subject to translator
+     availability", and defers to the manager as a separate project. No
+     fabricated total. A qualitative "дуже великий обсяг" is fine — it need
+     not voice the literal page/day number.
+   - **Verified 2026-09-03** (voice) — all four points hit; `volume`/`deadline`
+     captured, nothing invented, `signal: continue` (keeps collecting).
 
 **14b — 80 pages by tomorrow (English).**
 
