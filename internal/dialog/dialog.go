@@ -41,8 +41,8 @@ const (
 	clarifyDoneUK = "Ваш запит уже повний — менеджер зв'яжеться з вами найближчим часом. Якщо хочете щось змінити чи поговорити з менеджером — просто напишіть."
 	clarifyDoneEN = "Your request is already complete — a manager will be in touch shortly. Just say so if you'd like to change something or speak with a manager."
 
-	clarifyAskUK = "Підкажіть, будь ласка: %s? Або напишіть «менеджер», якщо хочете поговорити з людиною."
-	clarifyAskEN = "Could you tell me: %s? Or say \"manager\" if you'd like to talk to a person."
+	clarifyAskUK = "Підкажіть, будь ласка, що саме вам потрібно перекласти: %s. Або напишіть «менеджер», якщо хочете поговорити з людиною."
+	clarifyAskEN = "Please tell me what you need translated: %s. Or say \"manager\" if you'd like to talk to a person."
 )
 
 func line(lang, uk, en string) string {

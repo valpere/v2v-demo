@@ -200,6 +200,9 @@ func hardEscalate(query string) bool {
 // "…для якої установи? Це потрібно, щоб підібрати тип засвідчення." (found in
 // live testing 2026-08-31 — "для університету в Берліні" was escalating).
 func isSlotAnswer(sess *Session, userText string) bool {
+	if sess.gateStrike {
+		return false // the last reply was "I didn't understand", not a slot question
+	}
 	if len(tokens(userText)) > SlotAnswerMaxTok {
 		return false
 	}

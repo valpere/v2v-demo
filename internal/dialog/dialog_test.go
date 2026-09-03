@@ -205,8 +205,9 @@ func TestHandleGroundingGate(t *testing.T) {
 		t.Fatal("generator called despite the gate firing")
 	}
 
-	// second hit in a row — hand off
-	r2, _ := dialogHandle(t, sess, gen, offTopic)
+	// second hit in a row — hand off. A *short* second message must not slip
+	// through isSlotAnswer just because the clarify line preceded it.
+	r2, _ := dialogHandle(t, sess, gen, "qwerty asdf")
 	if r2.Signal != SignalEscalate {
 		t.Fatalf("second gate hit: signal = %q, want escalate", r2.Signal)
 	}
