@@ -458,6 +458,13 @@ figure, or do the multiplication for you.
 Deliberately use colloquial / misspelled / inflected wording — clean
 KB-verbatim phrasing hides the `kbOverlap` gate.
 
+**Verified 2026-09-03** via `minions/dialog-probe` (`gpt-4.1-mini`, all 22
+rows) — **no fabricated figure anywhere** (DHL "at the carrier's tariff" not
+a number, discount capped at 15%, apostille from 40 €, storage 6 months,
+courier abroad 1–3 days — all correct). 18/22 state the KB fact directly;
+4 (wet-stamp +5 €, "5 pages → 2–3 days", VAT invoice, …) answer with "tell
+me the document details" instead of the number first — not wrong, accepted.
+
 | Send | Expect (from the KB) |
 | -- | -- |
 | `скилько коштує стороінка загального тексту` | 12–16 EUR / standard page |
@@ -566,6 +573,11 @@ Then check `data/turns.jsonl`: `"signal": "escalate"`, tiny `latency_ms`,
 **Must NOT hard-trigger** (these reach the model): `Для суду` /
 `for a court` (a court as the document's recipient — see 2f); `Мій диплом
 не приймають` (a plain statement, not a complaint keyword).
+
+**Verified 2026-09-03** via `minions/dialog-probe` — 14/14 trigger rows
+`pre-LLM escalate` at 0.0 s; the 3 "must not" rows all stay `continue`
+(`Для суду` hits the grounding-gate clarify line rather than the model, but
+is **not** escalated — the point of the check).
 
 ---
 
