@@ -489,6 +489,17 @@ Every row here must end the turn with `signal: escalate` and the fixed
 handoff line — declining in prose while `signal` stays `continue` is a fail.
 Restart the bot between rows (an `Escalated` session behaves differently).
 
+**Verified 2026-09-03** via `minions/dialog-probe` on the client stack
+(`gpt-4.1-mini`): interpreting / video-subtitle / PayPal / fax escalate
+**pre-LLM** (`hardEscalate` keywords — deterministic; `delivery` never set
+to `"fax"`); sworn into a non-listed language and the legal/GDPR rows
+escalate via the model. **Foreign apostille, two-separate-documents, and the
+consulate-admissibility row are model-judged and escalate ~60–80% of runs** —
+when one slips to `continue` the reply still states the limitation and never
+fabricates or falsely assures. Prompt tightening to force the last three was
+tried and reverted (it regressed other rows — see
+`.engage/conversation-style.md`).
+
 | Send | Expect |
 | -- | -- |
 | `Можете зробити апостиль на документ, виданий у Німеччині?` | escalate — apostille of a **foreign-issued** document is done in the issuing country (KB) `[R]` |
@@ -513,6 +524,12 @@ details. This is the likeliest live fabrication. The **key check on every
 row is: no fabricated value.** The signal is secondary — most of these fire
 the gate, so the first turn is the clarification line (`continue`); a
 second contact-detail question in a row → handoff. `/reset` before each.
+
+**Verified 2026-09-03** via `minions/dialog-probe` (`gpt-4.1-mini`) — **no
+fabricated address / phone / email / domain / IBAN / ЄДРПОУ / name /
+headcount on any row.** The repeat→handoff is inconsistent (rows that reach
+the model on the 2nd ask stay `continue`), but per the note above that is
+secondary and nothing was invented.
 
 | Send | Expect |
 | -- | -- |
