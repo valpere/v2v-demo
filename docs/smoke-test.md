@@ -690,11 +690,12 @@ The client writes only in Russian, turn after turn:
 
 ## 13. Voice (the client's actual criterion — NFR-1)
 
-*Channel: **voice message** for every step, except `/voice a|b` which are
-typed commands.* Run on **`.env.client`** (whisper-1 + gpt-4o-mini +
-ElevenLabs Starter UA voices) — this is the stack the client hears. `/reset`
-between lettered scenarios. TTS must be on (`TTS_BACKEND=elevenlabs` or
-`azure`), not `none`.
+*Channel: **voice message** for every step, except `/voice a|b` (typed
+commands) and **13b's request (typed** — a spoken Latin name is
+transcribed to Cyrillic).* Run on **`.env.client`** (whisper-1 +
+gpt-4o-mini + ElevenLabs Starter UA voices) — the stack the client hears;
+for a free logic-only pass, dev `.env` with `TTS_BACKEND=azure` works too.
+`/reset` between lettered scenarios. TTS must be on, not `none`.
 
 **13a — the whole quote flow, spoken.** The single most important check.
 
@@ -706,12 +707,19 @@ between lettered scenarios. TTS must be on (`TTS_BACKEND=elevenlabs` or
      message, not a caption); it reaches the same read-back + one
      `LeadRecord` as the text run.
 
-**13b — a Latin surname + a EUR amount in one reply.**
+**13b — a Latin surname + a EUR amount in the spoken reply.** Note: this
+step's request goes in as **text**, not voice — a spoken "Kovalenko" is
+transcribed to Cyrillic ("Коваленко") and never reaches the reply in Latin
+script. The Latin-surname pronunciation problem only exists when the client
+*types* a Latin name and the model echoes it.
 
-1. `/reset`, start a quote, then mid-flow send by voice: "Порахуйте
-   вартість для пані Kovalenko".
-   - **Expect:** the voice says "Kovalenko" and e.g. "сорок п'ять євро"
-     cleanly — no spelled-out letters, no "EUR".
+1. `/reset`, start a quote (any way), then **type** mid-flow:
+   `Переклад для пані Kovalenko, порахуйте орієнтовно`
+2. Steer the reply to also carry a EUR figure (e.g. `Одна сторінка,
+   загальний текст`).
+   - **Expect:** the **voice note** pronounces "Kovalenko" as a name (not
+     "ка-о-вэ…") and says "від 12 до 16 євро" — no spelled-out letters, no
+     "EUR", no "12 dash 16".
 
 **13c — a range and a raw number.**
 
