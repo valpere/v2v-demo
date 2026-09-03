@@ -28,8 +28,10 @@ const (
 	sttFailUK = "Не розчув(ла), повторіть, будь ласка."
 	sttFailEN = "Sorry, I didn't catch that — could you repeat?"
 
-	voiceSwitchedUK = "Гаразд, тепер інший голос."
-	voiceSwitchedEN = "Ok, switched voice."
+	voiceAUK = "Гаразд, повертаю перший голос."
+	voiceAEN = "Ok, back to the first voice."
+	voiceBUK = "Гаразд, тепер другий голос."
+	voiceBEN = "Ok, switched to the second voice."
 
 	// clarify* is the first response when the grounding gate fires — off-topic,
 	// gibberish, or a request with nothing the KB can answer. It does NOT hand
@@ -96,7 +98,10 @@ func missingSlotsPhrase(s QuoteSlots, lang string) string {
 // failure, /voice command) — those paths never reach Handle.
 func SttFailLine(sess *Session) string { return line(sessLang(sess), sttFailUK, sttFailEN) }
 func VoiceSwitchedLine(sess *Session) string {
-	return line(sessLang(sess), voiceSwitchedUK, voiceSwitchedEN)
+	if sess.Voice == "b" {
+		return line(sessLang(sess), voiceBUK, voiceBEN)
+	}
+	return line(sessLang(sess), voiceAUK, voiceAEN)
 }
 
 // parseTrailer splits raw into the spoken text and the parsed trailer. It

@@ -92,6 +92,14 @@ func TestVoiceCommand(t *testing.T) {
 	if a.session(7).Voice != "b" {
 		t.Fatalf("voice = %q, want b", a.session(7).Voice)
 	}
+	if last := tg.sent()[len(tg.sent())-1]; !contains(last, "другий") {
+		t.Fatalf("/voice b line = %q, want the 'second voice' one", last)
+	}
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, Text: "/voice a"})
+	if last := tg.sent()[len(tg.sent())-1]; !contains(last, "перший") {
+		t.Fatalf("/voice a line = %q, want the 'first voice' one", last)
+	}
 
 	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, Text: "/voice"})
 	last := tg.sent()[len(tg.sent())-1]
