@@ -89,9 +89,9 @@ func main() {
 		lat := time.Since(start)
 		turn++
 
-		tag := "pre-LLM"
-		if reply.Matched != nil {
-			tag = fmt.Sprintf("%d KB", len(reply.Matched))
+		tag := fmt.Sprintf("%d KB", len(reply.Matched))
+		if lat < 100*time.Millisecond {
+			tag = "pre-LLM" // gate / hardEscalate / looksLikeInjection — no model call
 		}
 		fmt.Printf("  U: %s\n", line)
 		fmt.Printf("  [%-9s] %5.1fs  %-8s  %s\n", reply.Signal, lat.Seconds(), tag, delta(before, compact(sess.Slots)))

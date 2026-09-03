@@ -171,6 +171,10 @@ func TestIsSlotAnswer(t *testing.T) {
 	noQuestion := &Session{History: []Msg{{Role: "assistant", Text: "Thanks, noted."}}}
 	askedThenClause := &Session{History: []Msg{{Role: "assistant", Text: "Для якої установи ви готуєте документи? Це потрібно, щоб підібрати тип засвідчення."}}}
 	empty := &Session{}
+	midQuote := &Session{ // 2+ slots filled, bot asked a question -> a full-sentence answer still counts
+		History: []Msg{{Role: "assistant", Text: "Скільки сторінок і на коли?"}},
+		Slots:   QuoteSlots{LanguagePair: sp("uk->de"), DocType: sp("диплом")},
+	}
 
 	tests := []struct {
 		name string
@@ -181,7 +185,8 @@ func TestIsSlotAnswer(t *testing.T) {
 		{"short answer after a question", asked, "about 5 pages", true},
 		{"one word after a question", asked, "diploma", true},
 		{"answer after a question + trailing clause", askedThenClause, "для університету в Берліні", true},
-		{"too long after a question", asked, "well it is a diploma with a transcript and also a reference letter", false},
+		{"too long after a question (early, 0 slots)", asked, "well it is a diploma with a transcript and also a reference letter", false},
+		{"full-sentence answer mid-quote (2 slots)", midQuote, "диплом на одну сторінку і додаток на дві, разом три, бажано за тиждень", true},
 		{"short but no prior question", noQuestion, "5 pages", false},
 		{"short, question, but slots complete", askedFull, "no thanks", false},
 		{"no history at all", empty, "5 pages", false},
