@@ -815,11 +815,16 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
      surcharge + availability caveat, English reply; `volume`/`deadline`
      captured, `signal: continue`.
 
-**14c — zero-content / nonsense.**
+**14c — zero-content / nonsense.** Two text messages, one after the other.
 
-1. `.` then `перекладіть нічого`
-   - **Expect:** no crash; a sensible clarifying question ("що саме
-     потрібно перекласти?"), no slot filled with nonsense.
+1. Send `.` (a single dot — an effectively empty message).
+   - **Expect:** no crash; a short clarifying line asking what needs
+     translating. No slot filled.
+2. Then send `перекладіть нічого` ("translate nothing" — a degenerate
+   request with no real object).
+   - **Expect:** still no crash; another sensible clarifying question
+     ("що саме потрібно перекласти?"). `doc_type` is **not** set to
+     "нічого" or any other junk value.
 
 ---
 
