@@ -182,6 +182,15 @@ waiting for each reply:
      the KB's recipient list → it must **ask** which certification level is
      needed, or fall back to "certified, a manager will confirm" — it must
      **not** invent a rule. Then read-back → `lead_ready` → one more row.
+   - **Verified 2026-09-03** (client stack, `openai/gpt-4o-mini`):
+     - Run 1: slots correct incl. `certification: notarized`; **first pass
+       spoke "certified" while recording "notarized" → fixed** with the
+       `reply ⊇ slots` rule in `system.md`; now "Since it's for a Polish
+       registry office, it will be notarized." One `LeadRecord`.
+     - Run 2: gpt-4o-mini fills a concrete level (`certified`) for the
+       hospital rather than "manager to confirm" — **accepted** as the client
+       model's extra world knowledge; `reply ⊇ slots` holds. See
+       `.engage/conversation-style.md`.
 
 **2c — price question first, English.**
 
