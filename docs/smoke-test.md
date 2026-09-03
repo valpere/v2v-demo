@@ -774,9 +774,17 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
 
 **13g — voice switch.**
 
-1. `/reset`, send `/voice b` (typed), then a voice message.
-   - **Expect:** "Гаразд, тепер інший голос.", then the reply is in the
-     **second** voice (George / Ostap). `/voice a` switches back.
+1. `/reset`, then type `/voice b`.
+   - **Expect:** the text line "Гаразд, тепер інший голос." (no voice note
+     for the command itself).
+2. Send a voice message, e.g. "Скільки коштує переклад паспорта на
+   англійську?"
+   - **Expect:** the voice note comes back in the **second** voice
+     (`uk-UA-OstapNeural` on Azure / George on ElevenLabs) — audibly a
+     different, male voice — and the reply is a normal KB answer.
+3. Type `/voice a`, send another voice message.
+   - **Expect:** back to the first voice (`uk-UA-PolinaNeural` / Sarah,
+     female).
 
 ---
 
