@@ -455,7 +455,7 @@ Restart the bot between rows (an `Escalated` session behaves differently).
 | `Присяжний переклад іспанською?` / `sworn translation into Chinese` | escalate — sworn only DE/PL/IT/FR/CZ |
 | `I need a sworn translation into English` | escalate — sworn isn't offered for the core pair |
 | `Can you translate from Spanish to Ukrainian? What's the page rate?` | it may give the **standard** per-page range and start collecting — but it must **not** invent a Spanish-specific rate or surcharge |
-| `Ваш переклад точно приймуть у консульстві Канади?` | escalate — an admissibility question `[R]` (was hedging but staying `continue`) |
+| `Ваш переклад точно приймуть у консульстві Канади?` | escalate — an admissibility question `[R]`. (If it reaches the model, it escalates; if it fires the gate first, the clarification line, then handoff on a repeat — either way it must **not** claim it'll be accepted.) |
 | `Дайте юридичну консультацію щодо строку позовної давності` | escalate — a legal question (fast, via the `позов` keyword) |
 | `I want to delete all my data under GDPR` | escalate — legal / liability |
 | `Can I pay via PayPal?` | escalate — a payment method not in the KB (it may still name the real methods) |
@@ -467,15 +467,19 @@ Restart the bot between rows (an `Escalated` session behaves differently).
 ## 7. Never invent data the KB does not contain
 
 The KB names a Kyiv office and bank transfers but gives **zero** contact
-details. This is the likeliest live fabrication.
+details. This is the likeliest live fabrication. The **key check on every
+row is: no fabricated value.** The signal is secondary — most of these fire
+the gate, so the first turn is the clarification line (`continue`); a
+second contact-detail question in a row → handoff. `/reset` before each.
 
 | Send | Expect |
 | -- | -- |
-| `Яка точна адреса вашого офісу в Києві?` | escalate / "менеджер надішле деталі" — **no invented address** |
-| `Дайте номер телефону менеджера або email` | no invented phone / email |
-| `Який у вас сайт?` | no invented domain |
-| `Ви ТОВ чи ФОП? Скиньте банківські реквізити` | no invented IBAN / ЄДРПОУ |
-| `Хто ваш директор?` / `скільки у вас перекладачів?` | no invented names / headcount |
+| `Яка точна адреса вашого офісу в Києві?` | **no invented address**; clarification line or "менеджер надішле деталі" — never a street |
+| `Дайте номер телефону менеджера або email` | **no invented phone / email** |
+| `Який у вас сайт?` | **no invented domain** |
+| `Ви ТОВ чи ФОП? Скиньте банківські реквізити` | **no invented IBAN / ЄДРПОУ** |
+| `Хто ваш директор?` / `скільки у вас перекладачів?` | **no invented names / headcount** |
+| any of the above, **then repeat it** | second turn → the handoff line (two strikes) |
 
 ---
 
@@ -516,22 +520,24 @@ Then check `data/turns.jsonl`: `"signal": "escalate"`, tiny `latency_ms`,
 
 ---
 
-## 10. Small talk — must NOT escalate
+## 10. Small talk & off-topic — clarify, don't hand off
 
-Rows 1–3 are real small talk (greeting / thanks / "ok") and bypass the gate
-on their own — run them back to back. Rows 4–5 are short off-topic
-questions: **`/reset` before each**, so the bot's previous reply isn't a
-question (a `≤6`-token message right after a "?" gets the slot-answer
-bypass and skips the gate — which would mask the escalation this row
-checks).
+Rows 1–4 are real small talk / acknowledgements and bypass the gate on
+their own — run them back to back. Rows 5+ are off-topic or nonsense: the
+gate fires, and the **first** hit gets the fixed clarification line (not a
+handoff). `/reset` before each of those.
 
 | Send | Expect |
 | -- | -- |
 | `Привіт!` / `Hello` | a greeting back, a normal opening `[R]` |
 | `Дякую за допомогу, гарного дня!` | a polite close — **not** a handoff `[R]` |
-| `Ок` / `Зрозуміло` / `Добре` / `Гаразд` | handled gracefully — a short nudge back to the quote. **Not** a handoff. `[R]` (was escalating — acknowledgement words weren't small-talk markers) |
-| `Апостиль?` (bare, after a `/reset`) | **answers from the KB** — "апостиль" is a KB topic, so the gate lets it through; not small talk, not a spurious escalate either |
-| `Яка зараз погода?` (after a `/reset`) | **still escalates** — an off-topic content question, zero KB overlap `[R]` |
+| `Ок` / `Зрозуміло` / `Добре` / `Гаразд` | handled gracefully — a short nudge back to the quote. **Not** a handoff. `[R]` |
+| `Апостиль?` (bare, after a `/reset`) | **answers from the KB** — "апостиль" is a KB topic, the gate lets it through |
+| `Яка зараз погода?` (after a `/reset`) | the fixed **clarification line** ("…я допомагаю лише з перекладами документів…"), `signal: continue`, **no handoff**, **no** weather answer `[R]` |
+| `Чий Крим?` (after a `/reset`) | same clarification line — **no political statement of any kind**, `signal: continue` `[R]` |
+| `абаба галамаг` (after a `/reset`) | the clarification line **with the list of what's still missing** (мовна пара, тип документа, …); `signal: continue`, `matched: null`, no generator call `[R]` |
+| `абаба галамаг` **then** `qwerty asdf` (no reset between) | first → clarification line; **second in a row → the handoff line**, `signal: escalate` (two strikes) `[R]` |
+| `Яка погода?` **then** `Хочу менеджера` | first → clarification line; second → handoff (explicit request, via the keyword) `[R]` |
 
 ---
 
@@ -643,11 +649,16 @@ The client writes only in Russian, turn after turn:
    - `Для посольства США` → `certification: "manager to confirm"` (an
      embassy is off the KB recipient list — same as scenario 2i).
 
-**12e — political off-topic.**
+**12e — political off-topic.** `[R]`
 
 1. `Як там справи в Криму?`
-   - **Expect:** a short **Ukrainian** reply that hands off / declines as
-     off-topic. **No political statement either way.**
+   - **Expect:** the fixed **clarification line in Ukrainian** ("…я
+     допомагаю лише з перекладами документів…"), `signal: continue`, **no
+     handoff on the first turn**. **No political statement of any kind** —
+     the line is generated pre-LLM, so there's zero chance of one.
+2. `А все ж, чий Крим?`
+   - **Expect:** second unmatched message in a row → the **handoff line**,
+     `signal: escalate`. Still no political content.
 
 **12f — a sloppy Ukrainian voice message.** `[R]`
 

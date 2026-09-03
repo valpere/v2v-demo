@@ -260,14 +260,20 @@ named constants are `@schema GateParams` in §1.
     -> [FUN-DLG-12] dialog.isSlotAnswer(sess *Session, userText string) bool
 
 18. [REQ-DLG-13] The grounding gate decides, from `(kbOverlap, slotAnswer)`
-    only: a slot answer never escalates; otherwise `kbOverlap` below
-    `GateParams.gate_floor` forces escalation **before** any Generator call;
-    otherwise the turn proceeds. `dialog.Handle` also skips the gate when
-    `isSmallTalk(userText)` — a greeting / thanks / farewell is a dialogue
-    boundary, not a content question, and must never pre-escalate
-    (2026-08-31 test-5_1). With `hardEscalate` (REQ-DLG-20) the gate is the
-    anti-waffle layer in front of the LLM.
-    -> [FUN-DLG-13] dialog.groundingGate(overlap float64, slotAnswer bool) (forceEscalate bool) @constraint(rule: "pure function of its two arguments; no I/O, no session read"); dialog.isSmallTalk(userText string) bool
+    only: a slot answer never fires it; otherwise `kbOverlap` below
+    `GateParams.gate_floor` fires it **before** any Generator call. `Handle`
+    also skips it for `isSmallTalk(userText)` (a greeting / thanks / an
+    acknowledgement is a dialogue boundary — 2026-08-31 test-5_1). **A gate
+    hit does not escalate on its own (2026-09-04):** the first hit answers
+    with the fixed `clarifyLine` (states the bureau only does translations,
+    lists the still-missing slots or the "already complete" tail) at
+    `signal: continue`, records the exchange in history, and sets
+    `Session.gateStrike`. Only a **second consecutive** gate hit (`gateStrike`
+    already set) escalates. `gateStrike` clears on any turn that reaches the
+    model, is small talk, or is a slot answer. `hardEscalate` (REQ-DLG-20),
+    an explicit "I want a manager", and the model's own `signal: escalate`
+    still hand off immediately.
+    -> [FUN-DLG-13] dialog.groundingGate(overlap float64, slotAnswer bool) (forceEscalate bool) @constraint(rule: "pure function of its two arguments"); dialog.isSmallTalk; dialog.clarifyLine(sess) @constraint(rule: "pre-LLM, deterministic — no hallucination, no political statement possible"); Session.gateStrike
 
 19. [REQ-DLG-14] `dialog.Handle` must execute the exact 14-step sequence in
     plan.md §"Behavioural spec": lock `Session.Lang` -> `hardEscalate` check

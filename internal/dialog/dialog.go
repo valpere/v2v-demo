@@ -3,6 +3,7 @@ package dialog
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 
@@ -29,6 +30,19 @@ const (
 
 	voiceSwitchedUK = "Гаразд, тепер інший голос."
 	voiceSwitchedEN = "Ok, switched voice."
+
+	// clarify* is the first response when the grounding gate fires — off-topic,
+	// gibberish, or a request with nothing the KB can answer. It does NOT hand
+	// off (a second gate hit in a row does). The %s is missingSlotsPhrase, or
+	// the "already complete" tail when every slot is filled.
+	clarifyUK = "Перепрошую, я не зовсім зрозуміла ваш запит. Я допомагаю лише з перекладами документів. %s"
+	clarifyEN = "Sorry, I didn't quite follow. I only help with document translations. %s"
+
+	clarifyDoneUK = "Ваш запит уже повний — менеджер зв'яжеться з вами найближчим часом. Якщо хочете щось змінити чи поговорити з менеджером — просто напишіть."
+	clarifyDoneEN = "Your request is already complete — a manager will be in touch shortly. Just say so if you'd like to change something or speak with a manager."
+
+	clarifyAskUK = "Підкажіть, будь ласка: %s? Або напишіть «менеджер», якщо хочете поговорити з людиною."
+	clarifyAskEN = "Could you tell me: %s? Or say \"manager\" if you'd like to talk to a person."
 )
 
 func line(lang, uk, en string) string {
@@ -40,6 +54,43 @@ func line(lang, uk, en string) string {
 
 func handoffLine(lang string) string { return line(lang, handoffUK, handoffEN) }
 func apologyLine(lang string) string { return line(lang, apologyUK, apologyEN) }
+
+// clarifyLine is the gate's first, non-escalating response. It names what's
+// still missing (or says the request is already complete).
+func clarifyLine(sess *Session) string {
+	lang := sessLang(sess)
+	var tail string
+	if miss := missingSlotsPhrase(sess.Slots, lang); miss != "" {
+		tail = fmt.Sprintf(line(lang, clarifyAskUK, clarifyAskEN), miss)
+	} else {
+		tail = line(lang, clarifyDoneUK, clarifyDoneEN)
+	}
+	return fmt.Sprintf(line(lang, clarifyUK, clarifyEN), tail)
+}
+
+// missingSlotsPhrase lists the still-nil quote slots in plain words, joined
+// with ", ". Empty when all six are filled.
+func missingSlotsPhrase(s QuoteSlots, lang string) string {
+	type q struct {
+		nil    bool
+		uk, en string
+	}
+	items := []q{
+		{s.LanguagePair == nil, "з якої мови на яку", "which languages"},
+		{s.DocType == nil, "який це документ", "what kind of document"},
+		{s.Volume == nil, "скільки сторінок", "how many pages"},
+		{s.Deadline == nil, "до якого терміну", "the deadline"},
+		{s.Certification == nil, "для кого переклад", "who it's for"},
+		{s.Delivery == nil, "як доставити", "how to deliver it"},
+	}
+	var out []string
+	for _, it := range items {
+		if it.nil {
+			out = append(out, line(lang, it.uk, it.en))
+		}
+	}
+	return strings.Join(out, ", ")
+}
 
 // SttFailLine / VoiceSwitchedLine are used by the cmd/bot update loop (STT
 // failure, /voice command) — those paths never reach Handle.
@@ -163,12 +214,25 @@ func Handle(
 		return esc()
 	}
 
-	// 2, 3, 4 — slot-answer / small-talk bypass and the grounding gate
+	// 2, 3, 4 — slot-answer / small-talk bypass and the grounding gate.
+	// The gate fires on a message the KB can't help with (off-topic, gibberish,
+	// noise). First hit → the fixed clarification line, no handoff. A second
+	// hit in a row → hand off.
 	slotAnswer := isSlotAnswer(sess, userText)
 	overlap := kbOverlap(userText, sections)
 	if !isSmallTalk(userText) && groundingGate(overlap, slotAnswer) {
-		return esc()
+		if sess.gateStrike {
+			return esc()
+		}
+		sess.gateStrike = true
+		clarify := clarifyLine(sess)
+		sess.History = trimTail(append(sess.History,
+			Msg{Role: "user", Text: userText},
+			Msg{Role: "assistant", Text: clarify},
+		), HistoryLimit)
+		return Reply{Text: clarify, Signal: SignalContinue}, nil
 	}
+	sess.gateStrike = false // this turn is a real one — reset the strike
 
 	// 5 — system prompt: persona file + the WHOLE KB + collected slots
 	var b strings.Builder

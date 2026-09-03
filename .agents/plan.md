@@ -156,8 +156,9 @@ type Session struct {
 	Voice     string // "a" | "b"; default "a"
 	Lang      string // "uk" | "en"; last turn detectLang was confident (mid-switch propagates); "" until then
 	Escalated bool
-	LeadDone  bool   // a lead_ready already fired this session
-	leadSlots string // slot JSON at the last recorded lead; repeat lead_ready — same slots -> continue (test-5_1), changed -> a corrected LeadRecord (11d)
+	LeadDone   bool   // a lead_ready already fired this session
+	leadSlots  string // slot JSON at the last recorded lead; repeat lead_ready — same slots -> continue (test-5_1), changed -> a corrected LeadRecord (11d)
+	gateStrike bool   // gate fired last turn (-> clarifyLine); a 2nd hit in a row escalates
 }
 
 type Generator interface {
@@ -354,9 +355,24 @@ slot-answer bypass). "привіт, а скільки коштує апости�
 
 ```
 if slotAnswer            { return false }   // answering the bot's question
-if overlap < GateFloor   { return true }    // content question the KB barely covers -> escalate pre-LLM
+if overlap < GateFloor   { return true }    // KB can't help with this message
 return false
 ```
+
+A gate hit does **not** escalate by itself (2026-09-04). In `Handle`:
+```
+if !isSmallTalk(text) && groundingGate(overlap, slotAnswer):
+    if sess.gateStrike: return esc()                    // 2nd unmatched msg in a row
+    sess.gateStrike = true
+    append (user, clarifyLine(sess)) to history
+    return {clarifyLine(sess), continue}                // off-topic / gibberish -> polite line, no LLM
+sess.gateStrike = false                                 // this turn is real
+```
+`clarifyLine` states the bureau only translates documents + lists the still-nil
+slots (or the "already complete" tail). Deterministic — no hallucination, no
+statement on an off-topic subject possible. `hardEscalate` (incl. explicit
+"хочу менеджера"), a model `signal: escalate`, and the 2nd strike still hand
+off at once.
 
 ### parseTrailer(raw string) (spoken string, tr *trailer)
 

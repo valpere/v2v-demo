@@ -46,6 +46,9 @@ var escalateKeywords = []string{
 	"see you in court", "you to court", "sue you", "sue the", "lawsuit", "legal action",
 	"дайте людину", "з людиною", "справжн", "real person",
 	"talk to a person", "з менеджером", "менеджера напряму", "напряму з", "speak to a manager", "human agent",
+	"хочу менедж", "потрібен менедж", "потрібно менедж", "дайте менедж", "покличте менедж",
+	"переведіть на менедж", "переключіть на менедж", "менеджера прошу", "давайте менедж",
+	"want a manager", "need a manager", "get me a manager", "connect me to a manager",
 }
 
 // pleasantryMarkers are greeting / thanks / farewell / acknowledgement

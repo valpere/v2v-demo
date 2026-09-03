@@ -57,6 +57,12 @@ type Session struct {
 	// corrected LeadRecord gets written (consumers take the newest row per
 	// chat). Empty until the first lead.
 	leadSlots string
+
+	// gateStrike is set when the grounding gate fired on the previous turn
+	// and the bot answered with the fixed clarification line instead of
+	// escalating. A second consecutive gate hit escalates. Cleared on any
+	// turn that reaches the model, is small talk, or is a slot answer.
+	gateStrike bool
 }
 
 // Reply is the outcome of one turn.

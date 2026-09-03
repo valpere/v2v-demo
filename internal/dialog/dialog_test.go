@@ -188,13 +188,45 @@ func TestHandleHardEscalate(t *testing.T) {
 func TestHandleGroundingGate(t *testing.T) {
 	gen := &fakeGen{reply: reply("unused", "continue", nil)}
 	sess := &Session{}
-	// off-topic content question, no KB overlap, not a slot answer
-	r, _ := dialogHandle(t, sess, gen, "What is the capital of Australia and how tall is Everest")
-	if r.Signal != SignalEscalate {
-		t.Fatalf("signal = %q, want escalate", r.Signal)
+	offTopic := "What is the capital of Australia and how tall is Everest"
+
+	// first hit — the clarification line, no handoff, no generator call
+	r, _ := dialogHandle(t, sess, gen, offTopic)
+	if r.Signal != SignalContinue {
+		t.Fatalf("first gate hit: signal = %q, want continue", r.Signal)
+	}
+	if sess.Escalated {
+		t.Fatal("first gate hit marked the session escalated")
+	}
+	if !strings.Contains(r.Text, "only help with document translations") {
+		t.Fatalf("first gate hit text = %q, want the clarification line", r.Text)
 	}
 	if gen.calls != 0 {
 		t.Fatal("generator called despite the gate firing")
+	}
+
+	// second hit in a row — hand off
+	r2, _ := dialogHandle(t, sess, gen, offTopic)
+	if r2.Signal != SignalEscalate {
+		t.Fatalf("second gate hit: signal = %q, want escalate", r2.Signal)
+	}
+	if gen.calls != 0 {
+		t.Fatal("generator called on the second gate hit")
+	}
+}
+
+func TestHandleGateStrikeResetsOnARealTurn(t *testing.T) {
+	gen := &fakeGen{reply: reply("Записала.", "continue", map[string]string{"doc_type": "diploma"})}
+	sess := &Session{}
+
+	dialogHandle(t, sess, gen, "абракадабра нісенітниця")                      // strike 1
+	dialogHandle(t, sess, gen, "переклад диплома з української на англійську") // real turn -> reset
+	if sess.gateStrike {
+		t.Fatal("gateStrike not cleared after a turn that reached the model")
+	}
+	r, _ := dialogHandle(t, sess, gen, "qwqw zzz nonsense") // strike 1 again, not escalate
+	if r.Signal != SignalContinue {
+		t.Fatalf("signal = %q after the strike was reset, want continue", r.Signal)
 	}
 }
 
@@ -302,14 +334,25 @@ func TestHandleUkrainianContentQuestionPassesGate(t *testing.T) {
 	}
 }
 
-// TestHandleUkrainianOffTopicStillEscalates — a Ukrainian question the KB
-// does not cover still scores below the floor and escalates pre-LLM.
-func TestHandleUkrainianOffTopicStillEscalates(t *testing.T) {
+// TestHandleUkrainianOffTopicClarifiesThenEscalates — a Ukrainian question the
+// KB doesn't cover scores below the floor: the first hit gets the fixed
+// clarification line (in Ukrainian), the second in a row hands off.
+func TestHandleUkrainianOffTopicClarifiesThenEscalates(t *testing.T) {
 	gen := &fakeGen{reply: reply("unused", "continue", nil)}
 	sess := &Session{}
-	r, _ := dialogHandle(t, sess, gen, "Яка столиця Австралії і скільки років президенту?")
-	if r.Signal != SignalEscalate || gen.calls != 0 {
-		t.Fatalf("r = %+v, calls = %d", r, gen.calls)
+	offTopic := "Яка столиця Австралії і скільки років президенту?"
+
+	r, _ := dialogHandle(t, sess, gen, offTopic)
+	if r.Signal != SignalContinue || gen.calls != 0 {
+		t.Fatalf("first hit: r = %+v, calls = %d", r, gen.calls)
+	}
+	if !strings.Contains(r.Text, "лише з перекладами документів") {
+		t.Fatalf("first hit text not the uk clarification line: %q", r.Text)
+	}
+
+	r2, _ := dialogHandle(t, sess, gen, offTopic)
+	if r2.Signal != SignalEscalate || r2.Text != handoffUK {
+		t.Fatalf("second hit: r = %+v", r2)
 	}
 }
 

@@ -35,8 +35,9 @@ flowchart TD
 
     subgraph CORE [internal/dialog — the grounding core]
         R[kbOverlap + hardEscalate] --> G{gate: overlap >= floor?\nor a slot answer?}
-        G -->|no| ESC[handoff line, no LLM]
-        G -->|yes / slot answer| LLM[LLM call\ngemma4:cloud\n· gpt-4o-mini · gemini-flash]
+        G -->|no, 1st time| CL[clarify line, no LLM\ncontinue + gateStrike]
+        G -->|no, 2nd in a row| ESC[handoff line, no LLM]
+        G -->|yes / slot answer / small talk| LLM[LLM call\ngemma4:cloud\n· gpt-4o-mini · gemini-flash]
         LLM --> P[parse: spoken_reply + slot_updates + signal]
         P --> M[merge slots\nvalidate, never silently unset]
     end
@@ -78,10 +79,13 @@ All HTTP is stdlib.
    a. **`hardEscalate(text)`** — keyword list for liability topics; a hit
       returns the fixed handoff line, no LLM.
    b. **Grounding gate** — `slotAnswer` (short + the bot just asked + a slot
-      is nil) bypasses it; otherwise `kbOverlap(text, kb) < gate_floor` (few
-      of the message's meaningful terms appear anywhere in the KB) forces the
-      handoff line, no LLM (the anti-waffle stop). B1: no per-section
-      retrieval — the score only feeds this gate.
+      is nil) and small talk bypass it; otherwise `kbOverlap(text, kb) <
+      gate_floor` (few of the message's meaningful terms appear anywhere in
+      the KB) fires it: **first hit → the fixed `clarifyLine`** ("we only do
+      translations", lists missing slots), `continue`, sets `gateStrike`;
+      **second consecutive hit → the handoff line**. Both pre-LLM, so no
+      hallucination and no possible statement on an off-topic subject. B1: no
+      per-section retrieval — the score only feeds this gate.
    c. **LLM call** — system prompt = `prompt/system.md` + `--- KNOWLEDGE BASE
       ---` + **the whole KB** (every `## Title` + body) + `--- COLLECTED SO
       FAR ---` + the slot state; messages = the last 20 Msg entries (≈10
@@ -92,11 +96,12 @@ All HTTP is stdlib.
    e. **Merge** `slot_updates` into the session slots — validate types,
       never clear an already-filled slot unless the user explicitly corrected
       it (the LLM is told to send a slot only when newly learned).
-   f. Every `escalate` path (gate, parse failure, Generator error, or the
-      model's own `signal`) → `spoken_reply` becomes the fixed handoff line,
-      session marked escalated. No `continue`->`lead_ready` upgrade — the model
-      owns `lead_ready` and only emits it after the read-back summary.
-      `lead_ready` → the caller appends a lead record (Zoho-field shape).
+   f. Every `escalate` path (a second gate hit, parse failure, Generator
+      error, or the model's own `signal`) → `spoken_reply` becomes the fixed
+      handoff line, session marked escalated. No `continue`->`lead_ready`
+      upgrade — the model owns `lead_ready`. `lead_ready` → the caller appends
+      a lead record; a post-summary correction appends a fresh one (newest
+      wins).
 3. `tts.Spoken` normalises the reply for the ear (drops markdown, arrow
    shorthand, currency codes), then `tts` synthesises it with the session's
    current voice → OGG. The text message sent alongside keeps the original.
