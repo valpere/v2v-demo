@@ -714,12 +714,12 @@ script. The Latin-surname pronunciation problem only exists when the client
 *types* a Latin name and the model echoes it.
 
 1. `/reset`, start a quote (any way), then **type** mid-flow:
-   `Переклад для пані Kovalenko, порахуйте орієнтовно`
+   `Замовниця — Ursula von der Leyen, порахуйте орієнтовно`
 2. Steer the reply to also carry a EUR figure (e.g. `Одна сторінка,
    загальний текст`).
-   - **Expect:** the **voice note** pronounces "Kovalenko" as a name (not
-     "ка-о-вэ…") and says "від 12 до 16 євро" — no spelled-out letters, no
-     "EUR", no "12 dash 16".
+   - **Expect:** the **voice note** pronounces "Ursula von der Leyen" as a
+     name — spoken through, "von der" not spelled letter by letter — and
+     says "від 12 до 16 євро", not "12 dash 16" or "E-U-R".
 
 **13c — a range and a raw number.**
 
