@@ -907,6 +907,10 @@ Still **live-only** — transport timing or LLM judgement, no deterministic test
 1. With the bot running, disconnect the network ~30 s, then reconnect.
    - **Expect:** long-polling reconnects on its own; **no** duplicate
      greeting, no repeated turn.
+   - **Verified 2026-09-03** — `getUpdates` logged one
+     `context deadline exceeded`, no panic/exit; a message sent ~2 min
+     after reconnect was delivered and answered by the same process;
+     greeting block appeared exactly once, one `TurnRecord`.
 
 **16j — a huge rambling paragraph.**
 
