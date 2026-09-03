@@ -822,9 +822,13 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
      translating. No slot filled.
 2. Then send `перекладіть нічого` ("translate nothing" — a degenerate
    request with no real object).
-   - **Expect:** still no crash; another sensible clarifying question
-     ("що саме потрібно перекласти?"). `doc_type` is **not** set to
-     "нічого" or any other junk value.
+   - **Expect:** still no crash. Either a clarifying question ("що саме
+     потрібно перекласти?") **or** a polite close (the model reads it as
+     "нічого не треба") — both are fine. `doc_type` is **not** set to
+     "нічого" or any other junk value; `signal` stays `continue`.
+   - **Verified 2026-09-03** — turn 1 hit the pre-LLM clarify line, turn 2
+     (sent by voice) got a graceful sign-off; no crash, all slots `null`
+     throughout.
 
 ---
 
