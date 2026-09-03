@@ -977,16 +977,19 @@ and the "bad timezone" validation case.
 
 ## 18. Logging & state (check `data/` and behaviour)
 
-| Check | Expect |
+Mostly **covered by Go tests** — the observable half you can still eyeball in
+`data/*.jsonl` after any run.
+
+| Check | Covered by |
 | -- | -- |
-| any normal dialogue turn | one `TurnRecord` in `turns.jsonl` with `time`, `signal`, `matched`, `slots`, `latency_ms` |
-| a `lead_ready` turn | a `TurnRecord` **and** one `LeadRecord` in `leads.jsonl` |
-| a `/voice …` turn or an sttFail | **no** `TurnRecord` |
-| a pre-LLM escalate (sections 7, 8) | `"matched": null` |
-| a normal grounded answer | `matched` lists the KB sections used |
-| bot asks "Хто одержувач?", you answer `Для мого дядька в Торонто` | processed as a slot answer (short, follows a question) — **not** escalated even though it has no KB overlap `[R]` |
-| hold one conversation past **20 turns** with short answers | no error when the history trims; the final read-back still has all six values right (slot state is kept separately from history) |
-| restart the bot mid-conversation | the slots / history for that chat are **gone** — by design, in-memory only |
+| normal dialogue turn → one `TurnRecord` (`time`, `chat_id`, `signal`, `latency_ms` populated) | `cmd/bot.TestTurnRecordOnlyForDialogueTurns`, `store.TestAppendTurn` |
+| `lead_ready` turn → a `TurnRecord` **and** one `LeadRecord` | `dialog.TestHandleLeadReady`, `dialog.TestHandleNoDuplicateLead`, `dialog.TestHandleCorrectionAfterLeadRecordsUpdatedLead`, `store.TestAppendLead` |
+| `/voice …`, `/reset`, or an sttFail → **no** `TurnRecord` | `cmd/bot.TestTurnRecordOnlyForDialogueTurns` |
+| pre-LLM escalate (sections 7, 8) → `"matched": null` | `dialog.TestHandleHardEscalate`, `dialog.TestHandleNilTrailerEscalates` |
+| normal grounded answer → `matched` lists the KB sections | `dialog.TestKBOverlap` + the section 2–16 live runs |
+| bot asks "Хто одержувач?", answer `Для мого дядька в Торонто` → slot answer, **not** escalated despite zero KB overlap `[R]` | `dialog.TestIsSlotAnswer` ("answer after a question + trailing clause") |
+| conversation past 20 turns → history trims, no error, the six slot values survive (slot state is separate from history) | `dialog.TestHandleHistoryTrimKeepsSlots` |
+| restart the bot mid-conversation → that chat's slots / history are **gone** | by design — `app.sessions` is an in-memory map, nothing persists it. A quick live confirmation is fine but there's nothing to assert. |
 
 ---
 

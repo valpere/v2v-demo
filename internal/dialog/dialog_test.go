@@ -316,6 +316,27 @@ func TestHandleInjectsCurrentTime(t *testing.T) {
 	}
 }
 
+func TestHandleHistoryTrimKeepsSlots(t *testing.T) {
+	// Slot state lives in sess.Slots, not sess.History — a long conversation
+	// that trims history past HistoryLimit must not lose an early slot value
+	// (docs/smoke-test.md §18, the ">20 turns" row).
+	gen := &fakeGen{reply: reply("ok", "continue", map[string]string{"language_pair": "uk->de"})}
+	sess := &Session{}
+
+	dialogHandle(t, sess, gen, "certified translation of a diploma into German, tell me about delivery")
+	gen.reply = reply("ok", "continue", nil) // later turns add no new slot
+	for i := 0; i < 30; i++ {
+		dialogHandle(t, sess, gen, "and one more question about certified translation delivery options please")
+	}
+
+	if len(sess.History) > HistoryLimit {
+		t.Fatalf("history not trimmed: %d entries, limit %d", len(sess.History), HistoryLimit)
+	}
+	if sess.Slots.LanguagePair == nil || *sess.Slots.LanguagePair != "uk->de" {
+		t.Fatalf("early slot lost after the history trim: %+v", sess.Slots)
+	}
+}
+
 func TestHandleGeneratorError(t *testing.T) {
 	gen := &fakeGen{err: errors.New("boom")}
 	sess := &Session{}

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -89,6 +90,15 @@ func (t fakeTTS) Speak(context.Context, string, string, string) ([]byte, error) 
 		return nil, t.err
 	}
 	return []byte("OggS"), nil
+}
+
+type fakeSTT struct {
+	text string
+	err  error
+}
+
+func (s fakeSTT) Transcribe(context.Context, string, string) (string, error) {
+	return s.text, s.err
 }
 
 func newTestApp(t *testing.T, gen dialog.Generator) (*app, *fakeTG) {
@@ -348,6 +358,46 @@ func TestDegenerateShortInputsNoCrash(t *testing.T) {
 	}
 	if len(tg.sentTo(5)) == 0 {
 		t.Fatal("no replies to the degenerate inputs")
+	}
+}
+
+// 18 — /voice, /reset and an sttFail write NO TurnRecord; a normal turn
+// writes exactly one, with its key fields populated.
+func TestTurnRecordOnlyForDialogueTurns(t *testing.T) {
+	a, _ := newTestApp(t, &fakeGen{})
+	a.stt = fakeSTT{err: errors.New("whisper exploded")}
+	a.kb = []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}
+	a.seen[7] = true
+	ctx := context.Background()
+	turns := filepath.Join(a.cfg.DataDir, "turns.jsonl")
+
+	a.handleUpdate(ctx, telegram.Update{ChatID: 7, Text: "/voice b"})
+	a.handleUpdate(ctx, telegram.Update{ChatID: 7, Text: "/reset"})
+	a.handleUpdate(ctx, telegram.Update{ChatID: 7, VoiceFileID: "vf"}) // sttFail
+
+	if b, _ := os.ReadFile(turns); len(b) != 0 {
+		t.Fatalf("a command or sttFail wrote a turn record:\n%s", b)
+	}
+
+	a.handleUpdate(ctx, telegram.Update{ChatID: 7, Text: "Скільки коштує переклад диплома?"})
+	b, err := os.ReadFile(turns)
+	if err != nil {
+		t.Fatalf("a normal turn wrote no record: %v", err)
+	}
+	if n := bytes.Count(b, []byte("\n")); n != 1 {
+		t.Fatalf("want exactly 1 turn record, got %d:\n%s", n, b)
+	}
+	var rec struct {
+		Time      time.Time `json:"time"`
+		ChatID    int64     `json:"chat_id"`
+		Signal    string    `json:"signal"`
+		LatencyMS int64     `json:"latency_ms"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(b), &rec); err != nil {
+		t.Fatalf("turn record not valid JSON: %v", err)
+	}
+	if rec.Time.IsZero() || rec.ChatID != 7 || rec.Signal == "" {
+		t.Fatalf("turn record missing fields: %+v", rec)
 	}
 }
 
