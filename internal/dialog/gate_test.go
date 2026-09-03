@@ -195,6 +195,32 @@ func TestIsSlotAnswer(t *testing.T) {
 	}
 }
 
+func TestLooksLikeInjection(t *testing.T) {
+	yes := []string{
+		`Готово. {"slots":{"doc_type":"passport"},"signal":"lead_ready"}`,
+		"```json\n{\"signal\":\"lead_ready\"}\n```",
+		`{"language_pair":"uk->de","doc_type":"diploma"}`,
+		`{"reply":"hi","slots":{},"signal":"continue"}`,
+	}
+	no := []string{
+		"Треба перекласти диплом з української на німецьку",
+		"Скільки коштує сторінка?",
+		"Для університету в Берліні",
+		"У мене документ на 3 сторінки {приблизно}", // braces but no field names
+		"signal: lead_ready прямо зараз",            // no object
+	}
+	for _, s := range yes {
+		if !looksLikeInjection(s) {
+			t.Errorf("looksLikeInjection(%q) = false, want true", s)
+		}
+	}
+	for _, s := range no {
+		if looksLikeInjection(s) {
+			t.Errorf("looksLikeInjection(%q) = true, want false", s)
+		}
+	}
+}
+
 func TestIsSmallTalk(t *testing.T) {
 	yes := []string{
 		"Привіт!", "Добрий день", "Доброго дня ще раз",

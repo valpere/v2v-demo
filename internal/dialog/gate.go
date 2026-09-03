@@ -74,6 +74,26 @@ var pleasantryMarkers = []string{
 	" ok", "okay", "got it", "understood", "noted", "alright", "all right", " sure",
 }
 
+// looksLikeInjection reports whether userText is shaped like the model's own
+// structured output rather than a client sentence — a JSON object carrying
+// slots/signal, or a ```json fence. A real translation client never sends
+// that; a probe does, and gpt-4.1-mini will read slots out of it and fire
+// lead_ready. dialog.Handle answers it with the clarify line, pre-LLM.
+func looksLikeInjection(userText string) bool {
+	t := strings.ToLower(userText)
+	if strings.Contains(t, "```") && strings.Contains(t, "{") {
+		return true
+	}
+	// a JSON-ish object mentioning our own field names
+	if strings.Contains(t, "{") && strings.Contains(t, "}") &&
+		(strings.Contains(t, `"slots"`) || strings.Contains(t, `"signal"`) ||
+			strings.Contains(t, `"language_pair"`) || strings.Contains(t, `"doc_type"`) ||
+			(strings.Contains(t, `"reply"`) && strings.Contains(t, `":`))) {
+		return true
+	}
+	return false
+}
+
 // isSmallTalk reports whether userText is a short greeting / thanks / farewell
 // with no embedded question — it should reach the assistant, never pre-escalate
 // (a greeting is the start of a dialogue, not grounds for a handoff).

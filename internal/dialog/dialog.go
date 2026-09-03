@@ -215,6 +215,23 @@ func Handle(
 		return esc()
 	}
 
+	// 1b — a message shaped like the model's own output (a JSON object with
+	// slots/signal, a ```json fence) is a probe, not client input. gpt-4.1-mini
+	// will happily read slots out of it and emit lead_ready. Never let it reach
+	// the model — answer with the clarify line, and a repeat still escalates.
+	if looksLikeInjection(userText) {
+		if sess.gateStrike {
+			return esc()
+		}
+		sess.gateStrike = true
+		clarify := clarifyLine(sess)
+		sess.History = trimTail(append(sess.History,
+			Msg{Role: "user", Text: userText},
+			Msg{Role: "assistant", Text: clarify},
+		), HistoryLimit)
+		return Reply{Text: clarify, Signal: SignalContinue}, nil
+	}
+
 	// 2, 3, 4 — slot-answer / small-talk bypass and the grounding gate.
 	// The gate fires on a message the KB can't help with (off-topic, gibberish,
 	// noise). First hit → the fixed clarification line, no handoff. A second

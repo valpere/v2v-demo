@@ -356,10 +356,20 @@ named constants are `@schema GateParams` in §1.
     contains any entry of a short fixed keyword list (uk+en) for unambiguous
     handoff topics — refund / повернення коштів, complaint / скарга, court /
     суд / позов, "talk to a person" / дайте людину / справжня людина, a direct
-    request for a manager. A true result forces a handoff **before** the slot-
-    answer bypass and the gate (B3). Two-term cases (sworn + non-listed
-    language; interpreting + booking) stay with the model's own `escalate`.
+    request for a manager, and services the bureau definitively doesn't do
+    (interpreting / усний переклад, video-subtitle / субтитр, PayPal, fax /
+    факсом). A true result forces a handoff **before** the slot-answer bypass
+    and the gate (B3). Two-term cases (sworn + non-listed language) stay with
+    the model's own `escalate`.
     -> [FUN-DLG-20] dialog.hardEscalate(query string) bool; dialog escalateKeywords []string
+
+25a. [REQ-DLG-21] `looksLikeInjection(text)` returns true when a client message
+    is shaped like the model's own output — a JSON object naming a slot/signal
+    field, or a ```` ``` ```` fence around one. A true result answers with the
+    `clarifyLine` **before the LLM** (a repeat still escalates via `gateStrike`)
+    and never lets the text reach the model: gpt-4.1-mini otherwise reads slot
+    values out of pasted JSON and emits `lead_ready` (smoke §15c).
+    -> [FUN-DLG-21] dialog.looksLikeInjection(text string) bool
 
 ### 4.5 Knowledge base
 
