@@ -104,6 +104,15 @@ func TestHardEscalate(t *testing.T) {
 		"дайте менеджера, будь ласка",
 		"переключіть на менеджера",
 		"I want a manager now",
+		// services the bureau doesn't do / methods not in the KB
+		"Скільки коштує усний переклад на весіллі?",
+		"Do you provide an interpreter for a meeting?",
+		"Перекладете відео з субтитрами?",
+		"can you translate a video",
+		"Can I pay via PayPal?",
+		"оплата через пейпал можлива?",
+		"надішліть переклад факсом",
+		"can you send it by fax",
 	}
 	miss := []string{
 		"Скільки коштує переклад диплома?",

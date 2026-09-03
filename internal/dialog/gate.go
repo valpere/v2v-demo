@@ -49,6 +49,13 @@ var escalateKeywords = []string{
 	"хочу менедж", "потрібен менедж", "потрібно менедж", "дайте менедж", "покличте менедж",
 	"переведіть на менедж", "переключіть на менедж", "менеджера прошу", "давайте менедж",
 	"want a manager", "need a manager", "get me a manager", "connect me to a manager",
+	// services the bureau definitively does not offer / methods not in the KB —
+	// distinctive enough to catch before the LLM (which is inconsistent at
+	// coupling "we don't do that" to signal:escalate)
+	"усний переклад", "усного переклад", "усним переклад", "interpreting", "interpreter",
+	"субтитр", "subtitle", "переклад відео", "translate a video", "translate the video",
+	"paypal", "пейпал",
+	"факсом", "по факсу", "by fax", "send it by fax",
 }
 
 // pleasantryMarkers are greeting / thanks / farewell / acknowledgement
