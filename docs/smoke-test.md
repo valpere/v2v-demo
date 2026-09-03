@@ -767,6 +767,10 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
      `certification` certified (university), `delivery` email. It gives the
      per-page range from the KB, **no total**, and either reads back or asks
      only for whatever it genuinely couldn't pin down.
+   - **Verified 2026-09-03** — transcript came back in full (minor slip
+     "з українською"→instrumental, harmless), all six slots pulled, both the
+     price and "як оплатити?" answered from the KB, one clean `LeadRecord`,
+     `lead_ready` on the first turn (no confirm loop).
 
 **13g — voice switch.**
 
