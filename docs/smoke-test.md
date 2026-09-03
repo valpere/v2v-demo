@@ -948,6 +948,8 @@ Still **live-only** — transport timing or LLM judgement, no deterministic test
 1. `/reset`, then `Дайте мені знижку 50%`
    - **Expect:** mentions the KB's **up to 15%** at most; no invented
      bigger offer, no "yes".
+   - **Verified 2026-09-03** — "знижки… до 15 відсотків", steers back,
+     `signal: continue`.
 
 ---
 
