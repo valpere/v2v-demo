@@ -21,6 +21,31 @@ MODEL=eleven_turbo_v2_5 ./minions/tts-audition.sh a
 Reads `ELEVENLABS_API_KEY` / `ELEVENLABS_VOICE_A` / `ELEVENLABS_VOICE_B` from
 `.env`. Output mp3 → `tmp/`. Needs `curl` + `mpv`/`ffplay`/`mplayer`.
 
+## `dialog-probe/` — run smoke-test rows through the real dialog pipeline
+
+Runs `docs/smoke-test.md` **text** rows (§2, §6, §7, §8) through the actual
+`internal/dialog` pipeline — grounding gate + `hardEscalate` + the LLM — with
+no Telegram and no bot restart. Use it to vet a dialogue model before wiring
+it in, or to diff two models. Voice (§13) still needs the live bot.
+
+Unlike `tgdrive/`, this is **part of the main module** (it imports
+`internal/dialog` + `internal/kb`), so `go build ./...` compiles it; it adds
+no dependency.
+
+```
+go run ./minions/dialog-probe  scenarios.txt        # or < scenarios.txt
+echo 'скільки коштує сторінка' | go run ./minions/dialog-probe
+go run ./minions/dialog-probe -model gpt-4o-mini -v  scenarios.txt
+go run ./minions/dialog-probe -backend ollama        scenarios.txt
+```
+
+Scenario file, one turn per line: `# text` = header (no reset), `---` or a
+blank line = fresh `Session`, anything else = one user turn in the current
+session. Reads `.env` for the backend/model/keys/paths; flags override.
+Per turn it prints the resolved `signal`, latency, whether the gate or the
+LLM answered (`pre-LLM` / `N KB`), the slot delta, and a reply preview
+(`-v` for the full text, `-slots` for the slot JSON).
+
 ## `tgdrive/` — drive the live bot as a real user (CDP)
 
 A tiny Chrome DevTools Protocol client that drives an already-open,
