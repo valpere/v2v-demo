@@ -691,8 +691,7 @@ The client writes only in Russian, turn after turn:
 ## 13. Voice (the client's actual criterion — NFR-1)
 
 *Channel: **voice message** for every step, except `/voice a|b` (typed
-commands) and **13b's request (typed** — a spoken Latin name is
-transcribed to Cyrillic).* Run on **`.env.client`** (whisper-1 +
+commands).* Run on **`.env.client`** (whisper-1 +
 gpt-4o-mini + ElevenLabs Starter UA voices) — the stack the client hears;
 for a free logic-only pass, dev `.env` with `TTS_BACKEND=azure` works too.
 `/reset` between lettered scenarios. TTS must be on, not `none`.
@@ -707,19 +706,21 @@ for a free logic-only pass, dev `.env` with `TTS_BACKEND=azure` works too.
      message, not a caption); it reaches the same read-back + one
      `LeadRecord` as the text run.
 
-**13b — a Latin surname + a EUR amount in the spoken reply.** Note: this
-step's request goes in as **text**, not voice — a spoken "Kovalenko" is
-transcribed to Cyrillic ("Коваленко") and never reaches the reply in Latin
-script. The Latin-surname pronunciation problem only exists when the client
-*types* a Latin name and the model echoes it.
+**13b — Latin-script tokens + numbers in the spoken reply.** The model won't
+echo a client's name (it's told not to collect personal data), so the
+Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
+`EET`, `Nova Poshta` — which do land in replies.
 
-1. `/reset`, start a quote (any way), then **type** mid-flow:
-   `Замовниця — Ursula Gertrud von der Leyen, порахуйте орієнтовно`
-2. Steer the reply to also carry a EUR figure (e.g. `Одна сторінка,
-   загальний текст`).
-   - **Expect:** the **voice note** pronounces the full name "Ursula
-     Gertrud von der Leyen" spoken through — not letter by letter, not
-     skipped — and says "від 12 до 16 євро", not "12 dash 16" or "E-U-R".
+1. `/reset`, then ask by voice: "Скільки коштує доставка кур'єром за
+   кордон і як оплатити?"
+   - **Expect:** the reply names **DHL** and payment methods incl.
+     **Privat24**. The **voice note** says "ді-ейч-ел" / "приват двадцять
+     чотири" naturally — **not** "Д-Х-Л" letter by letter, not "Privat two
+     four".
+2. By voice: "Які у вас робочі години?"
+   - **Expect:** the voice reads the hours and "EET" naturally (as "за
+     київським часом" is how the model usually phrases it — check it isn't
+     "И-И-Т"), and "з 9 до 18" / "дев'ятої до вісімнадцятої" cleanly.
 
 **13c — a range and a raw number.**
 
