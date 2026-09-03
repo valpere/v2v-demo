@@ -87,21 +87,33 @@ func main() {
 	mkSilence(sil, *pause)
 	mkSilence(gapClip, *gap)
 
+	titles := []string{
+		"Діалог 1 — повне котирування, українською",
+		"Діалог 2 — питання про ціну, англійською",
+		"Діалог 3 — передача менеджеру, українською",
+	}
+	var script strings.Builder
+	fmt.Fprintf(&script, "I-10 sample — %s\nbot replies: dialog.Handle (openai/%s)\nVira = voice A, client = voice B\n",
+		time.Now().Format("2006-01-02 15:04"), or(env("DIALOG_MODEL"), "gpt-4.1-mini"))
+
 	ctx := context.Background()
 	for di, d := range dialogues {
 		if di > 0 {
 			clips = append(clips, gapClip)
 		}
-		fmt.Printf("── dialogue %d ──\n", di+1)
+		fmt.Fprintf(&script, "\n\n== %s ==\n", titles[di])
+		fmt.Printf("── %s ──\n", titles[di])
 		sess := &dialog.Session{}
 		for li, ln := range d {
 			// client line
 			clips = append(clips, speak(ctx, synth, work, fmt.Sprintf("d%d-%02dc", di, li), ln.text, voiceB, ln.lang))
+			fmt.Fprintf(&script, "\nКлієнт: %s\n", ln.text)
 			fmt.Printf("  C: %s\n", ln.text)
 			clips = append(clips, sil)
 			// Vira's reply
 			reply, _ := dialog.Handle(ctx, sess, sections, gen, string(sysBytes), ln.text, time.Now().In(loc))
 			spoken := tts.Spoken(reply.Text, ln.lang)
+			fmt.Fprintf(&script, "Віра [%s]: %s\n", reply.Signal, strings.TrimSpace(reply.Text))
 			fmt.Printf("  V[%s]: %s\n", reply.Signal, oneline(reply.Text))
 			clips = append(clips, speak(ctx, synth, work, fmt.Sprintf("d%d-%02dv", di, li), spoken, voiceA, ln.lang))
 			if li < len(d)-1 {
@@ -120,7 +132,10 @@ func main() {
 	must(os.MkdirAll(filepath.Dir(*out), 0o755))
 	run("ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", listFile,
 		"-af", "dynaudnorm", "-c:a", "libmp3lame", "-q:a", "2", *out)
-	fmt.Printf("\n✓ %s\n", *out)
+
+	txt := strings.TrimSuffix(*out, filepath.Ext(*out)) + ".txt"
+	must(os.WriteFile(txt, []byte(script.String()), 0o644))
+	fmt.Printf("\n✓ %s\n✓ %s\n", *out, txt)
 }
 
 func speak(ctx context.Context, s tts.Synthesizer, dir, name, text, voice, lang string) string {
@@ -192,4 +207,11 @@ func must(err error) {
 func die(msg string) {
 	fmt.Fprintln(os.Stderr, "i10-sample:", msg)
 	os.Exit(1)
+}
+
+func or(s, fallback string) string {
+	if s == "" {
+		return fallback
+	}
+	return s
 }
