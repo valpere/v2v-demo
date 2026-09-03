@@ -11,6 +11,9 @@
 /bot
 *.exe
 /minions/tgdrive/tgdrive
+# `go build ./minions/<x>/` drops the binary in CWD (repo root)
+/dialog-probe
+/i10-sample
 
 # runtime data
 *.db

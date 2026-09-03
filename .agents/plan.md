@@ -405,6 +405,7 @@ handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil }`.
 ```
 0. if l := detectLang(userText); l != "" { sess.Lang = l }   // updates every confident turn (mid-switch)
 1. if hardEscalate(userText):  esc(sess)              // B3: unambiguous handoff trigger
+1b. if looksLikeInjection(userText):  clarifyLine + gateStrike (a repeat -> esc)  // pasted JSON/fence -> never reaches the LLM
 2. slotAnswer := isSlotAnswer(sess, userText)
 3. overlap    := kbOverlap(userText, kb)
 4. if !isSmallTalk(userText) && groundingGate(overlap, slotAnswer):  esc(sess)  // content question the KB barely covers
