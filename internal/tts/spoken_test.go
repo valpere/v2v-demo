@@ -26,6 +26,8 @@ func TestSpoken(t *testing.T) {
 		{"a signed NDA on request", "en", "a signed ен ді ей on request"},
 		{"працює 09:00–18:00 EET", "uk", "працює 09:00–18:00 за київським часом"},
 		{"надішліть ЄДРПОУ", "uk", "надішліть є де ер пе о у"},
+		{"оплата через Privat24 або картку", "uk", "оплата через Приват24 або картку"},
+		{"pay via Privat 24", "en", "pay via Приват24"},
 	}
 	for _, c := range cases {
 		if got := Spoken(c.in, c.lang); got != c.want {

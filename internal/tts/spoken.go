@@ -23,6 +23,10 @@ var (
 	// \b is ASCII-only in RE2, so the Cyrillic set uses \p{L} boundaries.
 	reABBRcyr = regexp.MustCompile(`(^|[^\p{L}])(ЄДРПОУ|ЄДРПО|ПДВ|НДА)($|[^\p{L}])`)
 	reABBRlat = regexp.MustCompile(`\b(NDA|EET)\b`)
+
+	// Latin brand names the uk-UA voice reads with English stress
+	// ("PRIvat" not "приВАТ"). Give it the Cyrillic form.
+	reBrand = regexp.MustCompile(`\bPrivat\s?24\b`)
 )
 
 var abbrSpoken = map[string]string{
@@ -70,6 +74,7 @@ func Spoken(s, lang string) string {
 	s = reABBRlat.ReplaceAllStringFunc(s, func(m string) string {
 		return abbrSpoken[m]
 	})
+	s = reBrand.ReplaceAllString(s, "Приват24")
 
 	s = strings.ReplaceAll(s, "€", " EUR ")
 	s = strings.ReplaceAll(s, "$", " USD ")
