@@ -33,13 +33,15 @@ func detectLang(text string) string {
 	}
 }
 
-// sessLang is Session.Lang if set, else "en" — used only to pick the fixed
-// handoff / apology / stt-fail / voice-switch lines.
+// sessLang is Session.Lang if set, else "uk" — used only to pick the fixed
+// handoff / apology / stt-fail / clarify / voice-switch lines. The bureau is
+// Kyiv-based and the KB is Ukrainian-first, so an undetected language (a
+// cough on the first turn, "ok") defaults to Ukrainian, not English.
 func sessLang(sess *Session) string {
 	if sess.Lang != "" {
 		return sess.Lang
 	}
-	return "en"
+	return "uk"
 }
 
 func langName(code string) string {

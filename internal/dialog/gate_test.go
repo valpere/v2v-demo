@@ -217,8 +217,11 @@ func TestSessLang(t *testing.T) {
 	if got := sessLang(&Session{Lang: "uk"}); got != "uk" {
 		t.Errorf("got %q, want uk", got)
 	}
-	if got := sessLang(&Session{}); got != "en" {
-		t.Errorf("empty Lang: got %q, want en (fallback)", got)
+	if got := sessLang(&Session{}); got != "uk" {
+		t.Errorf("empty Lang: got %q, want uk (Ukrainian-first fallback)", got)
+	}
+	if got := sessLang(&Session{Lang: "en"}); got != "en" {
+		t.Errorf("got %q, want en", got)
 	}
 }
 
