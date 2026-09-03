@@ -2,6 +2,17 @@
 
 Read this first, then `AGENTS.md`, then `.agents/plan.md`. Snapshot: **2026-08-31**.
 
+> **Update 2026-09-03 (supersedes the stale bits below).** The client
+> milestone is done: OpenAI funded + org verified, ElevenLabs Starter active,
+> `.env` on the client stack (`whisper-1` · `openai/gpt-4.1-mini` — **not**
+> gpt-4o-mini, it broke the cert/grounding rules · ElevenLabs Starter UA
+> voices). Smoke §1–18 pass on the client stack. Model contract changed to a
+> **single JSON object** `{reply,slots,signal}` (`parseResponse`, not a
+> fenced trailer). New config `BOT_TIMEZONE` (the bot has no clock). New
+> pre-LLM gates: `looksLikeInjection`, extra `hardEscalate` keywords. New
+> minions: `dialog-probe`, `i10-sample`. Full trail: `.agents/changes.md`,
+> `.engage/client-demo.md`, `.engage/conversation-style.md`.
+
 ---
 
 ## 1. What this is

@@ -68,6 +68,10 @@ prepaid OpenAI key ($5) and ElevenLabs Starter ($6), then record 2–3 min.
 ## Status
 
 Build-order steps 1–7 complete (`.agents/plan.md`). Full text+voice loop,
-all backends wired, `make check` green. Pending: the manual smoke round and
-the I-10 client recording. Not connected to Zoho, telephony, or any real RAG
-store — see the plan's "Out of scope".
+all backends wired, `make check` green. The manual smoke test (`docs/smoke-test.md`
+§1–18) is done — on the dev stack and re-verified on the **client stack**
+(`whisper-1` + `gpt-4.1-mini` + ElevenLabs Starter UA voices; `.env.client`).
+The I-10 sample is built (`minions/i10-sample` → `tmp/i10-sample.mp3`).
+Left: hand it to the client; an always-on host is deferred (D-08). Not
+connected to Zoho, telephony, or any real RAG store — see the plan's
+"Out of scope".
