@@ -14,12 +14,20 @@ import (
 // openAICompatGen calls an OpenAI-compatible POST {baseURL}/v1/chat/completions
 // endpoint. It backs both NewOllama (baseURL = OLLAMA_BASE_URL, no key) and
 // NewOpenAI (api.openai.com, bearer key). name is used in error messages.
+//
+// jsonMode is this backend's "model connection context" for structured output:
+// gpt-4o-mini drops the JSON reply object on trivial turns unless forced, so
+// NewOpenAI sets it (→ response_format:{"type":"json_object"}). NewOllama
+// leaves it off — gemma4:cloud follows the prompt's format instruction
+// reliably, and the dev path is not re-verified here. Another backend/model
+// gets whatever coaxing its own constructor decides.
 type openAICompatGen struct {
-	name    string
-	baseURL string
-	apiKey  string // "" → no Authorization header
-	model   string
-	hc      *http.Client
+	name     string
+	baseURL  string
+	apiKey   string // "" → no Authorization header
+	model    string
+	jsonMode bool
+	hc       *http.Client
 }
 
 // chatRetryBackoff is the wait before the single retry. A var so tests can
@@ -32,9 +40,15 @@ type oaiMessage struct {
 }
 
 type oaiRequest struct {
-	Model    string       `json:"model"`
-	Messages []oaiMessage `json:"messages"`
-	Stream   bool         `json:"stream"`
+	Model          string         `json:"model"`
+	Messages       []oaiMessage   `json:"messages"`
+	Stream         bool           `json:"stream"`
+	Temperature    float64        `json:"temperature"`
+	ResponseFormat *oaiRespFormat `json:"response_format,omitempty"`
+}
+
+type oaiRespFormat struct {
+	Type string `json:"type"` // "json_object"
 }
 
 type oaiResponse struct {
@@ -53,7 +67,11 @@ func (g *openAICompatGen) Generate(ctx context.Context, systemPrompt string, his
 		msgs = append(msgs, oaiMessage{Role: m.Role, Content: m.Text})
 	}
 
-	body, err := json.Marshal(oaiRequest{Model: g.model, Messages: msgs, Stream: false})
+	req := oaiRequest{Model: g.model, Messages: msgs, Stream: false, Temperature: 0.2}
+	if g.jsonMode {
+		req.ResponseFormat = &oaiRespFormat{Type: "json_object"}
+	}
+	body, err := json.Marshal(req)
 	if err != nil {
 		return "", fmt.Errorf("%s: marshal: %w", g.name, err)
 	}

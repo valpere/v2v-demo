@@ -11,8 +11,10 @@ import (
 	"github.com/valpere/v2v-demo/internal/kb"
 )
 
-// trailer is the fenced JSON block the model appends after the spoken reply.
-type trailer struct {
+// modelReply is the whole model response — a single JSON object. `reply` is
+// the spoken text for the client; the code never speaks anything else.
+type modelReply struct {
+	Reply  string     `json:"reply"`
 	Slots  QuoteSlots `json:"slots"`
 	Signal Signal     `json:"signal"`
 }
@@ -121,65 +123,41 @@ func VoiceSwitchedLine(sess *Session) string {
 	return line(sessLang(sess), voiceAUK, voiceAEN)
 }
 
-// parseTrailer splits raw into the spoken text and the parsed trailer. It
-// takes the LAST fenced block whose opening fence is ``` / ```json / ```JSON
-// and whose first body line starts with "{". Lenient on the fence spelling,
-// strict on the JSON: a malformed or unknown-signal trailer yields nil, and
-// Handle turns that into a fixed handoff line — raw model output is never
-// spoken.
-func parseTrailer(raw string) (string, *trailer) {
-	lines := strings.Split(raw, "\n")
+// parseResponse parses the model's whole response into a modelReply. The
+// contract is a single JSON object {"reply","slots","signal"}; this is lenient
+// about a model that wraps it in a ```json fence or prepends/appends prose —
+// it takes the outermost {...} span. Strict on the result: a malformed
+// object, an empty reply, or an unknown signal yields nil, and Handle turns
+// that into a fixed handoff line — raw model output is never spoken.
+func parseResponse(raw string) *modelReply {
+	s := strings.TrimSpace(raw)
 
-	type block struct{ open, close int }
-	var blocks []block
-	openIdx := -1
-	for i, ln := range lines {
-		t := strings.TrimSpace(ln)
-		if openIdx < 0 {
-			if t == "```" || strings.EqualFold(t, "```json") {
-				openIdx = i
-			}
-			continue
+	// strip a leading ```json / ``` fence and its closing ``` if present
+	if strings.HasPrefix(s, "```") {
+		if nl := strings.IndexByte(s, '\n'); nl >= 0 {
+			s = s[nl+1:]
 		}
-		if t == "```" {
-			blocks = append(blocks, block{openIdx, i})
-			openIdx = -1
-		}
+		s = strings.TrimSuffix(strings.TrimSpace(s), "```")
 	}
 
-	chosen := -1
-	for bi := len(blocks) - 1; bi >= 0; bi-- {
-		for _, bl := range lines[blocks[bi].open+1 : blocks[bi].close] {
-			if s := strings.TrimSpace(bl); s != "" {
-				if strings.HasPrefix(s, "{") {
-					chosen = bi
-				}
-				break
-			}
-		}
-		if chosen >= 0 {
-			break
-		}
+	// take the outermost object span
+	start := strings.IndexByte(s, '{')
+	end := strings.LastIndexByte(s, '}')
+	if start < 0 || end <= start {
+		return nil
 	}
-	if chosen < 0 {
-		return strings.TrimSpace(raw), nil
+	var mr modelReply
+	if err := json.Unmarshal([]byte(s[start:end+1]), &mr); err != nil {
+		return nil
 	}
-
-	b := blocks[chosen]
-	body := strings.Join(lines[b.open+1:b.close], "\n")
-	before := strings.Join(lines[:b.open], "\n")
-	after := strings.Join(lines[b.close+1:], "\n")
-	spoken := strings.TrimSpace(strings.TrimSpace(before) + "\n" + strings.TrimSpace(after))
-
-	var tr trailer
-	if err := json.Unmarshal([]byte(body), &tr); err != nil {
-		return spoken, nil
+	if strings.TrimSpace(mr.Reply) == "" {
+		return nil
 	}
-	switch tr.Signal {
+	switch mr.Signal {
 	case SignalContinue, SignalLeadReady, SignalEscalate:
-		return spoken, &tr
+		return &mr
 	default:
-		return spoken, nil
+		return nil
 	}
 }
 
@@ -207,10 +185,10 @@ func trimTail(msgs []Msg, n int) []Msg {
 // Handle runs the exact 14-step sequence from .agents/plan.md §"Behavioural
 // spec": lock Session.Lang -> hardEscalate -> classify slot answer ->
 // kbOverlap -> grounding gate -> build the system prompt (system file + whole
-// KB + collected slots) -> append user msg + trim -> Generate -> parse
-// trailer -> merge slots -> resolve signal (incl. the B4 guard) -> append
-// assistant msg -> return. It never returns a non-nil error — every failure
-// degrades to a handoff/apology Reply.
+// KB + collected slots) -> append user msg + trim -> Generate -> parse the
+// JSON response -> merge slots -> resolve signal (incl. the B4 guard) ->
+// append assistant msg -> return. It never returns a non-nil error — every
+// failure degrades to a handoff/apology Reply.
 func Handle(
 	ctx context.Context,
 	sess *Session,
@@ -295,35 +273,36 @@ func Handle(
 		return Reply{Text: apologyLine(sessLang(sess)), Signal: SignalEscalate}, nil
 	}
 
-	// 8, 9 — parse; never speak untrailered raw output
-	spoken, tr := parseTrailer(raw)
-	if tr == nil {
-		log.Printf("dialog: no valid trailer in model output, escalating; raw=%q", truncate(raw, 300))
+	// 8, 9 — parse; never speak un-parseable raw output
+	mr := parseResponse(raw)
+	if mr == nil {
+		log.Printf("dialog: no valid JSON response from model, escalating; raw=%q", truncate(raw, 300))
 		return esc()
 	}
+	spoken := strings.TrimSpace(mr.Reply)
 
 	// 10 — merge: assign only non-nil incoming slots (never clear a filled one)
-	if tr.Slots.LanguagePair != nil {
-		sess.Slots.LanguagePair = tr.Slots.LanguagePair
+	if mr.Slots.LanguagePair != nil {
+		sess.Slots.LanguagePair = mr.Slots.LanguagePair
 	}
-	if tr.Slots.DocType != nil {
-		sess.Slots.DocType = tr.Slots.DocType
+	if mr.Slots.DocType != nil {
+		sess.Slots.DocType = mr.Slots.DocType
 	}
-	if tr.Slots.Volume != nil {
-		sess.Slots.Volume = tr.Slots.Volume
+	if mr.Slots.Volume != nil {
+		sess.Slots.Volume = mr.Slots.Volume
 	}
-	if tr.Slots.Deadline != nil {
-		sess.Slots.Deadline = tr.Slots.Deadline
+	if mr.Slots.Deadline != nil {
+		sess.Slots.Deadline = mr.Slots.Deadline
 	}
-	if tr.Slots.Certification != nil {
-		sess.Slots.Certification = tr.Slots.Certification
+	if mr.Slots.Certification != nil {
+		sess.Slots.Certification = mr.Slots.Certification
 	}
-	if tr.Slots.Delivery != nil {
-		sess.Slots.Delivery = tr.Slots.Delivery
+	if mr.Slots.Delivery != nil {
+		sess.Slots.Delivery = mr.Slots.Delivery
 	}
 
 	// 11 — resolve the signal
-	signal := tr.Signal
+	signal := mr.Signal
 	switch {
 	case signal == SignalLeadReady && !sess.Slots.Complete(): // B4 guard
 		log.Printf("dialog: lead_ready with incomplete slots: %s", compactSlots(sess.Slots))

@@ -57,7 +57,7 @@ internal/kb/        load KB_PATH, split on "##" into titled sections
 internal/dialog/    gate.go (kbOverlap + hardEscalate + isSlotAnswer +
                     isSmallTalk + groundingGate) · lang.go (detectLang —
                     lingua-go) · dialog.go (loads prompt/system.md, builds the
-                    prompt, parses the trailer, merges slots) · generator.go
+                    prompt, parses the JSON reply, merges slots) · generator.go
                     (Generator interface) · openai_compat.go (shared
                     OpenAI-compat client) + ollama.go / openai.go /
                     gemini.go (DIALOG_BACKEND)
@@ -144,8 +144,9 @@ const (
 	SignalEscalate  Signal = "escalate"
 )
 
-// the fenced JSON block the model appends after the spoken reply
-type trailer struct {
+// the whole model response — one JSON object; Reply is the only text spoken
+type modelReply struct {
+	Reply  string     `json:"reply"`
 	Slots  QuoteSlots `json:"slots"`
 	Signal Signal     `json:"signal"`
 }
@@ -169,7 +170,7 @@ type Generator interface {
 // NewGemini(apiKey, model string) Generator    // last resort — $25 prepay
 
 type Reply struct {
-	Text    string   // spoken text, trailer stripped (or the fixed handoff/apology line)
+	Text    string   // spoken text (mr.Reply) or the fixed handoff/apology line)
 	Signal  Signal   // continue | lead_ready | escalate
 	Matched []string // log-only: KB section titles that had a query-term hit; nil on an early escalate
 }
@@ -375,23 +376,26 @@ statement on an off-topic subject possible. `hardEscalate` (incl. explicit
 "хочу менеджера"), a model `signal: escalate`, and the 2nd strike still hand
 off at once.
 
-### parseTrailer(raw string) (spoken string, tr *trailer)
+### parseResponse(raw string) *modelReply
 
 ```
-find the LAST fenced block whose opening fence is ```json / ```JSON / bare ```
-    immediately followed by a line starting with "{"
-if none:
-    return trimspace(raw), nil
-parse the block body as JSON into a trailer value
-if json error OR trailer.Signal not in {continue, lead_ready, escalate}:
-    return trimspace(raw with that fenced block removed), nil
-spoken := trimspace(raw with that fenced block + trailing whitespace removed)
-return spoken, &trailer
+s := trimspace(raw)
+strip a leading ```json / ``` fence line and its closing ``` if present
+start, end := first "{", last "}" in s
+if not found OR end <= start:
+    return nil
+json.Unmarshal(s[start:end+1]) into a modelReply
+if json error OR reply is blank OR signal not in {continue, lead_ready, escalate}:
+    return nil
+return &modelReply
 ```
 
-Lenient on the fence spelling, strict on the JSON: a malformed trailer is
-`nil`, and Handle step 8 turns that into a fixed handoff line — the raw model
-output is never spoken.
+The contract is one JSON object `{reply,slots,signal}`; the parser is lenient
+about a fence or prose around it, strict on the result. A `nil` makes Handle
+step 8 reply with the fixed handoff line — the raw model output is never
+spoken. Each backend forces valid JSON its own way ("model connection
+context"): `NewOpenAI` sets `response_format:{"type":"json_object"}`,
+`NewOllama` relies on the prompt, a gemini path would use `responseMimeType`.
 
 ### Handle(ctx, sess, kb, gen, systemPrompt, userText, now) (Reply, error)
 
@@ -415,13 +419,14 @@ handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil }`.
    if err != nil:
        sess.Escalated = true
        return Reply{Text: apologyLine(sessLang(sess)), Signal: SignalEscalate}, nil   // degrade, never bubble
-8. spoken, tr := parseTrailer(raw)
-9. if tr == nil:  esc(sess)                           // NEVER speak untrailered raw output
+8. mr := parseResponse(raw)
+9. if mr == nil:  esc(sess)                           // NEVER speak un-parseable raw output
+   spoken := trimspace(mr.Reply)
 10. merge — 6 explicit field assignments (QuoteSlots is a struct, no reflection):
-       if tr.Slots.LanguagePair  != nil { sess.Slots.LanguagePair  = tr.Slots.LanguagePair }
-       if tr.Slots.DocType       != nil { sess.Slots.DocType       = tr.Slots.DocType }
+       if mr.Slots.LanguagePair  != nil { sess.Slots.LanguagePair  = mr.Slots.LanguagePair }
+       if mr.Slots.DocType       != nil { sess.Slots.DocType       = mr.Slots.DocType }
        … the other four. Never assign nil (that would clear a filled slot).
-11. signal := tr.Signal
+11. signal := mr.Signal
     if signal == SignalLeadReady && !sess.Slots.Complete():   // B4 guard
         log.Warn("lead_ready with incomplete slots", slots)
         signal = SignalContinue
@@ -636,11 +641,13 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
 - **Persona + playbook + grounding rule:** all in `prompt/system.md` —
   authored, load it verbatim, do not paraphrase into code. The six quote
   slots, the intake order, "never a final price", the escalate list, and the
-  JSON-trailer spec all live there (NFR-7, NFR-9).
-- **LLM output format:** single chat call, no function-calling. Reply text,
-  then a fenced ```json trailer with `slots` (all six keys, `null` when
-  unknown) + `signal` (`continue` | `lead_ready` | `escalate`). If the trailer
-  is missing or unparseable → treat as `signal: escalate`, log it.
+  output-format spec all live there (NFR-7, NFR-9).
+- **LLM output format:** single chat call, no function-calling. One JSON
+  object `{"reply","slots","signal"}` — `reply` is the spoken text, `slots`
+  all six keys (`null` when unknown), `signal` (`continue` | `lead_ready` |
+  `escalate`). Missing / unparseable object or a blank `reply` → treat as
+  `signal: escalate`, log it. Each backend forces valid JSON its own way (see
+  parseResponse).
 - **Slots:** the six keys from `prompt/system.md`
   (`language_pair, doc_type, volume, deadline, certification, delivery`) as
   `*string`. Merge only keys the model filled with a non-null value this turn;
@@ -696,7 +703,7 @@ substrate (SQLite etc.) is in `docs/architecture.md` §7 — **not** this demo.
 1. **[done]** config + `kb` (load & split) + `store` + `go build` — no external calls
 2. **[done]** `telegram` long-poll loop, echo text back
 3. **[done]** `dialog`: `gate.go` (kbOverlap + hardEscalate + isSlotAnswer + gate) +
-   `Generator` (`ollama` first) + trailer parse + slot merge; onto text messages.
+   `Generator` (`ollama` first) + JSON-reply parse + slot merge; onto text messages.
    Also: KB made bilingual (see the Bilingual KB note above).
 4. **[done]** `stt`: `local` impl (shell the openai-whisper CLI — the dev default) — voice in.
    `cmd/bot`: recording-action ticker around STT + the dialogue turn.

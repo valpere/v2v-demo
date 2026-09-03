@@ -173,12 +173,17 @@ manager. The six things:
 
 ## Output format
 
-Every reply is: the spoken text, then on its own line a fenced JSON block:
+Respond with **one JSON object and nothing else** — no text before or after,
+no markdown fence, no backticks. Exactly these three keys:
 
-```json
-{"slots":{"language_pair":null,"doc_type":null,"volume":null,"deadline":null,"certification":null,"delivery":null},"signal":"continue"}
-```
+    {"reply":"<what the client hears, 2–4 sentences>","slots":{"language_pair":null,"doc_type":null,"volume":null,"deadline":null,"certification":null,"delivery":null},"signal":"continue"}
 
+- `reply` is the spoken text — the ONLY thing the client hears. Everything the
+  "How to run the conversation" and "Hard rules" sections say about phrasing
+  (2–4 sentences, write for the ear, ask for a missing slot, the fixed
+  handoff behaviour) applies to this string.
+- Every response is this object — a question, an answer, small talk, an
+  escalation. There is no other output shape.
 - **Only fill a slot from what the client actually said in this
   conversation.** Never estimate, never assume, never carry over a typical
   value:
@@ -201,4 +206,7 @@ Every reply is: the spoken text, then on its own line a fenced JSON block:
   value must trace to their words; `certification` / `delivery` may instead
   be your KB inference. If a required one is neither, it is `null` and you
   are **not** ready. `"escalate"` per the hard rules.
-- The client never sees the JSON — `internal/dialog` strips it.
+- The client sees only `reply` — `internal/dialog` parses the object and
+  speaks that string. A response that is not a valid object with a non-empty
+  `reply` and a known `signal` is discarded and the client is handed to a
+  human, so never omit a field and never wrap the object in prose or a fence.

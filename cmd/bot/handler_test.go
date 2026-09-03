@@ -74,7 +74,7 @@ func (g *fakeGen) Generate(_ context.Context, _ string, hist []dialog.Msg) (stri
 	if err != nil {
 		return "", err
 	}
-	return "ok\n\n```json\n{\"slots\":{\"language_pair\":null,\"doc_type\":null,\"volume\":null,\"deadline\":null,\"certification\":null,\"delivery\":null},\"signal\":\"continue\"}\n```", nil
+	return `{"reply":"ok","slots":{"language_pair":null,"doc_type":null,"volume":null,"deadline":null,"certification":null,"delivery":null},"signal":"continue"}`, nil
 }
 
 func (g *fakeGen) setErr(err error) {

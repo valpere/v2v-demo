@@ -93,9 +93,12 @@ All HTTP is stdlib.
       Go — the bot has no clock, so this is injected every turn and drives the
       "~15 min vs next business morning" promise); messages = the last 20 Msg
       entries (≈10 turns) + this one. Temperature 0.2–0.3.
-   d. **Parse** the response into `{ spoken_reply, slot_updates, signal }`
-      where `signal ∈ {continue, lead_ready, escalate}`. Format: the reply
-      text, then a fenced JSON trailer the code strips before speaking.
+   d. **Parse** the response — one JSON object `{"reply","slots","signal"}`,
+      `signal ∈ {continue, lead_ready, escalate}`. Only `reply` is spoken. Each
+      backend forces valid JSON its own way ("model connection context"):
+      OpenAI sets `response_format: json_object` (gpt-4o-mini drops the object
+      on trivial turns otherwise); Ollama relies on the prompt; a gemini path
+      would use `responseMimeType`.
    e. **Merge** `slot_updates` into the session slots — validate types,
       never clear an already-filled slot unless the user explicitly corrected
       it (the LLM is told to send a slot only when newly learned).

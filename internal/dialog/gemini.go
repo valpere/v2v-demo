@@ -69,10 +69,15 @@ func (g *geminiGen) Generate(ctx context.Context, systemPrompt string, history [
 		contents = append(contents, geminiContent{Role: role, Parts: []geminiPart{{Text: m.Text}}})
 	}
 
+	// The shared contract is a single JSON object {reply,slots,signal}. gemini's
+	// own "model connection context" for forcing that would be
+	// GenerationConfig.responseMimeType = "application/json" (optionally
+	// responseSchema) — add it here if this last-resort backend is ever funded
+	// and used; today it relies on the prompt instruction alone.
 	body, err := json.Marshal(geminiRequest{
 		SystemInstruction: &geminiContent{Parts: []geminiPart{{Text: systemPrompt}}},
 		Contents:          contents,
-		GenerationConfig:  map[string]any{"temperature": 0.3},
+		GenerationConfig:  map[string]any{"temperature": 0.2},
 	})
 	if err != nil {
 		return "", fmt.Errorf("gemini: marshal: %w", err)

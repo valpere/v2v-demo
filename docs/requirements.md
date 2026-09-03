@@ -63,9 +63,10 @@ repo is public).
   @constraint(rule: "complete = all six non-null; drives the lead_ready signal")
 }
 
-@schema Trailer {
+@schema ModelReply {
+  reply:  String @constraint(rule: "the spoken text — the only thing the client hears; empty -> treated as unparseable"),
   slots:  QuoteSlots @constraint(rule: "all six keys present; null when unknown; merge only non-null keys learned this turn"),
-  signal: Enum["continue","lead_ready","escalate"] @constraint(default: "continue", rule: "missing or unparseable trailer -> escalate")
+  signal: Enum["continue","lead_ready","escalate"] @constraint(default: "continue", rule: "missing or unparseable response -> escalate")
 }
 
 @schema Session {
@@ -191,7 +192,7 @@ dialogue. Out: everything in §6.
 8. [REQ-DLG-03] The assistant must collect six quote parameters:
    `language_pair`, `doc_type`, `volume`, `deadline`, `certification`,
    `delivery` (see @schema QuoteSlots).
-   -> [FUN-DLG-03] dialog.QuoteSlots struct; the model returns them in the fenced Trailer, dialog.Handle merges non-null keys into sess.Slots
+   -> [FUN-DLG-03] dialog.QuoteSlots struct; the model returns them in the JSON response object, dialog.Handle merges non-null keys into sess.Slots
 
 9. [REQ-DLG-04] When all six parameters are known, the assistant must
    summarize them back, tell the client a manager will send the quote, emit
@@ -217,16 +218,16 @@ dialogue. Out: everything in §6.
     change.
     -> [FUN-DLG-07] dialog.Generator.Generate(ctx, systemPrompt, history); impls dialog.NewOllama, dialog.NewOpenAI, dialog.NewGemini chosen by Config.dialog_backend
 
-13. [REQ-DLG-08] The model response must be parsed as spoken reply text
-    followed by one fenced ```json Trailer; the trailer must be stripped
-    before the text is spoken; a missing or unparseable trailer must be
-    treated as `signal: escalate` and logged.
-    -> [FUN-DLG-08] dialog.Handle splits on the last ```json fence; json.Unmarshal into dialog.trailer; on error -> Reply{Signal: SignalEscalate}
+13. [REQ-DLG-08] The model response must be a single JSON object
+    `{"reply","slots","signal"}`; `reply` is the only text spoken; a missing
+    or unparseable object (or an empty `reply`) must be treated as
+    `signal: escalate` and logged.
+    -> [FUN-DLG-08] dialog.parseResponse json.Unmarshals the outermost {…} into dialog.modelReply; on failure dialog.Handle -> Reply{Signal: SignalEscalate}
 
 14. [REQ-DLG-09] The slot merge must never clear an already-filled slot unless
     the user explicitly corrected it, and must record every slot change in the
     turn record.
-    -> [LOG-DLG-09] dialog.Handle merge step: for each Trailer.Slots key, assign into sess.Slots only when the incoming value is non-nil; TurnRecord carries the resulting signal and matched titles
+    -> [LOG-DLG-09] dialog.Handle merge step: for each slots key in the response, assign into sess.Slots only when the incoming value is non-nil; TurnRecord carries the resulting signal and matched titles
 
 ### 4.4 Grounding (the coherence guarantee)
 
@@ -283,9 +284,9 @@ named constants are `@schema GateParams` in §1.
     BASE ---` + **the whole KB**, each section as `## Title` then body +
     `--- COLLECTED SO FAR ---` + compact slot JSON + `--- CONVERSATION
     LANGUAGE ---` + `--- CURRENT TIME ---` when `now` is non-zero) -> append
-    user msg, trim to `history_limit` -> Generate -> parse trailer -> merge
-    slots (6 explicit field assignments) -> resolve signal (incl. the B4
-    guard) -> append assistant msg -> return Reply.
+    user msg, trim to `history_limit` -> Generate -> parse the JSON response
+    -> merge slots (6 explicit field assignments) -> resolve signal (incl. the
+    B4 guard) -> append assistant msg -> return Reply.
     -> [FUN-DLG-14] dialog.Handle(ctx, sess *Session, kb []Section, gen Generator, systemPrompt, userText string, now time.Time) (Reply, error)
 
 19a. [REQ-DLG-17] The bot has no clock of its own. `cmd/bot` passes the
@@ -295,17 +296,22 @@ named constants are `@schema GateParams` in §1.
     by the model). This drives the "within ~15 minutes vs next business
     morning" promise. A zero `now` omits the block (tests / library callers).
 
-20. [REQ-DLG-15] Trailer parsing must take the **last** fenced block whose
-    opening fence is ```json / ```JSON / a bare ``` immediately followed by a
-    line starting with `{`, JSON-parse it into a Trailer, and validate
-    `signal ∈ {continue, lead_ready, escalate}`. A missing block, a JSON
-    error, or an unknown signal all yield `tr = nil`. **The raw model output
-    is never spoken** — a `nil` trailer makes `dialog.Handle` reply with the
-    fixed handoff line and escalate (see REQ-DLG-16).
-    -> [FUN-DLG-15] dialog.parseTrailer(raw string) (spoken string, tr *trailer)
+20. [REQ-DLG-15] The model contract is **one JSON object**
+    `{"reply","slots","signal"}`. `parseResponse` strips an optional ```json /
+    ``` fence, takes the outermost `{…}` span, JSON-parses it, and validates a
+    non-empty `reply` and `signal ∈ {continue, lead_ready, escalate}`. A
+    missing object, a JSON error, an empty `reply`, or an unknown signal all
+    yield `nil`. **The raw model output is never spoken** — a `nil` result
+    makes `dialog.Handle` reply with the fixed handoff line and escalate (see
+    REQ-DLG-16). Each backend forces valid JSON its own way (its "model
+    connection context"): `NewOpenAI` sets `response_format:{"type":"json_object"}`
+    (gpt-4o-mini drops the object on trivial turns otherwise); `NewOllama`
+    relies on the prompt (gemma4:cloud complies); a gemini path would use
+    `responseMimeType`.
+    -> [FUN-DLG-15] dialog.parseResponse(raw string) *modelReply
 
-21. [REQ-DLG-16] Signal resolution: `tr == nil` -> escalate, reply text is the
-    fixed handoff line, logged. Otherwise the signal is `tr.Signal` verbatim,
+21. [REQ-DLG-16] Signal resolution: a `nil` parse result -> escalate, reply text is the
+    fixed handoff line, logged. Otherwise the signal is `mr.Signal` verbatim,
     with two guards: (B4) a `lead_ready` while `QuoteSlots.Complete()` is false
     is downgraded to `continue` and a warning logged; and a repeat `lead_ready`
     after one already fired this session (`Session.LeadDone`) is downgraded to
@@ -317,7 +323,7 @@ named constants are `@schema GateParams` in §1.
     There is
     **no `continue`->`lead_ready` upgrade** — the model owns the positive case
     and the system prompt ties it to the read-back summary (REQ-DLG-04). Any
-    `escalate` (trailer, `hardEscalate`, gate, or parse failure) sets
+    `escalate` (model signal, `hardEscalate`, gate, or parse failure) sets
     `Session.Escalated` and replaces the spoken text with the handoff line.
     -> [LOG-DLG-16] dialog.Handle steps 1, 4, 9, 11 — every escalate path substitutes handoffLine(sessLang(sess)); step 11 has the lead_ready-vs-Complete and lead_ready-vs-LeadDone guards
 
@@ -397,8 +403,8 @@ named constants are `@schema GateParams` in §1.
     case), `groundingGate` (all four input combinations), `isSlotAnswer`
     (short+question+nil, short-no-question, long), `isSmallTalk`
     (greeting/thanks/farewell vs. embedded question vs. content),
-    `parseTrailer` (each fence spelling, JSON error, unknown signal, no
-    trailer), the 6-way slot merge (non-nil overwrite, nil never clears), the
+    `parseResponse` (bare object, fenced, prose-wrapped, JSON error, empty reply, unknown or
+    missing signal), the 6-way slot merge (non-nil overwrite, nil never clears), the
     B4 + LeadDone guards, `QuoteSlots.Complete`, `detectLang` (uk / en /
     ru→uk / too-short), `sessLang`, `greetingBody`, `voiceID`. `cmd/bot` also
     has a per-chat FIFO-ordering test (a slow fake generator, five queued

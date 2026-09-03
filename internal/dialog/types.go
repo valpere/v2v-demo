@@ -1,5 +1,5 @@
 // Package dialog turns one user turn into one reply: the grounding gate, the
-// LLM call, trailer parsing and the slot merge. The behaviour is spelled out
+// LLM call, response parsing and the slot merge. The behaviour is spelled out
 // step-for-step in .agents/plan.md §"Behavioural spec" — gate.go and
 // dialog.go implement it verbatim.
 package dialog
@@ -67,7 +67,7 @@ type Session struct {
 
 // Reply is the outcome of one turn.
 type Reply struct {
-	Text    string   // spoken text, trailer stripped (or a fixed handoff/apology line)
+	Text    string   // spoken text (mr.Reply) (or a fixed handoff/apology line)
 	Signal  Signal   // continue | lead_ready | escalate
 	Matched []string // log-only: KB section titles with a query-term hit; nil on an early escalate
 }

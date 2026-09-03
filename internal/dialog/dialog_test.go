@@ -2,6 +2,7 @@ package dialog
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -23,7 +24,7 @@ func (f *fakeGen) Generate(_ context.Context, sys string, hist []Msg) (string, e
 	return f.reply, f.err
 }
 
-func trailerJSON(sig string, kv map[string]string) string {
+func slotsJSON(kv map[string]string) string {
 	slots := map[string]any{
 		"language_pair": nil, "doc_type": nil, "volume": nil,
 		"deadline": nil, "certification": nil, "delivery": nil,
@@ -39,87 +40,74 @@ func trailerJSON(sig string, kv map[string]string) string {
 			pairs = append(pairs, `"`+k+`":"`+slots[k].(string)+`"`)
 		}
 	}
-	return "{\"slots\":{" + strings.Join(pairs, ",") + "},\"signal\":\"" + sig + "\"}"
+	return "{" + strings.Join(pairs, ",") + "}"
 }
 
+// reply builds a model response in the current contract: a single JSON object
+// {"reply","slots","signal"}.
 func reply(text, sig string, kv map[string]string) string {
-	return text + "\n\n```json\n" + trailerJSON(sig, kv) + "\n```"
+	b, _ := json.Marshal(text)
+	return `{"reply":` + string(b) + `,"slots":` + slotsJSON(kv) + `,"signal":"` + sig + `"}`
 }
 
-// ── parseTrailer ────────────────────────────────────────────────
+// ── parseResponse ──────────────────────────────────────────────
 
-func TestParseTrailer(t *testing.T) {
-	t.Run("json fence", func(t *testing.T) {
-		spoken, tr := parseTrailer("Hello there.\n```json\n{\"slots\":{\"language_pair\":\"uk->de\",\"doc_type\":null,\"volume\":null,\"deadline\":null,\"certification\":null,\"delivery\":null},\"signal\":\"continue\"}\n```")
-		if tr == nil {
-			t.Fatal("tr = nil, want parsed")
+func TestParseResponse(t *testing.T) {
+	t.Run("bare object", func(t *testing.T) {
+		mr := parseResponse(`{"reply":"Hello there.","slots":{"language_pair":"uk->de","doc_type":null,"volume":null,"deadline":null,"certification":null,"delivery":null},"signal":"continue"}`)
+		if mr == nil {
+			t.Fatal("mr = nil, want parsed")
 		}
-		if spoken != "Hello there." {
-			t.Fatalf("spoken = %q", spoken)
+		if mr.Reply != "Hello there." {
+			t.Fatalf("reply = %q", mr.Reply)
 		}
-		if tr.Signal != SignalContinue || tr.Slots.LanguagePair == nil || *tr.Slots.LanguagePair != "uk->de" {
-			t.Fatalf("tr = %+v", tr)
+		if mr.Signal != SignalContinue || mr.Slots.LanguagePair == nil || *mr.Slots.LanguagePair != "uk->de" {
+			t.Fatalf("mr = %+v", mr)
 		}
 	})
 
-	t.Run("uppercase JSON fence", func(t *testing.T) {
-		_, tr := parseTrailer("Hi.\n```JSON\n{\"slots\":{},\"signal\":\"escalate\"}\n```")
-		if tr == nil || tr.Signal != SignalEscalate {
-			t.Fatalf("tr = %+v", tr)
+	t.Run("wrapped in a json fence", func(t *testing.T) {
+		mr := parseResponse("```json\n{\"reply\":\"Hi.\",\"slots\":{},\"signal\":\"escalate\"}\n```")
+		if mr == nil || mr.Signal != SignalEscalate || mr.Reply != "Hi." {
+			t.Fatalf("mr = %+v", mr)
 		}
 	})
 
-	t.Run("bare fence", func(t *testing.T) {
-		_, tr := parseTrailer("Hi.\n```\n{\"slots\":{},\"signal\":\"lead_ready\"}\n```")
-		if tr == nil || tr.Signal != SignalLeadReady {
-			t.Fatalf("tr = %+v", tr)
+	t.Run("prose around the object", func(t *testing.T) {
+		mr := parseResponse("Here you go:\n{\"reply\":\"Done.\",\"slots\":{},\"signal\":\"lead_ready\"}\nHope that helps")
+		if mr == nil || mr.Signal != SignalLeadReady || mr.Reply != "Done." {
+			t.Fatalf("mr = %+v", mr)
 		}
 	})
 
-	t.Run("last block wins", func(t *testing.T) {
-		raw := "text\n```json\n{\"slots\":{},\"signal\":\"continue\"}\n```\nmore\n```json\n{\"slots\":{},\"signal\":\"escalate\"}\n```"
-		spoken, tr := parseTrailer(raw)
-		if tr == nil || tr.Signal != SignalEscalate {
-			t.Fatalf("tr = %+v", tr)
-		}
-		if !strings.Contains(spoken, "text") || !strings.Contains(spoken, "more") {
-			t.Fatalf("spoken = %q", spoken)
-		}
-	})
-
-	t.Run("no trailer", func(t *testing.T) {
-		spoken, tr := parseTrailer("  Just a sentence.  ")
-		if tr != nil {
-			t.Fatal("tr != nil")
-		}
-		if spoken != "Just a sentence." {
-			t.Fatalf("spoken = %q", spoken)
+	t.Run("no object at all", func(t *testing.T) {
+		if parseResponse("  Just a sentence.  ") != nil {
+			t.Fatal("want nil for plain prose (no JSON object)")
 		}
 	})
 
 	t.Run("malformed json", func(t *testing.T) {
-		spoken, tr := parseTrailer("Reply.\n```json\n{not valid\n```")
-		if tr != nil {
-			t.Fatal("tr != nil for bad json")
+		if parseResponse(`{"reply":"x", "slots": {not valid`) != nil {
+			t.Fatal("want nil for bad json")
 		}
-		if spoken != "Reply." {
-			t.Fatalf("spoken = %q (fenced block should be stripped)", spoken)
+	})
+
+	t.Run("empty reply", func(t *testing.T) {
+		if parseResponse(`{"reply":"  ","slots":{},"signal":"continue"}`) != nil {
+			t.Fatal("want nil for an empty reply string")
 		}
 	})
 
 	t.Run("unknown signal", func(t *testing.T) {
-		_, tr := parseTrailer("Reply.\n```json\n{\"slots\":{},\"signal\":\"halt\"}\n```")
-		if tr != nil {
-			t.Fatal("tr != nil for unknown signal")
+		if parseResponse(`{"reply":"x","slots":{},"signal":"halt"}`) != nil {
+			t.Fatal("want nil for an unknown signal")
 		}
 	})
 
-	t.Run("fence without json object is ignored", func(t *testing.T) {
-		spoken, tr := parseTrailer("Reply.\n```\nnot an object\n```")
-		if tr != nil {
-			t.Fatal("tr != nil")
+	t.Run("missing signal", func(t *testing.T) {
+		if parseResponse(`{"reply":"x","slots":{}}`) != nil {
+			t.Fatal("want nil when signal is absent")
 		}
-		_ = spoken
 	})
 }
 

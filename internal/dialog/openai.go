@@ -13,10 +13,11 @@ func NewOpenAI(apiKey, model string) Generator {
 		model = "gpt-4o-mini"
 	}
 	return &openAICompatGen{
-		name:    "openai",
-		baseURL: "https://api.openai.com",
-		apiKey:  apiKey,
-		model:   model,
-		hc:      &http.Client{Timeout: 60 * time.Second},
+		name:     "openai",
+		baseURL:  "https://api.openai.com",
+		apiKey:   apiKey,
+		model:    model,
+		jsonMode: true, // gpt-4o-mini won't reliably emit the JSON reply object otherwise
+		hc:       &http.Client{Timeout: 60 * time.Second},
 	}
 }
