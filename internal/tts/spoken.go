@@ -22,7 +22,7 @@ var (
 	// Востока" on Azure uk-UA). Replaced with the spelled-out letter names.
 	// \b is ASCII-only in RE2, so the Cyrillic set uses \p{L} boundaries.
 	reABBRcyr = regexp.MustCompile(`(^|[^\p{L}])(ЄДРПОУ|ЄДРПО|ПДВ|НДА)($|[^\p{L}])`)
-	reABBRlat = regexp.MustCompile(`\b(NDA|EET)\b`)
+	reABBRlat = regexp.MustCompile(`\b(NDA|EET|DHL)\b`)
 
 	// Latin brand names the uk-UA voice reads with English stress
 	// ("PRIvat" not "приВАТ"). Give it the Cyrillic form.
@@ -36,6 +36,7 @@ var abbrSpoken = map[string]string{
 	"ЄДРПОУ": "є де ер пе о у",
 	"ЄДРПО":  "є де ер пе о",
 	"EET":    "за київським часом",
+	"DHL":    "де ха ел", // uk voice reads "DHL" as a word ("дихаель")
 }
 
 // currencyWord maps a code to its spoken form in the reply language
