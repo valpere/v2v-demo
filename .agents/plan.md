@@ -658,9 +658,12 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
   rollback batch (step 6).
   `tts.Spoken(text, lang) string` runs on the reply before `Speak` (not
   before `SendText`): drops markdown emphasis / list & heading markers,
-  rewrites arrow shorthand (`UA ⇄ EN`, `uk→en`) to a dash, and turns currency
+  rewrites arrow shorthand (`UA ⇄ EN`, `uk→en`) to a dash, turns currency
   codes/symbols (`EUR`, `€`, `USD`, `$`) into the spoken word in the reply
-  language. Backstop for `prompt/system.md`'s "write for the ear" rule.
+  language, and spells out abbreviations Azure uk-UA mangles — `ПДВ` →
+  "пе де ве" (Azure read it as "Проблем Дальнього Востока"), `ЄДРПОУ`,
+  `NDA`, `EET` → "за київським часом". Backstop for `prompt/system.md`'s
+  "write for the ear" rule.
 - **Voices:** `VOICE_A` / `VOICE_B` per backend
   (`ELEVENLABS_VOICE_A`/`_B`, `AZURE_VOICE_A`/`_B`); `/voice b` swaps for that
   chat only. ElevenLabs Free during build → Starter before the client link.

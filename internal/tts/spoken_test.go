@@ -21,6 +21,11 @@ func TestSpoken(t *testing.T) {
 		{"€40 за документ", "uk", "40 євро за документ"},
 		{"pay in USD", "en", "pay in dollars"},
 		{"оплата в USD", "uk", "оплата в доларів"},
+
+		{"переказом із ПДВ або без", "uk", "переказом із пе де ве або без"},
+		{"a signed NDA on request", "en", "a signed ен ді ей on request"},
+		{"працює 09:00–18:00 EET", "uk", "працює 09:00–18:00 за київським часом"},
+		{"надішліть ЄДРПОУ", "uk", "надішліть є де ер пе о у"},
 	}
 	for _, c := range cases {
 		if got := Spoken(c.in, c.lang); got != c.want {

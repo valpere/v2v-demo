@@ -17,7 +17,22 @@ var (
 	reCurBefore = regexp.MustCompile(`(?i)\b(EUR|USD)\b\s*(\d[\d.,]*)`)
 	reCurAfter  = regexp.MustCompile(`(?i)(\d[\d.,]*)\s*\b(EUR|USD)\b`)
 	reCurBare   = regexp.MustCompile(`(?i)\b(EUR|USD)\b`)
+
+	// abbreviations the neural voice mangles ("ПДВ" -> "Проблем Дальнього
+	// Востока" on Azure uk-UA). Replaced with the spelled-out letter names.
+	// \b is ASCII-only in RE2, so the Cyrillic set uses \p{L} boundaries.
+	reABBRcyr = regexp.MustCompile(`(^|[^\p{L}])(ЄДРПОУ|ЄДРПО|ПДВ|НДА)($|[^\p{L}])`)
+	reABBRlat = regexp.MustCompile(`\b(NDA|EET)\b`)
 )
+
+var abbrSpoken = map[string]string{
+	"ПДВ":    "пе де ве",
+	"НДА":    "ен ді ей",
+	"NDA":    "ен ді ей",
+	"ЄДРПОУ": "є де ер пе о у",
+	"ЄДРПО":  "є де ер пе о",
+	"EET":    "за київським часом",
+}
 
 // currencyWord maps a code to its spoken form in the reply language
 // ("uk" | "en" | "").
@@ -47,6 +62,14 @@ func Spoken(s, lang string) string {
 	s = reBullet.ReplaceAllString(s, "")
 	s = reHeading.ReplaceAllString(s, "")
 	s = reEmph.ReplaceAllString(s, "")
+
+	s = reABBRcyr.ReplaceAllStringFunc(s, func(m string) string {
+		g := reABBRcyr.FindStringSubmatch(m)
+		return g[1] + abbrSpoken[g[2]] + g[3]
+	})
+	s = reABBRlat.ReplaceAllStringFunc(s, func(m string) string {
+		return abbrSpoken[m]
+	})
 
 	s = strings.ReplaceAll(s, "€", " EUR ")
 	s = strings.ReplaceAll(s, "$", " USD ")
