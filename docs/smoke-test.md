@@ -938,6 +938,10 @@ Still **live-only** — transport timing or LLM judgement, no deterministic test
      `certification` печатка бюро, `delivery` скан на пошту — answers the
      price/turnaround from the KB, and does **not** start a second quote
      for the birth certificate (it was explicitly deferred).
+   - **Verified 2026-09-03** — all six slots extracted in one turn,
+     `lead_ready`, one `LeadRecord`, birth certificate ignored as deferred.
+     (The reply also ended with "протягом 15 хвилин" — a clock promise; see
+     section 17, not a 16j issue.)
 
 **16k — an impossible discount.**
 
