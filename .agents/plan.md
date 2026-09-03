@@ -488,7 +488,7 @@ handleUpdate(u Update):
         ogg, err := tg.DownloadVoice(ctx, u.VoiceFileID)
         if err == nil { text, err = stt.Transcribe(ctx, ogg, cfg.WhisperLang); os.Remove(ogg) }
         stopTicker()
-        if err != nil || trimspace(text) == "":
+        if err != nil || stt.IsNonSpeech(text):        // empty, or a Whisper hallucination on silence/cough
             tg.SendText(ctx, u.ChatID, sttFailLine(sessLang(sess)))   // "не розчув, повторіть / didn't catch that"
             return                                    // no Handle, no turn record
     else:

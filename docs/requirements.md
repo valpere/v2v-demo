@@ -419,10 +419,13 @@ named constants are `@schema GateParams` in §1.
     `handleUpdate` is recovered and logged — it never stops the worker.
     -> [LOG-BOT-02] cmd/bot: mu sync.Mutex over sessions/seen/inbox; inbox map[int64]chan telegram.Update; chatWorker drains each chat's channel; defer recover in handleUpdate
 
-34. [REQ-BOT-03] On an STT error or an empty/whitespace transcript, the loop
-    must reply with the fixed `sttFailLine` in the session language and
-    **not** call `dialog.Handle`, append a turn record, or advance any slot.
-    -> [FUN-BOT-03] cmd/bot handleUpdate STT branch
+34. [REQ-BOT-03] On an STT error, an empty/whitespace transcript, **or a
+    transcript that is only a known Whisper hallucination** ("Дякую за
+    перегляд", "Thanks for watching" — emitted on silence/breathing/a cough,
+    caught by `stt.IsNonSpeech`), the loop replies with the fixed
+    `sttFailLine` in the session language and does **not** call
+    `dialog.Handle`, append a turn record, or advance any slot.
+    -> [FUN-BOT-03] cmd/bot resolveText; dialog stt.IsNonSpeech(transcript string) bool
 
 35. [REQ-BOT-04] `telegram.Client.Updates` must advance the `getUpdates`
     offset only after an update is delivered on its channel. A crash before

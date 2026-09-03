@@ -10,6 +10,7 @@ import (
 
 	"github.com/valpere/v2v-demo/internal/dialog"
 	"github.com/valpere/v2v-demo/internal/store"
+	"github.com/valpere/v2v-demo/internal/stt"
 	"github.com/valpere/v2v-demo/internal/telegram"
 	"github.com/valpere/v2v-demo/internal/tts"
 )
@@ -173,9 +174,11 @@ func (a *app) resolveText(ctx context.Context, sess *dialog.Session, u telegram.
 		text, err = a.stt.Transcribe(ctx, ogg, langHint)
 		os.Remove(ogg)
 	}
-	if err != nil || strings.TrimSpace(text) == "" {
+	if err != nil || stt.IsNonSpeech(text) {
 		if err != nil {
 			log.Printf("stt (chat %d): %v", u.ChatID, err)
+		} else if strings.TrimSpace(text) != "" {
+			log.Printf("stt (chat %d): non-speech transcript %q, treating as no speech", u.ChatID, text)
 		}
 		a.send(ctx, u.ChatID, dialog.SttFailLine(sess))
 		return "", false
