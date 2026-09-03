@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -18,7 +20,8 @@ import (
 
 type fakeTG struct {
 	mu     sync.Mutex
-	texts  []string // chatID ignored — single-chat tests
+	texts  []string           // all chats, in send order — single-chat tests
+	byChat map[int64][]string // per-chat text, for isolation tests
 	voices int
 }
 
@@ -31,10 +34,14 @@ func (f *fakeTG) SendVoice(context.Context, int64, []byte) error {
 	return nil
 }
 func (f *fakeTG) SendRecordingAction(context.Context, int64) error { return nil }
-func (f *fakeTG) SendText(_ context.Context, _ int64, text string) error {
+func (f *fakeTG) SendText(_ context.Context, chatID int64, text string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.texts = append(f.texts, text)
+	if f.byChat == nil {
+		f.byChat = map[int64][]string{}
+	}
+	f.byChat[chatID] = append(f.byChat[chatID], text)
 	return nil
 }
 func (f *fakeTG) sent() []string {
@@ -42,11 +49,17 @@ func (f *fakeTG) sent() []string {
 	defer f.mu.Unlock()
 	return append([]string(nil), f.texts...)
 }
+func (f *fakeTG) sentTo(chatID int64) []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.byChat[chatID]...)
+}
 
 type fakeGen struct {
 	mu    sync.Mutex
 	seen  []string // user texts, in call order
 	delay time.Duration
+	err   error // when set, Generate returns it (simulates the LLM backend down)
 }
 
 func (g *fakeGen) Generate(_ context.Context, _ string, hist []dialog.Msg) (string, error) {
@@ -55,13 +68,26 @@ func (g *fakeGen) Generate(_ context.Context, _ string, hist []dialog.Msg) (stri
 	}
 	g.mu.Lock()
 	g.seen = append(g.seen, hist[len(hist)-1].Text)
+	err := g.err
 	g.mu.Unlock()
+	if err != nil {
+		return "", err
+	}
 	return "ok\n\n```json\n{\"slots\":{\"language_pair\":null,\"doc_type\":null,\"volume\":null,\"deadline\":null,\"certification\":null,\"delivery\":null},\"signal\":\"continue\"}\n```", nil
 }
 
-type fakeTTS struct{}
+func (g *fakeGen) setErr(err error) {
+	g.mu.Lock()
+	g.err = err
+	g.mu.Unlock()
+}
 
-func (fakeTTS) Speak(context.Context, string, string, string) ([]byte, error) {
+type fakeTTS struct{ err error }
+
+func (t fakeTTS) Speak(context.Context, string, string, string) ([]byte, error) {
+	if t.err != nil {
+		return nil, t.err
+	}
 	return []byte("OggS"), nil
 }
 
@@ -210,6 +236,117 @@ func TestPerChatFIFOOrdering(t *testing.T) {
 		if gen.seen[i] != want[i] {
 			t.Fatalf("order = %v, want %v", gen.seen, want)
 		}
+	}
+}
+
+// 16b — two chats at once: one escalates, the other is untouched.
+func TestPerChatIsolation(t *testing.T) {
+	a, tg := newTestApp(t, &fakeGen{})
+	a.seen[3], a.seen[9] = true, true
+	ctx := context.Background()
+
+	// chat 3 is mid-quote — 4 of 6 slots filled
+	s3 := a.session(3)
+	s3.Slots.LanguagePair = strptr("uk->pl")
+	s3.Slots.DocType = strptr("диплом")
+	s3.Slots.Volume = strptr("2 pages")
+	s3.Slots.Deadline = strptr("Friday")
+
+	// chat 9 sends a refund demand -> hard escalate
+	a.handleUpdate(ctx, telegram.Update{ChatID: 9, Text: "Поверніть гроші за переклад, це скарга"})
+
+	if !a.session(9).Escalated {
+		t.Fatal("chat 9 should be escalated")
+	}
+	if a.session(3).Escalated {
+		t.Fatal("chat 9's escalation leaked into chat 3")
+	}
+	if got := a.session(3).Slots; got.LanguagePair == nil || got.DocType == nil ||
+		got.Volume == nil || got.Deadline == nil {
+		t.Fatalf("chat 3 lost its slots: %+v", got)
+	}
+	if len(tg.sentTo(3)) != 0 {
+		t.Fatalf("chat 3 received messages it should not have: %q", tg.sentTo(3))
+	}
+	if to9 := tg.sentTo(9); len(to9) == 0 || !strings.Contains(to9[len(to9)-1], "менеджер") {
+		t.Fatalf("chat 9 handoff line missing: %q", to9)
+	}
+}
+
+// 16c — the LLM backend is down (unreachable URL): degrade, don't crash;
+// recover on the next message once the backend is back.
+func TestGeneratorErrorNoCrashThenRecovers(t *testing.T) {
+	gen := &fakeGen{err: errors.New("dial tcp 127.0.0.1:1: connection refused")}
+	a, tg := newTestApp(t, gen)
+	a.kb = []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}
+	a.seen[5] = true
+	ctx := context.Background()
+
+	a.handleUpdate(ctx, telegram.Update{ChatID: 5, Text: "Скільки коштує переклад диплома?"})
+
+	last := tg.sentTo(5)
+	if len(last) == 0 || !strings.Contains(last[len(last)-1], "менеджер") {
+		t.Fatalf("expected the apology+handoff line, got %q", last)
+	}
+	// a TurnRecord is still written on a degraded turn
+	if b, _ := os.ReadFile(filepath.Join(a.cfg.DataDir, "turns.jsonl")); bytes.Count(b, []byte("\n")) != 1 {
+		t.Fatalf("want 1 turn record after the degraded turn, got %q", b)
+	}
+
+	// backend recovers -> next message is a normal reply
+	gen.setErr(nil)
+	a.handleUpdate(ctx, telegram.Update{ChatID: 5, Text: "А скільки це коштує за сторінку?"})
+	if got := tg.sentTo(5); got[len(got)-1] != "ok" {
+		t.Fatalf("after recovery want the normal reply %q, got %q", "ok", got[len(got)-1])
+	}
+}
+
+// 16d — TTS credential is bad: text still goes out, TurnRecord still written,
+// the loop stays alive.
+func TestTTSErrorFallsBackToText(t *testing.T) {
+	a, tg := newTestApp(t, &fakeGen{})
+	a.tts = fakeTTS{err: errors.New("401 Unauthorized")}
+	a.kb = []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}
+	a.seen[5] = true
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 5, Text: "Скільки коштує переклад диплома?"})
+
+	if tg.voices != 0 {
+		t.Fatalf("SendVoice succeeded %d times despite the TTS error", tg.voices)
+	}
+	if got := tg.sentTo(5); len(got) == 0 || got[len(got)-1] != "ok" {
+		t.Fatalf("text reply missing on a TTS failure: %q", got)
+	}
+	if b, _ := os.ReadFile(filepath.Join(a.cfg.DataDir, "turns.jsonl")); bytes.Count(b, []byte("\n")) != 1 {
+		t.Fatalf("want 1 turn record, got %q", b)
+	}
+}
+
+// 16g — whitespace-only input never reaches the generator.
+func TestWhitespaceInputNotADialogueTurn(t *testing.T) {
+	gen := &fakeGen{}
+	a, _ := newTestApp(t, gen)
+	a.seen[5] = true
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 5, Text: "    "})
+
+	if len(gen.seen) != 0 {
+		t.Fatalf("generator called with blank input: %q", gen.seen)
+	}
+}
+
+// 16i — degenerate short inputs: no crash, each gets some reply.
+func TestDegenerateShortInputsNoCrash(t *testing.T) {
+	gen := &fakeGen{}
+	a, tg := newTestApp(t, gen)
+	a.seen[5] = true
+	ctx := context.Background()
+
+	for _, msg := range []string{"5", "👍", "."} {
+		a.handleUpdate(ctx, telegram.Update{ChatID: 5, Text: msg})
+	}
+	if len(tg.sentTo(5)) == 0 {
+		t.Fatal("no replies to the degenerate inputs")
 	}
 }
 

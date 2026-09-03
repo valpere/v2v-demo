@@ -41,6 +41,13 @@ func TestToUpdate(t *testing.T) {
 		{name: "no chat", in: &models.Update{Message: &models.Message{Text: "hi"}}, ok: false},
 		{name: "empty text", in: &models.Update{Message: &models.Message{Chat: models.Chat{ID: 5}, Text: "   "}}, ok: false},
 		{name: "photo only", in: &models.Update{Message: &models.Message{Chat: models.Chat{ID: 5}}}, ok: false},
+		// 16h — non-text, non-voice attachments are dropped at the boundary
+		{name: "document (pdf)", in: &models.Update{Message: &models.Message{Chat: models.Chat{ID: 5}, Document: &models.Document{FileID: "d"}}}, ok: false},
+		{name: "sticker", in: &models.Update{Message: &models.Message{Chat: models.Chat{ID: 5}, Sticker: &models.Sticker{FileID: "s"}}}, ok: false},
+		{name: "video note", in: &models.Update{Message: &models.Message{Chat: models.Chat{ID: 5}, VideoNote: &models.VideoNote{FileID: "v"}}}, ok: false},
+		{name: "audio mp3", in: &models.Update{Message: &models.Message{Chat: models.Chat{ID: 5}, Audio: &models.Audio{FileID: "a"}}}, ok: false},
+		{name: "photo with caption (caption is not Text)", in: &models.Update{Message: &models.Message{Chat: models.Chat{ID: 5}, Photo: []models.PhotoSize{{FileID: "p"}}, Caption: "переклад"}}, ok: false},
+		{name: "edited message arrives on EditedMessage, not Message", in: &models.Update{EditedMessage: &models.Message{Chat: models.Chat{ID: 5}, Text: "fixed typo"}}, ok: false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

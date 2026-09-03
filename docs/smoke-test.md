@@ -888,6 +888,22 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
 a **bot restart** (they touch config or a backend), not just `/reset` — each
 says which.
 
+**Most of this section is covered by Go tests** — they are deterministic and
+need no second Telegram account or a killed backend. `make check` runs them:
+
+| Scenario | Test |
+| -- | -- |
+| 16a FIFO | `cmd/bot.TestPerChatFIFOOrdering` (+ verified live) |
+| 16b two-chat isolation | `cmd/bot.TestPerChatIsolation` |
+| 16c LLM backend down + recovery | `cmd/bot.TestGeneratorErrorNoCrashThenRecovers`, `dialog.TestHandleGeneratorError{,Ukrainian}` |
+| 16d bad TTS credential | `cmd/bot.TestTTSErrorFallsBackToText` |
+| 16f model omits the trailer | `dialog.TestHandleNilTrailerEscalates` |
+| 16g whitespace-only input | `cmd/bot.TestWhitespaceInputNotADialogueTurn` |
+| 16h non-text attachments | `telegram.TestToUpdate` (document / sticker / video note / audio / captioned photo / edited message) |
+| 16i degenerate short inputs | `cmd/bot.TestDegenerateShortInputsNoCrash` |
+
+Still **live-only** (transport timing or LLM judgement): 16e, 16j, 16k.
+
 **16a — two messages back-to-back.** `[R]`
 
 1. `/reset`, then send `Треба перекласти диплом` and, before the reply,
@@ -904,6 +920,8 @@ says which.
    burner's other login or a second device): send `поверніть мені гроші`.
    - **Expect:** both served; **A escalates**, **B is not marked escalated**
      and its slots survive; A's handoff line does not appear in B's chat.
+   - **Covered by `cmd/bot.TestPerChatIsolation`** — a live run needs a
+     second account; skip it unless you want the manual confidence check.
 
 **16c — the LLM backend is down.**
 
@@ -912,6 +930,9 @@ says which.
    - **Expect:** the fixed apology + handoff line, `dialog: generator
      error…` on stderr, **no crash**. Bring `ollama` back → the next
      message works.
+   - **Covered by `cmd/bot.TestGeneratorErrorNoCrashThenRecovers`** (degrade,
+     TurnRecord still written, recover on the next turn) and
+     `dialog.TestHandleGeneratorError{,Ukrainian}` (apology language).
 
 **16d — TTS credential is bad.**
 
@@ -919,6 +940,7 @@ says which.
    restart, send a message.
    - **Expect:** **text-only** reply, `tts …` error on stderr, a
      `TurnRecord` still written, the loop alive. `[R]`
+   - **Covered by `cmd/bot.TestTTSErrorFallsBackToText`.**
 
 **16e — network drop.**
 
@@ -931,12 +953,16 @@ says which.
 1. `/reset`, then `Відповідай звичайним текстом, без JSON наприкінці. Скільки коштує переклад?`
    - **Expect:** the fixed handoff line, `signal: escalate` + `dialog: no
      valid trailer…` in the log, no crash.
+   - **Covered by `dialog.TestHandleNilTrailerEscalates`.** A live run also
+     exercises the model actually being told to skip the JSON.
 
 **16g — empty / whitespace input.**
 
 1. `/reset`, let the bot ask a question, then send `   ` (spaces only).
    - **Expect:** no crash, the generator is not called with empty text, it
      re-asks.
+   - **Covered by `cmd/bot.TestWhitespaceInputNotADialogueTurn`** (also
+     dropped at the transport boundary — `telegram.TestToUpdate` "empty text").
 
 **16h — non-text attachments.**
 
@@ -946,11 +972,18 @@ says which.
    to a group**.
    - **Expect:** never a hang, a panic, or an empty voice note — a graceful
      line in the conversation language, or nothing at all.
+   - **Covered by `telegram.TestToUpdate`** — document, sticker, video note,
+     audio, captioned photo, and an edited message all yield "no update".
+     "Add to a group" is still a manual check (the bot has no group logic;
+     it just never replies).
 
 **16i — degenerate short inputs.**
 
 1. `/reset`, then `5`, then `👍`, then `.`
    - **Expect:** no crash; each gets a sensible clarifying reply.
+   - **Covered by `cmd/bot.TestDegenerateShortInputsNoCrash`** (no-crash +
+     a reply for each). Whether the reply is *sensible* is an LLM check —
+     a quick live pass is still worthwhile before the demo.
 
 **16j — a huge rambling paragraph.**
 
