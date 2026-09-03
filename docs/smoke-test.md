@@ -11,9 +11,8 @@ ground, to make a gross error unlikely to survive into the client demo.
 font` as a typed / pasted text message, verbatim.** Text is the default for
 the whole doc: it's faster, and it can be scripted with `minions/tgdrive/`.
 Only these need a real **voice message** (the microphone, not typing):
-scenario 1d, 12f / 12g, all of section 13, and the attachment step in 16h.
-Those sections repeat the channel under their heading; every other section
-is text.
+scenario 1d, 12f / 12g, and all of section 13. Those sections repeat the
+channel under their heading; every other section is text.
 
 `[R]` = a regression case for a bug already found and fixed. Those must keep
 passing. Cross-references use the section number, e.g. "section 13" is the
@@ -884,106 +883,30 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
 
 ## 16. Robustness (upstream failures & odd inputs)
 
-*Channel: **text**, except where a step names an attachment type.* Most need
-a **bot restart** (they touch config or a backend), not just `/reset` — each
-says which.
+*Channel: **text**, except where a step names an attachment type.*
 
-**Most of this section is covered by Go tests** — they are deterministic and
-need no second Telegram account or a killed backend. `make check` runs them:
+Most of this section is **covered by Go tests** — deterministic, and needing
+no second Telegram account or a killed backend. `make check` runs them; don't
+re-do these by hand:
 
-| Scenario | Test |
-| -- | -- |
-| 16a FIFO | `cmd/bot.TestPerChatFIFOOrdering` (+ verified live) |
-| 16b two-chat isolation | `cmd/bot.TestPerChatIsolation` |
-| 16c LLM backend down + recovery | `cmd/bot.TestGeneratorErrorNoCrashThenRecovers`, `dialog.TestHandleGeneratorError{,Ukrainian}` |
-| 16d bad TTS credential | `cmd/bot.TestTTSErrorFallsBackToText` |
-| 16f model omits the trailer | `dialog.TestHandleNilTrailerEscalates` |
-| 16g whitespace-only input | `cmd/bot.TestWhitespaceInputNotADialogueTurn` |
-| 16h non-text attachments | `telegram.TestToUpdate` (document / sticker / video note / audio / captioned photo / edited message) |
-| 16i degenerate short inputs | `cmd/bot.TestDegenerateShortInputsNoCrash` |
+| # | Case | Covered by | Asserts |
+| -- | -- | -- | -- |
+| 16a | two messages back-to-back | `cmd/bot.TestPerChatFIFOOrdering` + verified live 2026-09-03 | processed in FIFO order; turn-1 slots survive into turn 2 |
+| 16b | two chats at once | `cmd/bot.TestPerChatIsolation` | one chat escalates; the other keeps its slots, is not marked escalated, and never sees the handoff line |
+| 16c | LLM backend down + recovery | `cmd/bot.TestGeneratorErrorNoCrashThenRecovers`, `dialog.TestHandleGeneratorError{,Ukrainian}` | degrade to the apology+handoff line, `TurnRecord` still written, no crash, next turn works once the backend is back; apology matches the turn language |
+| 16d | bad TTS credential | `cmd/bot.TestTTSErrorFallsBackToText` | text reply still sent, `TurnRecord` still written, loop alive |
+| 16f | model omits the trailer | `dialog.TestHandleNilTrailerEscalates` | fixed handoff line, `signal: escalate`, no crash |
+| 16g | empty / whitespace input | `cmd/bot.TestWhitespaceInputNotADialogueTurn`, `telegram.TestToUpdate` | never reaches the generator; dropped at the transport boundary too |
+| 16h | non-text attachments | `telegram.TestToUpdate` | document / sticker / video note / audio / captioned photo / edited message all yield "no update" — no hang, no panic, no empty voice note |
+| 16i | degenerate short inputs (`5`, `👍`, `.`) | `cmd/bot.TestDegenerateShortInputsNoCrash` | no crash, a reply for each (whether it's *sensible* is an LLM check — worth a quick live glance before the demo) |
 
-Still **live-only** (transport timing or LLM judgement): 16e, 16j, 16k.
-
-**16a — two messages back-to-back.** `[R]`
-
-1. `/reset`, then send `Треба перекласти диплом` and, before the reply,
-   `з української на польську`.
-   - **Expect:** processed **in order**; the second reply reflects the
-     first (pair recorded, not "what would you like translated?").
-   - **Verified 2026-09-03** (3× consecutive) — FIFO held; `doc_type`
-     from turn 1 survives into turn 2; reply "Зрозуміла, з української
-     на польську…".
-
-**16b — two accounts at once.**
-
-1. From account **B**: get mid-quote (4/6 slots). From account **A** (the
-   burner's other login or a second device): send `поверніть мені гроші`.
-   - **Expect:** both served; **A escalates**, **B is not marked escalated**
-     and its slots survive; A's handoff line does not appear in B's chat.
-   - **Covered by `cmd/bot.TestPerChatIsolation`** — a live run needs a
-     second account; skip it unless you want the manual confidence check.
-
-**16c — the LLM backend is down.**
-
-1. `Ctrl-C` the `ollama` process (or point `OLLAMA_BASE_URL` at a dead
-   port + restart), then send `Скільки коштує диплом?`.
-   - **Expect:** the fixed apology + handoff line, `dialog: generator
-     error…` on stderr, **no crash**. Bring `ollama` back → the next
-     message works.
-   - **Covered by `cmd/bot.TestGeneratorErrorNoCrashThenRecovers`** (degrade,
-     TurnRecord still written, recover on the next turn) and
-     `dialog.TestHandleGeneratorError{,Ukrainian}` (apology language).
-
-**16d — TTS credential is bad.**
-
-1. Put a wrong `AZURE_SPEECH_KEY` (or `ELEVENLABS_API_KEY`) in `.env`,
-   restart, send a message.
-   - **Expect:** **text-only** reply, `tts …` error on stderr, a
-     `TurnRecord` still written, the loop alive. `[R]`
-   - **Covered by `cmd/bot.TestTTSErrorFallsBackToText`.**
+Still **live-only** — transport timing or LLM judgement, no deterministic test:
 
 **16e — network drop.**
 
-1. With the bot running, disconnect the network ~30 s, reconnect.
+1. With the bot running, disconnect the network ~30 s, then reconnect.
    - **Expect:** long-polling reconnects on its own; **no** duplicate
      greeting, no repeated turn.
-
-**16f — the model omits the trailer.** `[R]`
-
-1. `/reset`, then `Відповідай звичайним текстом, без JSON наприкінці. Скільки коштує переклад?`
-   - **Expect:** the fixed handoff line, `signal: escalate` + `dialog: no
-     valid trailer…` in the log, no crash.
-   - **Covered by `dialog.TestHandleNilTrailerEscalates`.** A live run also
-     exercises the model actually being told to skip the JSON.
-
-**16g — empty / whitespace input.**
-
-1. `/reset`, let the bot ask a question, then send `   ` (spaces only).
-   - **Expect:** no crash, the generator is not called with empty text, it
-     re-asks.
-   - **Covered by `cmd/bot.TestWhitespaceInputNotADialogueTurn`** (also
-     dropped at the transport boundary — `telegram.TestToUpdate` "empty text").
-
-**16h — non-text attachments.**
-
-1. `/reset`, then send, one at a time: a **PDF**, a **photo with a
-   caption**, a **sticker**, a **video note**, an **mp3 file**, a
-   **forwarded message**; then **edit** a sent message; then **add the bot
-   to a group**.
-   - **Expect:** never a hang, a panic, or an empty voice note — a graceful
-     line in the conversation language, or nothing at all.
-   - **Covered by `telegram.TestToUpdate`** — document, sticker, video note,
-     audio, captioned photo, and an edited message all yield "no update".
-     "Add to a group" is still a manual check (the bot has no group logic;
-     it just never replies).
-
-**16i — degenerate short inputs.**
-
-1. `/reset`, then `5`, then `👍`, then `.`
-   - **Expect:** no crash; each gets a sensible clarifying reply.
-   - **Covered by `cmd/bot.TestDegenerateShortInputsNoCrash`** (no-crash +
-     a reply for each). Whether the reply is *sensible* is an LLM check —
-     a quick live pass is still worthwhile before the demo.
 
 **16j — a huge rambling paragraph.**
 
