@@ -232,6 +232,17 @@ document* and infers the level from the KB. Run each one like this:
   `certification` slot in `data/turns.jsonl` (or listen to how the reply
   describes the level).
 
+**Verified 2026-09-03** (client stack, `gpt-4.1-mini`) — all six run:
+`certification` values all **canonical** (`certified` / `notarized` / `sworn`
+/ `manager to confirm` / `none`); inference correct incl. Italian & US
+embassy → `manager to confirm` and "US immigration office" → `manager to
+confirm` (a foreign authority does not inherit a KB bucket — `system.md`
+line added); the opener asks *who is it for* (2/10 also append a cert-type
+"this helps me decide" clause — the main question is still the recipient,
+accepted); **no premature `lead_ready`** — it asks for delivery instead of
+guessing `email`, so 2e–2j produce **no lead row** (that's the pass). gpt-4o-mini
+was worse on every one of these and was dropped (see `.engage/conversation-style.md`).
+
 **2e — university / employer → certified.**
 
 1. Full reset, start the quote as above, then answer the recipient question
