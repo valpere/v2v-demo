@@ -844,10 +844,13 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
      `certification` certified (university), `delivery` email. It gives the
      per-page range from the KB, **no total**, and either reads back or asks
      only for whatever it genuinely couldn't pin down.
-   - **Verified 2026-09-03** — transcript came back in full (minor slip
-     "з українською"→instrumental, harmless), all six slots pulled, both the
-     price and "як оплатити?" answered from the KB, one clean `LeadRecord`,
-     `lead_ready` on the first turn (no confirm loop).
+   - **Verified 2026-09-03** — dev: transcript in full, all six pulled, one
+     `LeadRecord`. **Client stack (`gpt-4.1-mini` + whisper-1, 2026-09-03):**
+     re-verified — six slots right (`certification: certified` canonical,
+     Munich university), one clean lead, `reply ⊇ slots`, no total ("plus 5 €
+     for certification… a manager sends the exact price"). "чотири сторінки"
+     spoken as a word. Latency 10.3 s for the ~35 s monologue — borderline,
+     acceptable for this edge case.
 
 **13g — voice switch.**
 
@@ -864,6 +867,10 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
      voice note back in the first voice (`uk-UA-PolinaNeural` / Sarah,
      female). The switch line is direction-aware — "повертаю перший" vs
      "тепер другий" — not the same string both ways.
+   - **Verified 2026-09-03** (client stack) — `/voice b` → "Гаразд, тепер
+     другий голос.", voice-B reply to the passport question (`continue`,
+     slots `паспорт` / uk→en), `/voice a` → "Гаразд, повертаю перший голос."
+     Both switch lines direction-aware.
 
 ---
 
