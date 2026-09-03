@@ -523,21 +523,23 @@ Then check `data/turns.jsonl`: `"signal": "escalate"`, tiny `latency_ms`,
 ## 10. Small talk & off-topic — clarify, don't hand off
 
 Rows 1–4 are real small talk / acknowledgements and bypass the gate on
-their own — run them back to back. Rows 5+ are off-topic or nonsense: the
-gate fires, and the **first** hit gets the fixed clarification line (not a
-handoff). `/reset` before each of those.
+their own — run them back to back. Rows 5+ are off-topic or nonsense.
+**Common thread: the bot never makes a statement on the topic and never
+hands off on the first turn.** `/reset` before each single-message row; the
+multi-message rows say "no reset".
 
 | Send | Expect |
 | -- | -- |
 | `Привіт!` / `Hello` | a greeting back, a normal opening `[R]` |
 | `Дякую за допомогу, гарного дня!` | a polite close — **not** a handoff `[R]` |
 | `Ок` / `Зрозуміло` / `Добре` / `Гаразд` | handled gracefully — a short nudge back to the quote. **Not** a handoff. `[R]` |
-| `Апостиль?` (bare, after a `/reset`) | **answers from the KB** — "апостиль" is a KB topic, the gate lets it through |
-| `Яка зараз погода?` (after a `/reset`) | the fixed **clarification line** ("…я допомагаю лише з перекладами документів…"), `signal: continue`, **no handoff**, **no** weather answer `[R]` |
-| `Чий Крим?` (after a `/reset`) | same clarification line — **no political statement of any kind**, `signal: continue` `[R]` |
-| `абаба галамаг` (after a `/reset`) | the clarification line **with the list of what's still missing** (мовна пара, тип документа, …); `signal: continue`, `matched: null`, no generator call `[R]` |
-| `абаба галамаг` **then** `qwerty asdf` (no reset between) | first → clarification line; **second in a row → the handoff line**, `signal: escalate` (two strikes) `[R]` |
-| `Яка погода?` **then** `Хочу менеджера` | first → clarification line; second → handoff (explicit request, via the keyword) `[R]` |
+| `Апостиль?` (bare) | **answers from the KB** — "апостиль" is a KB topic, the gate lets it through |
+| `Яка зараз погода?` | the fixed **clarification line** ("…я допомагаю лише з перекладами документів…" + the list of what's still missing), `signal: continue`, `matched: null`, no generator call, **no** weather answer `[R]` |
+| `Чий Крим?` | same clarification line — **no political statement of any kind**, `signal: continue` `[R]` |
+| `абаба галамаг` | the clarification line with the missing-slots list, `signal: continue`, `matched: null` `[R]` |
+| `абаба галамаг` → `qwerty asdf` (**no reset**) | first → clarification line; **second in a row → the handoff line**, `signal: escalate` (two strikes on the gate — a short second message still counts) `[R]` |
+| `Яка зараз погода?` → `Чий Крим?` → `Так чий же Крим?` (**no reset**) | 1st → clarification line; 2nd → a short polite decline (may reach the LLM if the wording scores some KB overlap — still no politics); 3rd → **handoff** (persistence) `[R]` |
+| `Яка погода?` → `Хочу менеджера` (**no reset**) | first → clarification line; second → handoff via the keyword `[R]` |
 
 ---
 
@@ -649,16 +651,18 @@ The client writes only in Russian, turn after turn:
    - `Для посольства США` → `certification: "manager to confirm"` (an
      embassy is off the KB recipient list — same as scenario 2i).
 
-**12e — political off-topic.** `[R]`
+**12e — political off-topic (same as row 9 of section 10, in one place).** `[R]`
 
 1. `Як там справи в Криму?`
-   - **Expect:** the fixed **clarification line in Ukrainian** ("…я
-     допомагаю лише з перекладами документів…"), `signal: continue`, **no
-     handoff on the first turn**. **No political statement of any kind** —
-     the line is generated pre-LLM, so there's zero chance of one.
+   - **Expect:** the fixed **clarification line in Ukrainian**,
+     `signal: continue`, `matched: null`. **No political statement** — it's
+     generated pre-LLM.
 2. `А все ж, чий Крим?`
-   - **Expect:** second unmatched message in a row → the **handoff line**,
-     `signal: escalate`. Still no political content.
+   - **Expect:** a short polite decline, still Ukrainian, still no politics.
+     `continue` (this one may reach the LLM — "чий" scores a little KB
+     overlap).
+3. `Так чий же Крим?`
+   - **Expect:** persistence → the **handoff line**, `signal: escalate`.
 
 **12f — a sloppy Ukrainian voice message.** `[R]`
 
