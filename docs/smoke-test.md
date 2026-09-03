@@ -738,14 +738,35 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
 
 **13e — silence / noise.** `[R]`
 
-1. `/reset`, send a **silent or cough-only** voice message.
-   - **Expect:** the fixed "Не розчув(ла), повторіть, будь ласка." line, and
-     **no** new row in `data/turns.jsonl`.
+1. `/reset`, send a **silent, cough-only, or open-window ambient-noise**
+   voice message.
+   - **Expect:** the fixed **Ukrainian** line "Не розчув(ла), повторіть,
+     будь ласка." (the sttFail line, undetected language → Ukrainian) and
+     **no** new row in `data/turns.jsonl`. Whisper often hallucinates
+     "Дякую за перегляд!" / "Thanks for watching" on non-speech —
+     `stt.IsNonSpeech` catches that; the bot log says "non-speech
+     transcript … treating as no speech".
+   - Laughter ("хахаха") transcribes to something real → it's **not** an
+     sttFail; it hits the gate and gets the clarification line (`continue`,
+     `matched: null`, and a turn record). That's fine — not silence.
 
-**13f — a long voice message.**
+**13f — a long, rambling voice message.**
 
-1. `/reset`, send a ~30–40 s voice message (a rambling quote request).
-   - **Expect:** transcribed in full, answered; no truncation.
+1. `/reset`, then read this out as one ~30–40 s **voice message**, with
+   pauses, not too crisp:
+   > "Добрий день, у мене така ситуація — треба перекласти диплом і додаток
+   > до нього з української на німецьку, це для вступу в університет у
+   > Мюнхені, вони просять офіційно засвідчений переклад. Диплом на одну
+   > сторінку, додаток десь на три, разом чотири виходить. Терміну
+   > особливо нема, але бажано за тиждень-півтора. Готовий переклад мені
+   > зручніше отримати сканом на пошту, паперовий не потрібен. Скільки це
+   > приблизно коштуватиме і як оплатити?"
+   - **Expect:** the transcript is **complete** (not cut off at ~40 s) — and
+     the model pulls the slots out of the monologue: `language_pair` uk→de,
+     `doc_type` диплом + додаток, `volume` 4 сторінки, `deadline` ≈ тиждень,
+     `certification` certified (university), `delivery` email. It gives the
+     per-page range from the KB, **no total**, and either reads back or asks
+     only for whatever it genuinely couldn't pin down.
 
 **13g — voice switch.**
 
