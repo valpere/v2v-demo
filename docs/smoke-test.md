@@ -275,6 +275,12 @@ matters here — start this one into German:
    isn't available into English and **escalates** (or asks whether the
    client actually needs it into German). No `lead_ready` with
    `certification: sworn` + an English pair.
+   - **2026-09-03** (client stack, `gpt-4.1-mini`): part 1 PASS
+     (`certification: sworn`, `continue`, asks delivery). Part 2 first run
+     **FAILED** — set `certification: sworn` + kept collecting; fixed by
+     rewriting the `system.md` sworn bullet as a sequential target-language
+     check. Re-verified via API: into English 4/4 `escalate` (cert ≠ sworn),
+     into German 2/2 still `continue` + sworn. Re-run the live bot to confirm.
 
 **2h — Italian embassy → notarized, NOT sworn.**
 
