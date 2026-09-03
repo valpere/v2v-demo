@@ -115,7 +115,7 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	if a.tts != nil {
 		stopTicker = a.startRecordingTicker(ctx, u.ChatID)
 	}
-	reply, _ := dialog.Handle(ctx, sess, a.kb, a.gen, a.sys, text) // never returns a non-nil error
+	reply, _ := dialog.Handle(ctx, sess, a.kb, a.gen, a.sys, text, time.Now().In(a.loc)) // never returns a non-nil error
 
 	if a.tts != nil {
 		ogg, terr := a.tts.Speak(ctx, tts.Spoken(reply.Text, sess.Lang), voiceID(a.cfg, sess.Voice), sess.Lang)

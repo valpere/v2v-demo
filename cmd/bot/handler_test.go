@@ -102,6 +102,7 @@ func newTestApp(t *testing.T, gen dialog.Generator) (*app, *fakeTG) {
 		kb:       []kb.Section{{Title: "Services", Body: "translation"}},
 		sys:      "SYS",
 		greeting: "GREETING",
+		loc:      time.UTC,
 		sessions: make(map[int64]*dialog.Session),
 		seen:     make(map[int64]bool),
 		inbox:    make(map[int64]chan telegram.Update),

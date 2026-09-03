@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 // Config is the whole runtime configuration (REQ-NFR-05: env only, or a local
@@ -37,6 +38,9 @@ type Config struct {
 	SystemPromptPath string
 	GreetingPath     string
 	DataDir          string
+
+	Timezone string // IANA name for the bureau's local time (BOT_TIMEZONE); the
+	// server may be UTC, so this is what the "office hours" prompt block uses
 }
 
 // LoadConfig builds Config from the process environment, falling back to a
@@ -87,6 +91,8 @@ func LoadConfig() (Config, error) {
 		SystemPromptPath: def("SYSTEM_PROMPT_PATH", "prompt/system.md"),
 		GreetingPath:     def("GREETING_PATH", "prompt/greeting.md"),
 		DataDir:          def("DATA_DIR", "./data"),
+
+		Timezone: def("BOT_TIMEZONE", "Europe/Kyiv"),
 	}
 
 	if err := cfg.validate(); err != nil {
@@ -148,6 +154,10 @@ func (c Config) validate() error {
 		}
 	default:
 		errs = append(errs, fmt.Sprintf("DIALOG_BACKEND %q: want ollama|openai|gemini", c.DialogBackend))
+	}
+
+	if _, err := time.LoadLocation(c.Timezone); err != nil {
+		errs = append(errs, fmt.Sprintf("BOT_TIMEZONE %q: %v", c.Timezone, err))
 	}
 
 	if len(errs) > 0 {

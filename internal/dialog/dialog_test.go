@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 type fakeGen struct {
@@ -258,6 +259,63 @@ func TestHandleNilTrailerEscalates(t *testing.T) {
 	}
 }
 
+func TestOfficeStatus(t *testing.T) {
+	tests := []struct {
+		name string
+		when time.Time
+		open bool
+	}{
+		{"wed midday", time.Date(2026, 9, 9, 14, 30, 0, 0, time.UTC), true},
+		{"wed after 18:00", time.Date(2026, 9, 9, 19, 40, 0, 0, time.UTC), false},
+		{"wed before 09:00", time.Date(2026, 9, 9, 8, 0, 0, 0, time.UTC), false},
+		{"saturday", time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC), false},
+		{"sunday", time.Date(2026, 9, 13, 11, 0, 0, 0, time.UTC), false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := officeStatus(tc.when)
+			isOpen := strings.Contains(got, "OPEN right now")
+			isClosed := strings.Contains(got, "CLOSED right now")
+			if isOpen == isClosed {
+				t.Fatalf("ambiguous: %q", got)
+			}
+			if isOpen != tc.open {
+				t.Fatalf("open = %v, want %v (%q)", isOpen, tc.open, got)
+			}
+		})
+	}
+}
+
+func TestHandleInjectsCurrentTime(t *testing.T) {
+	run := func(when time.Time) string {
+		gen := &fakeGen{reply: reply("ok", "continue", nil)}
+		_, err := Handle(context.Background(), &Session{}, testKB(), gen,
+			"SYSTEM PROMPT", "certified translation of a diploma, tell me about delivery", when)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return gen.gotSys
+	}
+
+	sys := run(time.Date(2026, 9, 9, 14, 30, 0, 0, time.UTC))
+	if !strings.Contains(sys, "--- CURRENT TIME ---") || !strings.Contains(sys, "OPEN right now") {
+		t.Fatalf("weekday-midday prompt missing an open-office block:\n%s", sys)
+	}
+
+	sys = run(time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC)) // Saturday
+	if !strings.Contains(sys, "CLOSED right now") || !strings.Contains(sys, "next business morning") {
+		t.Fatalf("weekend prompt missing a closed-office block:\n%s", sys)
+	}
+
+	// zero time -> no block at all (the shared test helper's default)
+	gen := &fakeGen{reply: reply("ok", "continue", nil)}
+	_, _ = Handle(context.Background(), &Session{}, testKB(), gen, "SYSTEM PROMPT",
+		"certified translation of a diploma, tell me about delivery", time.Time{})
+	if strings.Contains(gen.gotSys, "CURRENT TIME") {
+		t.Fatalf("zero now should omit the block:\n%s", gen.gotSys)
+	}
+}
+
 func TestHandleGeneratorError(t *testing.T) {
 	gen := &fakeGen{err: errors.New("boom")}
 	sess := &Session{}
@@ -440,7 +498,9 @@ func deref(p *string) string {
 }
 
 // dialogHandle runs Handle with the shared test KB and a stub system prompt.
+// A zero `now` omits the CURRENT TIME block — tests that care about it call
+// Handle directly with a fixed timestamp.
 func dialogHandle(t *testing.T, sess *Session, gen Generator, text string) (Reply, error) {
 	t.Helper()
-	return Handle(context.Background(), sess, testKB(), gen, "SYSTEM PROMPT", text)
+	return Handle(context.Background(), sess, testKB(), gen, "SYSTEM PROMPT", text, time.Time{})
 }

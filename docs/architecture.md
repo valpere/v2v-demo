@@ -88,8 +88,11 @@ All HTTP is stdlib.
       per-section retrieval — the score only feeds this gate.
    c. **LLM call** — system prompt = `prompt/system.md` + `--- KNOWLEDGE BASE
       ---` + **the whole KB** (every `## Title` + body) + `--- COLLECTED SO
-      FAR ---` + the slot state; messages = the last 20 Msg entries (≈10
-      turns) + this one. Temperature 0.2–0.3.
+      FAR ---` + the slot state + `--- CONVERSATION LANGUAGE ---` + `--- CURRENT
+      TIME ---` (local time in `BOT_TIMEZONE` + an office-open flag computed in
+      Go — the bot has no clock, so this is injected every turn and drives the
+      "~15 min vs next business morning" promise); messages = the last 20 Msg
+      entries (≈10 turns) + this one. Temperature 0.2–0.3.
    d. **Parse** the response into `{ spoken_reply, slot_updates, signal }`
       where `signal ∈ {continue, lead_ready, escalate}`. Format: the reply
       text, then a fenced JSON trailer the code strips before speaking.

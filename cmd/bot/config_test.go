@@ -15,6 +15,7 @@ var configEnvKeys = []string{
 	"STT_BACKEND", "WHISPER_BIN", "WHISPER_MODEL", "WHISPER_LANG",
 	"DIALOG_BACKEND", "DIALOG_MODEL", "GEMINI_API_KEY", "OLLAMA_BASE_URL", "OPENAI_API_KEY",
 	"KB_PATH", "SYSTEM_PROMPT_PATH", "GREETING_PATH", "DATA_DIR",
+	"BOT_TIMEZONE",
 }
 
 // chdirWithEnv chdirs into a temp dir holding the given .env and blanks every
@@ -85,6 +86,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 		"OllamaBaseURL": {cfg.OllamaBaseURL, "http://localhost:11434"},
 		"DataDir":       {cfg.DataDir, "./data"},
 		"KBPath":        {cfg.KBPath, "kb/translation-bureau.md"},
+		"Timezone":      {cfg.Timezone, "Europe/Kyiv"},
 	}
 	for field, cw := range checks {
 		if cw[0] != cw[1] {
@@ -115,6 +117,7 @@ func TestLoadConfigValidation(t *testing.T) {
 		"gemini without key":  minValidEnv + "DIALOG_BACKEND=gemini\n",
 		"openai stt no key":   minValidEnv + "STT_BACKEND=openai\n",
 		"azure no key":        "TELEGRAM_BOT_TOKEN=t\nTTS_BACKEND=azure\n",
+		"bad timezone":        minValidEnv + "BOT_TIMEZONE=Mars/Olympus\n",
 	}
 	for name, dotenv := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -123,6 +126,17 @@ func TestLoadConfigValidation(t *testing.T) {
 				t.Fatal("want validation error")
 			}
 		})
+	}
+}
+
+func TestLoadConfigTimezoneOverride(t *testing.T) {
+	chdirWithEnv(t, minValidEnv+"BOT_TIMEZONE=UTC\n")
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("BOT_TIMEZONE=UTC should validate: %v", err)
+	}
+	if cfg.Timezone != "UTC" {
+		t.Fatalf("Timezone = %q, want UTC", cfg.Timezone)
 	}
 }
 

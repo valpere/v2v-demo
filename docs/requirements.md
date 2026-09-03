@@ -41,7 +41,8 @@ repo is public).
   kb_path:          String @constraint(default: "kb/translation-bureau.md"),
   system_prompt_path: String @constraint(default: "prompt/system.md"),
   greeting_path:    String @constraint(default: "prompt/greeting.md"),
-  data_dir:         String @constraint(default: "./data")
+  data_dir:         String @constraint(default: "./data"),
+  bot_timezone:     String @constraint(default: "Europe/Kyiv", rule: "IANA name; the office-hours block in the runtime prompt (Mon–Fri 09:00–18:00) is computed in this zone, not the server's — the host may be UTC. Validated with time.LoadLocation")
 }
 
 @schema GateParams {
@@ -280,11 +281,19 @@ named constants are `@schema GateParams` in §1.
     (early handoff) -> classify slot answer -> `kbOverlap` -> grounding gate
     (early handoff) -> build the system prompt (`system` file + `--- KNOWLEDGE
     BASE ---` + **the whole KB**, each section as `## Title` then body +
-    `--- COLLECTED SO FAR ---` + compact slot JSON) -> append user msg, trim
-    to `history_limit` -> Generate -> parse trailer -> merge slots (6 explicit
-    field assignments) -> resolve signal (incl. the B4 guard) -> append
-    assistant msg -> return Reply.
-    -> [FUN-DLG-14] dialog.Handle(ctx, sess *Session, kb []Section, gen Generator, systemPrompt, userText string) (Reply, error)
+    `--- COLLECTED SO FAR ---` + compact slot JSON + `--- CONVERSATION
+    LANGUAGE ---` + `--- CURRENT TIME ---` when `now` is non-zero) -> append
+    user msg, trim to `history_limit` -> Generate -> parse trailer -> merge
+    slots (6 explicit field assignments) -> resolve signal (incl. the B4
+    guard) -> append assistant msg -> return Reply.
+    -> [FUN-DLG-14] dialog.Handle(ctx, sess *Session, kb []Section, gen Generator, systemPrompt, userText string, now time.Time) (Reply, error)
+
+19a. [REQ-DLG-17] The bot has no clock of its own. `cmd/bot` passes the
+    current time (in `bot_timezone`) into `Handle` every turn; the prompt's
+    `--- CURRENT TIME ---` block states the local time and whether the office
+    is open (Mon–Fri 09:00–18:00, decided in Go — `dialog.officeStatus`, not
+    by the model). This drives the "within ~15 minutes vs next business
+    morning" promise. A zero `now` omits the block (tests / library callers).
 
 20. [REQ-DLG-15] Trailer parsing must take the **last** fenced block whose
     opening fence is ```json / ```JSON / a bare ``` immediately followed by a

@@ -17,7 +17,7 @@ file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
    `openai-whisper` CLI; `STT_BACKEND=openai` `whisper-1` — mandatory for the
    I-10 client recording, B2).
 2. `cmd/bot` starts the recording-action ticker, then calls
-   `dialog.Handle(ctx, sess, kb, gen, systemPrompt, transcript)`.
+   `dialog.Handle(ctx, sess, kb, gen, systemPrompt, transcript, time.Now().In(a.loc))`.
 3. `dialog.Handle` runs the sequence in **§"Behavioural spec (pseudocode)"**
    below — that section is authoritative; every step, constant, and edge case
    is spelled out there. LLM dev default `ollama` (`gemma4:cloud`);
@@ -182,6 +182,7 @@ func Handle(
 	gen Generator,
 	systemPrompt string,
 	userText string,
+	now time.Time,   // current time in BOT_TIMEZONE; zero -> omit the CURRENT TIME block
 ) (Reply, error)
 
 // gate.go — the whole KB always goes in the prompt; these only feed the gate
@@ -392,7 +393,7 @@ Lenient on the fence spelling, strict on the JSON: a malformed trailer is
 `nil`, and Handle step 8 turns that into a fixed handoff line — the raw model
 output is never spoken.
 
-### Handle(ctx, sess, kb, gen, systemPrompt, userText) (Reply, error)
+### Handle(ctx, sess, kb, gen, systemPrompt, userText, now) (Reply, error)
 
 `esc(sess)` = shorthand for `{ sess.Escalated = true; return Reply{Text:
 handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil }`.
@@ -408,6 +409,7 @@ handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil }`.
               + "\n\n--- COLLECTED SO FAR ---\n" + jsonCompact(sess.Slots)
               + (sess.Lang != "" ?  "\n\n--- CONVERSATION LANGUAGE ---\n<Ukrainian|English> so far; "
                                     + "stay in it unless the client clearly switches. Never reply in Russian."  : "")
+              + (!now.IsZero() ?  "\n\n--- CURRENT TIME ---\n" + officeStatus(now)  : "")   // no clock in the bot; injected per turn (BOT_TIMEZONE)
 6. hist := trimTail(append(sess.History, Msg{"user", userText}), HistoryLimit)
 7. raw, err := gen.Generate(ctx, sysPrompt, hist)
    if err != nil:
@@ -505,7 +507,7 @@ handleUpdate(u Update):
     // 3. dialogue turn
     start := now()
     stopTicker := startRecordingTicker(ctx, tg, u.ChatID)
-    reply, _ := dialog.Handle(ctx, sess, kb, gen, sys, text)     // Handle never returns a non-nil error
+    reply, _ := dialog.Handle(ctx, sess, kb, gen, sys, text, time.Now().In(a.loc))  // Handle never returns a non-nil error
     ogg, terr := tts.Speak(ctx, reply.Text, voiceID(cfg, sess.Voice), sessLang(sess))
     stopTicker()
 

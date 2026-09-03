@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/valpere/v2v-demo/internal/kb"
 )
@@ -56,6 +57,22 @@ func line(lang, uk, en string) string {
 
 func handoffLine(lang string) string { return line(lang, handoffUK, handoffEN) }
 func apologyLine(lang string) string { return line(lang, apologyUK, apologyEN) }
+
+// officeStatus is the "--- CURRENT TIME ---" prompt block. The bot has no
+// clock of its own, so the current local time is injected every turn and the
+// office-open decision is made here (in Go, not by the model — LLMs are
+// unreliable at "is 19:40 on Friday within Mon–Fri 09:00–18:00").
+// `now` is already in the bureau's configured zone (BOT_TIMEZONE).
+func officeStatus(now time.Time) string {
+	wd := now.Weekday()
+	open := wd >= time.Monday && wd <= time.Friday && now.Hour() >= 9 && now.Hour() < 18
+	state := "CLOSED right now — promise a manager reply the next business morning, NOT within 15 minutes"
+	if open {
+		state = "OPEN right now — a manager can reply within about 15 minutes"
+	}
+	return fmt.Sprintf("It is %s, %02d:%02d %s. Office hours are Mon–Fri 09:00–18:00. The office is %s.",
+		now.Format("Monday, 2 January 2006"), now.Hour(), now.Minute(), now.Format("MST"), state)
+}
 
 // clarifyLine is the gate's first, non-escalating response. It names what's
 // still missing (or says the request is already complete).
@@ -201,6 +218,7 @@ func Handle(
 	gen Generator,
 	systemPrompt string,
 	userText string,
+	now time.Time,
 ) (Reply, error) {
 	esc := func() (Reply, error) {
 		sess.Escalated = true
@@ -259,6 +277,10 @@ func Handle(
 		b.WriteString("\n\n--- CONVERSATION LANGUAGE ---\n")
 		b.WriteString(langName(sess.Lang))
 		b.WriteString(" so far; stay in it unless the client clearly switches. Never reply in Russian.")
+	}
+	if !now.IsZero() {
+		b.WriteString("\n\n--- CURRENT TIME ---\n")
+		b.WriteString(officeStatus(now))
 	}
 	sysPrompt := b.String()
 

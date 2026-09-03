@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/valpere/v2v-demo/internal/dialog"
 	"github.com/valpere/v2v-demo/internal/kb"
@@ -30,6 +31,7 @@ type app struct {
 	kb       []kb.Section
 	sys      string
 	greeting string
+	loc      *time.Location // bureau timezone (BOT_TIMEZONE) — for the prompt's CURRENT TIME block
 
 	mu       sync.Mutex
 	sessions map[int64]*dialog.Session
@@ -54,6 +56,10 @@ func main() {
 	greeting, err := greetingBody(cfg.GreetingPath)
 	if err != nil {
 		log.Fatal(err)
+	}
+	loc, err := time.LoadLocation(cfg.Timezone)
+	if err != nil {
+		log.Fatalf("BOT_TIMEZONE %q: %v", cfg.Timezone, err)
 	}
 	gen, err := newGenerator(cfg)
 	if err != nil {
@@ -85,6 +91,7 @@ func main() {
 		kb:       sections,
 		sys:      string(sys),
 		greeting: greeting,
+		loc:      loc,
 		sessions: make(map[int64]*dialog.Session),
 		seen:     make(map[int64]bool),
 		inbox:    make(map[int64]chan telegram.Update),
@@ -99,8 +106,8 @@ func main() {
 	if dialogModel == "" {
 		dialogModel = "(backend default)"
 	}
-	log.Printf("v2v-demo: listening — dialog=%s/%s tts=%s stt=%s; %d KB sections",
-		cfg.DialogBackend, dialogModel, cfg.TTSBackend, cfg.STTBackend, len(sections))
+	log.Printf("v2v-demo: listening — dialog=%s/%s tts=%s stt=%s tz=%s; %d KB sections",
+		cfg.DialogBackend, dialogModel, cfg.TTSBackend, cfg.STTBackend, cfg.Timezone, len(sections))
 
 	for u := range updates {
 		a.dispatch(ctx, u)

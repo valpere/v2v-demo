@@ -955,15 +955,23 @@ Still **live-only** — transport timing or LLM judgement, no deterministic test
 
 ## 17. Clock-dependent promises
 
-The bot has **no clock**. If the demo runs in the evening or on a weekend
-this is a visible miss.
+The bot has no clock of its own — `cmd/bot` injects the current time (in
+`BOT_TIMEZONE`, default `Europe/Kyiv`) into every prompt as a
+`--- CURRENT TIME ---` block, and `dialog.officeStatus` (Go, not the model)
+decides open/closed against Mon–Fri 09:00–18:00.
 
-1. In the evening (after 18:00 EET) or on a Saturday, finish a full quote,
-   then send `Коли зі мною зв'яжеться менеджер?`
-   - **Expect:** "наступного робочого ранку" — **not** "протягом 15 хвилин".
-   - If it says "15 хвилин" regardless of the hour: decide before the demo
-     whether to inject the current time into the prompt or just run the demo
-     during office hours.
+**Covered by Go tests:** `dialog.TestOfficeStatus` (weekday-midday open;
+after 18:00 / before 09:00 / Sat / Sun closed), `dialog.TestHandleInjectsCurrentTime`
+(the block reaches the prompt, open vs closed wording), `cmd/bot.TestLoadConfigTimezoneOverride`
+and the "bad timezone" validation case.
+
+**Live check** (the LLM actually honouring the block):
+
+1. During office hours, finish a full quote, then `Коли зі мною зв'яжеться менеджер?`
+   - **Expect:** "протягом ~15 хвилин".
+2. After 18:00 EET or on a weekend, same thing (or set `BOT_TIMEZONE` to a
+   zone where it's currently night, restart, and run it any time).
+   - **Expect:** "наступного робочого ранку" — **not** "15 хвилин".
 
 ---
 
