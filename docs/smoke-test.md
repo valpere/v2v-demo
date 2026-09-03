@@ -212,6 +212,10 @@ waiting for each reply:
 1. Full reset, then send `Можу надіслати файл, там кілька документів`
    - **Expect:** accepts "I'll send the file" as the volume answer (doesn't
      get stuck insisting on a page count); continues with the other slots.
+   - **Verified 2026-09-03** (client stack) — gpt-4o-mini asks for a count
+     once rather than recording "I'll send the file"; no stuck loop. Turn 2
+     `4 сторінки` → `volume: "4 pages"`, keeps collecting, no lead. Minor
+     deviation, accepted.
 2. later in the same conversation: `Порахував — там 4 сторінки`
    - **Expect:** volume **updated** to "4 pages" — not doubled, not ignored.
 
