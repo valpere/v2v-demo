@@ -811,6 +811,9 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
 1. `Can you do 80 pages by tomorrow?`
    - **Expect:** same — the turnaround is not over-committed, capacity +
      rush caveats stated, no "yes, sure".
+   - **Verified 2026-09-03** (voice) — "~50 standard pages a day", rush
+     surcharge + availability caveat, English reply; `volume`/`deadline`
+     captured, `signal: continue`.
 
 **14c — zero-content / nonsense.**
 
