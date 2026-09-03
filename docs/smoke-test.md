@@ -894,6 +894,9 @@ says which.
    `з української на польську`.
    - **Expect:** processed **in order**; the second reply reflects the
      first (pair recorded, not "what would you like translated?").
+   - **Verified 2026-09-03** (3× consecutive) — FIFO held; `doc_type`
+     from turn 1 survives into turn 2; reply "Зрозуміла, з української
+     на польську…".
 
 **16b — two accounts at once.**
 
