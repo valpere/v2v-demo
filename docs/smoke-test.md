@@ -151,6 +151,14 @@ waiting for each reply:
      "менеджер надішле точну вартість протягом ~15 хвилин" + **no total
      price**. Check `data/leads.jsonl` — **one** new row, all six fields
      matching what you said.
+   - **Verified 2026-09-03** — dev (`gemma4:cloud`): clean, one read-back at
+     lead. Client stack (`openai/gpt-4o-mini`, after the JSON-object fix):
+     PASS — no bad escalate, all six slots right, one `LeadRecord`, "15
+     хвилин" correct. gpt-4o-mini adds a running recap each turn, asks the
+     cert question directly, and fires `lead_ready` a turn early via a
+     delivery guess — **accepted as style drift** (see
+     `.engage/conversation-style.md`); only gross violations get fixed on the
+     client stack.
 
 **2b — almost everything in the first message.**
 
