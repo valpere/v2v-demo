@@ -785,12 +785,12 @@ Latin-in-speech check uses the KB's own Latin tokens — `DHL`, `Privat24`,
 1. `/reset`, then ask by voice: "Скільки коштує доставка кур'єром за
    кордон і як оплатити?"
    - **Expect:** the reply names **DHL** and payment methods incl.
-     **Privat24**. The **voice note** says "де-ха-ел" / "приват двадцять
+     **Privat24**. The **voice note** says "ді-ейч-ель" / "приват двадцять
      чотири" naturally — **not** "дихаель" as one word, not "Privat two
      four".
    - **2026-09-03:** dialogue clean (DHL "at the carrier's tariff", all
      methods, no invented figure). ElevenLabs read `DHL` as "дихаель" →
-     fixed in `tts.Spoken` (`DHL` → "де ха ел", same as ПДВ / Privat24).
+     fixed in `tts.Spoken` (`DHL` → "ді ейч ель", same as ПДВ / Privat24).
      Everything else in the audio was fine.
 2. By voice: "Які у вас робочі години?"
    - **Expect:** the voice reads the hours and "EET" naturally (as "за

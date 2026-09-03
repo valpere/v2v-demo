@@ -36,7 +36,7 @@ var abbrSpoken = map[string]string{
 	"ЄДРПОУ": "є де ер пе о у",
 	"ЄДРПО":  "є де ер пе о",
 	"EET":    "за київським часом",
-	"DHL":    "де ха ел", // uk voice reads "DHL" as a word ("дихаель")
+	"DHL":    "ді ейч ель", // uk voice reads "DHL" as a word ("дихаель")
 }
 
 // currencyWord maps a code to its spoken form in the reply language
