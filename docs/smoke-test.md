@@ -201,6 +201,11 @@ waiting for each reply:
 2. `A 15-page commercial contract, English to Ukrainian, no rush`
    - **Expect:** notes legal texts are the higher band; asks the remaining
      slots.
+   - **Verified 2026-09-03** (client stack) — KB range + "manager confirms",
+     no total; slots `English to Ukrainian · commercial contract · 15 pages`;
+     asks "certified or internal use?" (correct — no recipient to infer
+     from). `signal: continue`, no lead. Minor: "no rush" not captured into
+     `deadline` — accepted.
 
 **2d — "I'll send the file".**
 
