@@ -19,6 +19,23 @@ import (
 // while a turn runs (server-side it lasts ~5s). See @schema GateParams.
 const RecordingTick = 4 * time.Second
 
+// topicCallbackPrefix is the inline-keyboard payload prefix for a topic
+// pick: "topic:<id>".
+const topicCallbackPrefix = "topic:"
+
+// sendTopicPicker shows one inline button per configured topic, in
+// a.topicIDs order (map iteration isn't stable).
+func (a *app) sendTopicPicker(ctx context.Context, chatID int64) {
+	buttons := make([]telegram.Button, len(a.topicIDs))
+	for i, id := range a.topicIDs {
+		buttons[i] = telegram.Button{Label: a.topics[id].Title, Data: topicCallbackPrefix + id}
+	}
+	text := "Оберіть тему розмови:"
+	if err := a.tg.SendButtons(ctx, chatID, text, buttons); err != nil {
+		log.Printf("send topic picker (chat %d): %v", chatID, err)
+	}
+}
+
 func (a *app) send(ctx context.Context, chatID int64, text string) {
 	if err := a.tg.SendText(ctx, chatID, text); err != nil {
 		log.Printf("send (chat %d): %v", chatID, err)
@@ -91,8 +108,38 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 		}
 	}()
 
+	// an inline-keyboard tap always resolves before anything else — it may
+	// be the very first message this chat ever sends (a picker button
+	// tapped right after /start's picker went out).
+	if u.CallbackID != "" {
+		id := strings.TrimPrefix(u.CallbackData, topicCallbackPrefix)
+		topic, valid := a.topics[id]
+		if valid {
+			sess.Topic = id // the deferred Save persists it
+		} else {
+			log.Printf("unknown topic callback (chat %d): %q", u.ChatID, u.CallbackData)
+		}
+		if err := a.tg.AnswerCallback(ctx, u.CallbackID); err != nil {
+			log.Printf("answer callback (chat %d): %v", u.ChatID, err)
+		}
+		if valid {
+			a.send(ctx, u.ChatID, topic.Greeting)
+		}
+		return
+	}
+
 	if isFirst := !found; u.IsStart || isFirst {
-		a.send(ctx, u.ChatID, a.greeting)
+		if len(a.topics) > 1 {
+			// can't answer this message without a topic pick — the later
+			// sess.Topic=="" gate would just re-show the same picker, so
+			// stop here instead of showing it twice for one update.
+			a.sendTopicPicker(ctx, u.ChatID)
+			return
+		}
+		for id, t := range a.topics { // exactly one entry — auto-assign, no picker
+			sess.Topic = id
+			a.send(ctx, u.ChatID, t.Greeting)
+		}
 		if u.IsStart {
 			return // /start carries no other content
 		}
@@ -111,13 +158,30 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 		return
 	}
 
+	if sess.Topic == "" {
+		if len(a.topics) > 1 {
+			// a message arrived before a topic was picked (e.g. the
+			// picker's message was dismissed) — re-show it rather than
+			// guessing which assistant should answer.
+			a.sendTopicPicker(ctx, u.ChatID)
+			return
+		}
+		// single-topic mode: silently auto-assign the one topic. Reached
+		// whenever a session's Topic wasn't set by the first-contact path
+		// above (e.g. a pre-existing session from before this feature).
+		for id := range a.topics {
+			sess.Topic = id
+		}
+	}
+	topic := a.topics[sess.Topic]
+
 	start := time.Now()
 	// TTS_BACKEND=none → text-only: no synthesizer, no "recording voice" action.
 	stopTicker := func() {}
 	if a.tts != nil {
 		stopTicker = a.startRecordingTicker(ctx, u.ChatID)
 	}
-	reply, _ := dialog.Handle(ctx, sess, a.kb, a.gen, a.sys, text, time.Now().In(a.loc)) // never returns a non-nil error
+	reply, _ := dialog.Handle(ctx, sess, topic.KB, a.gen, topic.Sys, text, time.Now().In(a.loc)) // never returns a non-nil error
 
 	if a.tts != nil {
 		ogg, terr := a.tts.Speak(ctx, tts.Spoken(reply.Text, sess.Lang), voiceID(a.cfg, sess.Voice), sess.Lang)

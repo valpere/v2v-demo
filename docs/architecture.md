@@ -54,13 +54,13 @@ flowchart TD
 
 | Package | Responsibility | Requirements |
 |---|---|---|
-| `internal/telegram` | Transport only: long-poll `getUpdates`, download voice files, `SendVoice`/`SendText`/`SendRecordingAction`. No command or session logic. | FR-1, FR-3, FR-10, NFR-2 |
+| `internal/telegram` | Transport only: long-poll `getUpdates`, download voice files, `SendVoice`/`SendText`/`SendRecordingAction`/`SendButtons`/`AnswerCallback`. No command, session, or topic logic. | FR-1, FR-3, FR-10, NFR-2 |
 | `internal/stt` | `Transcriber` interface, two impls: **`local`** (shell out to the `openai-whisper` CLI, which decodes the ogg via its own ffmpeg call; model name from `WHISPER_MODEL`, default `turbo` (= large-v3-turbo — faster than `medium` on CPU + better Ukrainian) — dev default, free) and **`openai`** (`whisper-1` API — mandatory for the I-10 client recording, CPU-local is too slow live). `STT_BACKEND` selects. | FR-2, D-13 |
 | `internal/kb` | Load `KB_PATH`, split on `##` into titled sections — passed to the LLM in full, and to `kbOverlap` | FR-6, NFR-9 |
 | `internal/dialog` | `hardEscalate` + `kbOverlap` + grounding gate, LLM orchestration, JSON-response parse, slot merge, fixed lines. **The core.** LLM call goes through a `Generator` interface: **`ollama`** (Ollama OpenAI-compat, `gemma4:cloud`, dev default), **`openai`** (`gpt-4.1-mini`, the client-facing artefact — D-20 dual-mode, for latency + rule-following), **`gemini`** (native Gemini API, `gemini-flash-latest`; last resort — needs a $25 prepay). `openai_compat.go` (shared by ollama+openai) retries once on a transient. `DIALOG_BACKEND` selects. | FR-4…FR-9, FR-12, NFR-7, NFR-9, D-13, D-20 |
 | `internal/tts` | `Synthesizer` interface, two impls: **`elevenlabs`** (`eleven_multilingual_v2`) and **`azure`** (`uk-UA-*Neural`); both retry once on a transient and emit opus-in-ogg. `TTS_BACKEND` selects; **`none`** yields a nil synthesizer and the update loop replies text-only (dev / bulk smoke-testing). Google is a documented third impl, not built (D-15). | FR-10, NFR-1, D-15 |
 | `internal/store` | Append-only JSONL: one record per turn; a lead record on each `lead_ready` that goes through — usually one per chat, two if the client corrects a value after the summary (newest row wins) | FR-8, FR-13 |
-| `cmd/bot` | Wiring, config, the update loop (per-chat goroutine + locks), `/voice`, the greeting, the recording ticker, STT, store calls | FR-11, NFR-3, NFR-4, NFR-6 |
+| `cmd/bot` | Wiring, config, the update loop (per-chat goroutine + locks), `/voice`, the greeting or topic picker, the recording ticker, STT, store calls | FR-11, NFR-3, NFR-4, NFR-6 |
 
 Runtime dependencies (dev path): a Telegram bot library (Go); a running Ollama
 logged in to a Pro/Max account (`gemma4:cloud` dialogue); the `openai-whisper`
@@ -158,6 +158,27 @@ Delivery` — all `*string` (or small typed enums where the KB constrains the
 values). "Lead ready" = all six non-nil. There is no elaborate FSM; the
 "state machine" is *which slots are still nil*, and the LLM is prompted to ask
 about exactly those.
+
+### 4.1 Topics — multiple assistants on one bot (opt-in)
+
+`TOPICS_PATH` (default `topics/topics.json`, see `topics/README.md`) can
+configure **more than one genuinely distinct assistant** behind the same
+bot — each topic is its own KB + system prompt + greeting, not a KB slice
+of one persona. `cmd/bot.loadTopics` builds `app.topics
+map[string]topicBundle` and `app.topicIDs []string` (display order) from
+the manifest, falling back to one synthetic topic built from
+`KB_PATH`/`SYSTEM_PROMPT_PATH`/`GREETING_PATH` when the manifest is
+missing or has a single entry — **this is the default and the only shipped
+state**, so the picker below never appears out of the box.
+
+With 2+ topics, first contact sends a Telegram inline keyboard (one button
+per topic) instead of the plain greeting; tapping a button is a
+`callback_query` update (`internal/telegram` normalises it to
+`Update.CallbackData`/`CallbackID`) that sets `Session.Topic`, acks via
+`AnswerCallback` (required or the tap shows a permanent spinner), and sends
+that topic's own greeting. `/voice` and `/reset` work regardless of topic
+state; any other text before a topic is chosen re-shows the picker instead
+of guessing which assistant should answer.
 
 ## 5. Grounding — the mechanism in full (NFR-9)
 

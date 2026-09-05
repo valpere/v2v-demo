@@ -48,6 +48,27 @@ func TestToUpdate(t *testing.T) {
 		{name: "audio mp3", in: &models.Update{Message: &models.Message{Chat: models.Chat{ID: 5}, Audio: &models.Audio{FileID: "a"}}}, ok: false},
 		{name: "photo with caption (caption is not Text)", in: &models.Update{Message: &models.Message{Chat: models.Chat{ID: 5}, Photo: []models.PhotoSize{{FileID: "p"}}, Caption: "переклад"}}, ok: false},
 		{name: "edited message arrives on EditedMessage, not Message", in: &models.Update{EditedMessage: &models.Message{Chat: models.Chat{ID: 5}, Text: "fixed typo"}}, ok: false},
+		{
+			name: "callback query",
+			in: &models.Update{CallbackQuery: &models.CallbackQuery{
+				ID:      "cbid1",
+				Data:    "topic:translations",
+				Message: models.MaybeInaccessibleMessage{Message: &models.Message{Chat: models.Chat{ID: 9}}},
+			}},
+			want: Update{ChatID: 9, CallbackData: "topic:translations", CallbackID: "cbid1"},
+			ok:   true,
+		},
+		{
+			name: "callback query on an inaccessible message",
+			in: &models.Update{CallbackQuery: &models.CallbackQuery{
+				ID:   "cbid2",
+				Data: "topic:translations",
+				Message: models.MaybeInaccessibleMessage{
+					InaccessibleMessage: &models.InaccessibleMessage{Chat: models.Chat{ID: 9}},
+				},
+			}},
+			ok: false,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

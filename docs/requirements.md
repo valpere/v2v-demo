@@ -45,7 +45,8 @@ repo is public).
   data_dir:         String @constraint(default: "./data"),
   bot_timezone:     String @constraint(default: "Europe/Kyiv", rule: "IANA name; the office-hours block in the runtime prompt (Mon–Fri 09:00–18:00) is computed in this zone, not the server's — the host may be UTC. Validated with time.LoadLocation"),
   session_store:    Enum["memory","sqlite"] @constraint(default: "memory", rule: "memory = today's map[chatID]*Session, lost on restart. sqlite persists Session (modernc.org/sqlite, no cgo) — a bot restart mid-conversation resumes slots/topic/voice instead of starting over"),
-  session_db_path:  String @constraint(default: "./data/sessions.db", rule: "used only when session_store=sqlite; parent dir is created if missing")
+  session_db_path:  String @constraint(default: "./data/sessions.db", rule: "used only when session_store=sqlite; parent dir is created if missing"),
+  topics_path:      String @constraint(default: "topics/topics.json", rule: "a JSON array of {id,title,kb,system_prompt,greeting}; a missing file (the shipped default) or a single-entry manifest falls back to one synthetic topic built from kb_path/system_prompt_path/greeting_path below, and the bot never shows a picker — opt-in, see topics/README.md")
 }
 
 @schema GateParams {
@@ -402,6 +403,19 @@ named constants are `@schema GateParams` in §1.
     inbound message) must state that this is a demo and that the conversation
     is logged. Fixed bilingual text, not LLM-generated.
     -> [FUN-UX-02] cmd/bot sends the body of prompt/greeting.md once per chat, gated on Update.IsStart or an unseen chat id @constraint(rule: "the sent text is the file content after the first line that is exactly '---', with further '---' lines dropped and the result trimmed — the header is never sent")
+
+29a. [REQ-UX-03] When `topics_path` configures **two or more** topics, first
+    contact shows a Telegram inline keyboard (one button per topic, in
+    manifest order) instead of a plain greeting; tapping one sets
+    `Session.topic`, acks the tap, and sends that topic's own greeting. Each
+    topic is a genuinely different assistant — its own KB, system prompt and
+    greeting — not a KB slice of one persona. `/voice` and `/reset` work
+    before a topic is chosen; any other text before a topic is chosen
+    re-shows the picker rather than guessing which assistant should answer.
+    With zero or one topic configured (the shipped default — no
+    `topics.json`), this is unreachable and REQ-UX-02's plain greeting
+    behavior is unchanged.
+    -> [FUN-UX-03] cmd/bot loadTopics(cfg) (topicManifestEntry, topicBundle); cmd/bot handleUpdate CallbackID branch + sendTopicPicker; internal/telegram Update.CallbackData/CallbackID, Client.SendButtons/AnswerCallback
 
 ### 4.8 Logging
 

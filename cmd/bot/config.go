@@ -44,6 +44,8 @@ type Config struct {
 
 	SessionStore  string // "memory" (default) | "sqlite" (SESSION_STORE)
 	SessionDBPath string // SQLite file, only used when SessionStore=="sqlite"
+
+	TopicsPath string // topics.json manifest (TOPICS_PATH); missing file -> one synthetic topic from KBPath/SystemPromptPath/GreetingPath, no picker shown
 }
 
 // LoadConfig builds Config from the process environment, falling back to a
@@ -99,6 +101,8 @@ func LoadConfig() (Config, error) {
 
 		SessionStore:  def("SESSION_STORE", "memory"),
 		SessionDBPath: def("SESSION_DB_PATH", "./data/sessions.db"),
+
+		TopicsPath: def("TOPICS_PATH", "topics/topics.json"),
 	}
 
 	if err := cfg.validate(); err != nil {

@@ -17,6 +17,7 @@ var configEnvKeys = []string{
 	"KB_PATH", "SYSTEM_PROMPT_PATH", "GREETING_PATH", "DATA_DIR",
 	"BOT_TIMEZONE",
 	"SESSION_STORE", "SESSION_DB_PATH",
+	"TOPICS_PATH",
 }
 
 // chdirWithEnv chdirs into a temp dir holding the given .env and blanks every
@@ -90,6 +91,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 		"Timezone":      {cfg.Timezone, "Europe/Kyiv"},
 		"SessionStore":  {cfg.SessionStore, "memory"},
 		"SessionDBPath": {cfg.SessionDBPath, "./data/sessions.db"},
+		"TopicsPath":    {cfg.TopicsPath, "topics/topics.json"},
 	}
 	for field, cw := range checks {
 		if cw[0] != cw[1] {

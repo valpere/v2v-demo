@@ -24,7 +24,9 @@ type fakeTG struct {
 	texts     []string           // all chats, in send order — single-chat tests
 	byChat    map[int64][]string // per-chat text, for isolation tests
 	voices    int
-	downloads int // DownloadVoice call count
+	downloads int                 // DownloadVoice call count
+	buttons   [][]telegram.Button // one entry per SendButtons call
+	acked     []string            // callback IDs passed to AnswerCallback, in order
 }
 
 func (f *fakeTG) Updates(context.Context) (<-chan telegram.Update, error) { return nil, nil }
@@ -41,6 +43,18 @@ func (f *fakeTG) SendVoice(context.Context, int64, []byte) error {
 	return nil
 }
 func (f *fakeTG) SendRecordingAction(context.Context, int64) error { return nil }
+func (f *fakeTG) SendButtons(_ context.Context, _ int64, _ string, buttons []telegram.Button) error {
+	f.mu.Lock()
+	f.buttons = append(f.buttons, buttons)
+	f.mu.Unlock()
+	return nil
+}
+func (f *fakeTG) AnswerCallback(_ context.Context, callbackID string) error {
+	f.mu.Lock()
+	f.acked = append(f.acked, callbackID)
+	f.mu.Unlock()
+	return nil
+}
 func (f *fakeTG) SendText(_ context.Context, chatID int64, text string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -107,17 +121,29 @@ func (s fakeSTT) Transcribe(context.Context, string, string) (string, error) {
 	return s.text, s.err
 }
 
+// defaultTopic is the sole topic newTestApp seeds — single-topic mode, so
+// every existing test keeps its old text/greeting/kb behavior unchanged and
+// never sees a picker. Tests exercising the multi-topic picker build their
+// own app.topics/topicIDs instead of using this helper.
+const defaultTopicID = "default"
+
 func newTestApp(t *testing.T, gen dialog.Generator) (*app, *fakeTG) {
 	t.Helper()
 	tg := &fakeTG{}
+	topic := topicBundle{
+		ID:       defaultTopicID,
+		Title:    "Default",
+		KB:       []kb.Section{{Title: "Services", Body: "translation"}},
+		Sys:      "SYS",
+		Greeting: "GREETING",
+	}
 	return &app{
 		cfg:      Config{TTSBackend: "elevenlabs", ElevenVoiceA: "A", ElevenVoiceB: "B", DataDir: t.TempDir()},
 		tg:       tg,
 		gen:      gen,
 		tts:      fakeTTS{},
-		kb:       []kb.Section{{Title: "Services", Body: "translation"}},
-		sys:      "SYS",
-		greeting: "GREETING",
+		topics:   map[string]topicBundle{defaultTopicID: topic},
+		topicIDs: []string{defaultTopicID},
 		loc:      time.UTC,
 		sessions: newMemSessions(),
 		inbox:    make(map[int64]chan telegram.Update),
@@ -257,6 +283,116 @@ func TestResetClearsSession(t *testing.T) {
 
 func strptr(s string) *string { return &s }
 
+// newMultiTopicTestApp builds an app with two distinct topic bundles — own
+// KB, persona and greeting each — to exercise the picker/callback flow.
+// newTestApp's single-topic app never shows a picker, so these tests need
+// their own setup.
+func newMultiTopicTestApp(t *testing.T, gen dialog.Generator) (*app, *fakeTG) {
+	t.Helper()
+	a, tg := newTestApp(t, gen)
+	a.topics = map[string]topicBundle{
+		"translations": {ID: "translations", Title: "Переклад", KB: []kb.Section{{Title: "T", Body: "translation"}}, Sys: "SYS-T", Greeting: "GREETING-T"},
+		"notary":       {ID: "notary", Title: "Нотаріус", KB: []kb.Section{{Title: "N", Body: "notary"}}, Sys: "SYS-N", Greeting: "GREETING-N"},
+	}
+	a.topicIDs = []string{"translations", "notary"}
+	return a, tg
+}
+
+// Feature 3 — multi-topic picker + inline-keyboard callback.
+
+func TestFirstContactShowsPickerInMultiTopicMode(t *testing.T) {
+	a, tg := newMultiTopicTestApp(t, &fakeGen{})
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, IsStart: true})
+
+	if len(tg.buttons) != 1 {
+		t.Fatalf("SendButtons called %d times, want 1", len(tg.buttons))
+	}
+	if got := tg.buttons[0]; len(got) != 2 || got[0].Data != "topic:translations" || got[1].Data != "topic:notary" {
+		t.Fatalf("buttons = %+v, want one per topic in a.topicIDs order", got)
+	}
+	if loadSession(t, a, 7).Topic != "" {
+		t.Fatal("Topic should stay empty until a button is tapped")
+	}
+}
+
+// A brand-new chat's very first message (not /start) in multi-topic mode
+// must show the picker exactly once, not once from the first-contact path
+// and again from the sess.Topic=="" gate.
+func TestFirstContactNonStartShowsPickerOnce(t *testing.T) {
+	gen := &fakeGen{}
+	a, tg := newMultiTopicTestApp(t, gen)
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, Text: "Привіт"})
+
+	if len(tg.buttons) != 1 {
+		t.Fatalf("SendButtons called %d times, want 1", len(tg.buttons))
+	}
+	if len(gen.seen) != 0 {
+		t.Fatalf("dialog.Handle must not run before a topic is chosen: %v", gen.seen)
+	}
+}
+
+func TestTopicCallbackSetsTopicAndGreets(t *testing.T) {
+	a, tg := newMultiTopicTestApp(t, &fakeGen{})
+	seed(t, a, 7) // already past first contact — picker already shown once
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, CallbackID: "cb1", CallbackData: "topic:notary"})
+
+	if got := loadSession(t, a, 7).Topic; got != "notary" {
+		t.Fatalf("Topic = %q, want notary", got)
+	}
+	if len(tg.acked) != 1 || tg.acked[0] != "cb1" {
+		t.Fatalf("AnswerCallback calls = %v, want [cb1]", tg.acked)
+	}
+	if last := tg.sentTo(7); len(last) == 0 || last[len(last)-1] != "GREETING-N" {
+		t.Fatalf("want the notary topic's greeting, got %q", last)
+	}
+}
+
+func TestTopicCallbackUnknownIDStillAcks(t *testing.T) {
+	a, tg := newMultiTopicTestApp(t, &fakeGen{})
+	seed(t, a, 7)
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, CallbackID: "cb2", CallbackData: "topic:does-not-exist"})
+
+	if len(tg.acked) != 1 || tg.acked[0] != "cb2" {
+		t.Fatalf("an unknown topic id must still ack the callback: %v", tg.acked)
+	}
+	if loadSession(t, a, 7).Topic != "" {
+		t.Fatal("an unknown topic id must not set Topic")
+	}
+	if len(tg.sentTo(7)) != 0 {
+		t.Fatalf("no greeting should be sent for an unknown topic id: %q", tg.sentTo(7))
+	}
+}
+
+func TestTextBeforeTopicChosenRepromptsPicker(t *testing.T) {
+	gen := &fakeGen{}
+	a, tg := newMultiTopicTestApp(t, gen)
+	seed(t, a, 7) // past first contact, but no topic picked yet
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, Text: "Скільки коштує?"})
+
+	if len(gen.seen) != 0 {
+		t.Fatalf("dialog.Handle must not run before a topic is chosen: %v", gen.seen)
+	}
+	if len(tg.buttons) != 1 {
+		t.Fatalf("SendButtons called %d times, want 1 (re-prompt)", len(tg.buttons))
+	}
+}
+
+func TestVoiceCommandStillWorksBeforeTopicChosen(t *testing.T) {
+	a, _ := newMultiTopicTestApp(t, &fakeGen{})
+	seed(t, a, 7)
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, Text: "/voice b"})
+
+	if v := loadSession(t, a, 7).Voice; v != "b" {
+		t.Fatalf("voice = %q, want b — slash commands must not be gated by topic choice", v)
+	}
+}
+
 func TestUnknownCommandNotADialogueTurn(t *testing.T) {
 	gen := &fakeGen{}
 	a, _ := newTestApp(t, gen)
@@ -357,7 +493,7 @@ func TestPerChatIsolation(t *testing.T) {
 func TestGeneratorErrorNoCrashThenRecovers(t *testing.T) {
 	gen := &fakeGen{err: errors.New("dial tcp 127.0.0.1:1: connection refused")}
 	a, tg := newTestApp(t, gen)
-	a.kb = []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}
+	a.topics[defaultTopicID] = topicBundle{ID: defaultTopicID, Title: "Default", KB: []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}, Sys: "SYS", Greeting: "GREETING"}
 	seed(t, a, 5)
 	ctx := context.Background()
 
@@ -385,7 +521,7 @@ func TestGeneratorErrorNoCrashThenRecovers(t *testing.T) {
 func TestTTSErrorFallsBackToText(t *testing.T) {
 	a, tg := newTestApp(t, &fakeGen{})
 	a.tts = fakeTTS{err: errors.New("401 Unauthorized")}
-	a.kb = []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}
+	a.topics[defaultTopicID] = topicBundle{ID: defaultTopicID, Title: "Default", KB: []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}, Sys: "SYS", Greeting: "GREETING"}
 	seed(t, a, 5)
 
 	a.handleUpdate(context.Background(), telegram.Update{ChatID: 5, Text: "Скільки коштує переклад диплома?"})
@@ -434,7 +570,7 @@ func TestDegenerateShortInputsNoCrash(t *testing.T) {
 func TestTurnRecordOnlyForDialogueTurns(t *testing.T) {
 	a, _ := newTestApp(t, &fakeGen{})
 	a.stt = fakeSTT{err: errors.New("whisper exploded")}
-	a.kb = []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}
+	a.topics[defaultTopicID] = topicBundle{ID: defaultTopicID, Title: "Default", KB: []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}, Sys: "SYS", Greeting: "GREETING"}
 	seed(t, a, 7)
 	ctx := context.Background()
 	turns := filepath.Join(a.cfg.DataDir, "turns.jsonl")

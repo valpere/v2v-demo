@@ -84,6 +84,16 @@ type Update struct {
 	Text        string // empty for a voice-only message
 	VoiceFileID string // empty for a text message
 	IsStart     bool   // /start, or the first message in this chat
+
+	CallbackData string // an inline-keyboard tap's payload; empty otherwise
+	CallbackID   string // that tap's callback query id — AnswerCallback needs it
+}
+
+// Button: one inline-keyboard button, one per row (a handful of topics
+// never needs a denser layout).
+type Button struct {
+	Label string
+	Data  string // echoed back as Update.CallbackData when tapped
 }
 
 type Client interface {
@@ -92,6 +102,8 @@ type Client interface {
 	SendVoice(ctx context.Context, chatID int64, ogg []byte) error  // NO caption
 	SendText(ctx context.Context, chatID int64, text string) error
 	SendRecordingAction(ctx context.Context, chatID int64) error    // lasts ~5s server-side
+	SendButtons(ctx context.Context, chatID int64, text string, buttons []Button) error
+	AnswerCallback(ctx context.Context, callbackID string) error    // required, or the tap spinner never clears
 }
 // The reply text goes out once, via SendText — never also as a SendVoice
 // caption. The update loop keeps "recording voice" visible for the whole
@@ -260,7 +272,26 @@ type Config struct {
 
 	SessionStore  string // "memory" (default) | "sqlite" (SESSION_STORE)
 	SessionDBPath string // SQLite file; only used when SessionStore=="sqlite"; default "./data/sessions.db"
+
+	TopicsPath string // topics.json manifest (TOPICS_PATH); missing/single-entry -> one synthetic topic, no picker
 }
+
+// topics/topics.json: a JSON array of these.
+type topicManifestEntry struct {
+	ID, Title, KB, SystemPrompt, Greeting string
+}
+
+// topicBundle is a fully loaded topic — its own KB, persona and greeting.
+// app.topics map[string]topicBundle + app.topicIDs []string (display
+// order; map iteration isn't stable) replace the old singular
+// kb/sys/greeting fields on app.
+type topicBundle struct {
+	ID, Title string
+	KB        []Section
+	Sys       string
+	Greeting  string
+}
+func loadTopics(cfg Config) (topics map[string]topicBundle, ids []string, err error)
 func LoadConfig() (Config, error)
 // env + optional .env (tiny hand parser: KEY=VALUE lines, "#" comments, no
 // quotes, no multiline, no "export "). Env→field map (the .env.example keys):
@@ -487,7 +518,7 @@ inbox    : map[int64]chan Update         // per-chat FIFO; guarded by mu
 main:
     cfg := LoadConfig()
     stt := stt.New(cfg); gen := dialog.New(cfg); tts := tts.New(cfg); tg := telegram.New(cfg)
-    kb  := kb.Load(cfg.KBPath); sys := readFile(cfg.SystemPromptPath); greet := greetingBody(cfg.GreetingPath)
+    topics, topicIDs := loadTopics(cfg)                // >1 entry -> a picker is shown after /start
     updates := tg.Updates(ctx)                        // long-poll; the client owns offset advance,
                                                       //   advancing only after an Update is taken from the channel
     for u := range updates:
@@ -513,8 +544,22 @@ handleUpdate(u Update):
     // "seen" set), this also makes the greeting replay on the next message.
     // Any other "/..." gets a one-line /voice usage hint.
 
+    // an inline-keyboard tap resolves before anything else — may be the
+    // very first message this chat ever sends.
+    if u.CallbackID != "":
+        id := trimPrefix(u.CallbackData, "topic:")
+        topic, valid := topics[id]
+        if valid { sess.Topic = id }
+        else { log("unknown topic callback", u.CallbackData) }
+        tg.AnswerCallback(ctx, u.CallbackID)           // required, or the tap spinner never clears
+        if valid { tg.SendText(ctx, u.ChatID, topic.Greeting) }
+        return
+
     if u.IsStart || !found:
-        tg.SendText(ctx, u.ChatID, greet)
+        if len(topics) > 1:
+            sendTopicPicker(ctx, tg, u.ChatID, topicIDs, topics)   // one button per topic, in topicIDs order
+            return                                    // can't answer this message without a topic pick
+        for id, t := range topics { sess.Topic = id; tg.SendText(ctx, u.ChatID, t.Greeting) }  // exactly one entry
         if u.IsStart { return }                       // /start carries no other content
 
     // 1. transcript
@@ -544,18 +589,27 @@ handleUpdate(u Update):
             tg.SendText(ctx, u.ChatID, voiceHelp(sess))
         return
 
-    // 3. dialogue turn
+    // 3. topic gate — only reachable in multi-topic mode (single-topic mode
+    // auto-assigns sess.Topic at first contact above, so this never fires there)
+    if sess.Topic == "":
+        if len(topics) > 1:
+            sendTopicPicker(ctx, tg, u.ChatID, topicIDs, topics)   // re-show, don't guess
+            return
+        for id := range topics { sess.Topic = id }                // single-topic mode fallback
+    topic := topics[sess.Topic]
+
+    // 4. dialogue turn
     start := now()
     stopTicker := startRecordingTicker(ctx, tg, u.ChatID)
-    reply, _ := dialog.Handle(ctx, sess, kb, gen, sys, text, time.Now().In(a.loc))  // Handle never returns a non-nil error
+    reply, _ := dialog.Handle(ctx, sess, topic.KB, gen, topic.Sys, text, time.Now().In(a.loc))  // Handle never returns a non-nil error
     ogg, terr := tts.Speak(ctx, reply.Text, voiceID(cfg, sess.Voice), sessLang(sess))
     stopTicker()
 
-    // 4. deliver
+    // 5. deliver
     if terr == nil { tg.SendVoice(ctx, u.ChatID, ogg) }          // no caption
     tg.SendText(ctx, u.ChatID, reply.Text)                       // text always goes out once
 
-    // 5. log — always
+    // 6. log — always
     store.AppendTurn(cfg.DataDir, TurnRecord{... reply ..., LatencyMS: since(start)})
     if reply.Signal == SignalLeadReady:
         store.AppendLead(cfg.DataDir, leadFrom(u.ChatID, sess.Slots))

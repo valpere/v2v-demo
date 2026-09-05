@@ -9,29 +9,27 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/valpere/v2v-demo/internal/dialog"
-	"github.com/valpere/v2v-demo/internal/kb"
 	"github.com/valpere/v2v-demo/internal/stt"
 	"github.com/valpere/v2v-demo/internal/telegram"
 	"github.com/valpere/v2v-demo/internal/tts"
 )
 
 type app struct {
-	cfg      Config
-	tg       telegram.Client
-	gen      dialog.Generator
-	stt      stt.Transcriber
-	tts      tts.Synthesizer
-	kb       []kb.Section
-	sys      string
-	greeting string
-	loc      *time.Location // bureau timezone (BOT_TIMEZONE) — for the prompt's CURRENT TIME block
+	cfg Config
+	tg  telegram.Client
+	gen dialog.Generator
+	stt stt.Transcriber
+	tts tts.Synthesizer
+	loc *time.Location // bureau timezone (BOT_TIMEZONE) — for the prompt's CURRENT TIME block
+
+	topics   map[string]topicBundle // >1 entry -> a picker is shown after /start
+	topicIDs []string               // display order (map iteration isn't stable)
 
 	sessions sessionStore
 
@@ -45,15 +43,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	sections, err := kb.Load(cfg.KBPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	sys, err := os.ReadFile(cfg.SystemPromptPath)
-	if err != nil {
-		log.Fatalf("system prompt: %v", err)
-	}
-	greeting, err := greetingBody(cfg.GreetingPath)
+	topics, topicIDs, err := loadTopics(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -93,10 +83,9 @@ func main() {
 		gen:      gen,
 		stt:      transcriber,
 		tts:      synth,
-		kb:       sections,
-		sys:      string(sys),
-		greeting: greeting,
 		loc:      loc,
+		topics:   topics,
+		topicIDs: topicIDs,
 		sessions: sessions,
 		inbox:    make(map[int64]chan telegram.Update),
 	}
@@ -110,8 +99,8 @@ func main() {
 	if dialogModel == "" {
 		dialogModel = "(backend default)"
 	}
-	log.Printf("v2v-demo: listening — dialog=%s/%s tts=%s stt=%s sessions=%s tz=%s; %d KB sections",
-		cfg.DialogBackend, dialogModel, cfg.TTSBackend, cfg.STTBackend, cfg.SessionStore, cfg.Timezone, len(sections))
+	log.Printf("v2v-demo: listening — dialog=%s/%s tts=%s stt=%s sessions=%s tz=%s; %d topic(s)",
+		cfg.DialogBackend, dialogModel, cfg.TTSBackend, cfg.STTBackend, cfg.SessionStore, cfg.Timezone, len(topics))
 
 	for u := range updates {
 		a.dispatch(ctx, u)

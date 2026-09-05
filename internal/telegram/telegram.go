@@ -20,12 +20,22 @@ import (
 )
 
 // Update is one inbound message, reduced to what the bot acts on. Exactly one
-// of Text / VoiceFileID is set; the other is empty.
+// of Text / VoiceFileID / CallbackData is set; the others are empty.
 type Update struct {
 	ChatID      int64
 	Text        string // empty for a voice-only message
 	VoiceFileID string // empty for a text message
 	IsStart     bool   // the message is the /start command
+
+	CallbackData string // an inline-keyboard tap's payload; empty for anything else
+	CallbackID   string // that tap's callback query id — AnswerCallback needs it
+}
+
+// Button is one inline-keyboard button: Label is what the user sees, Data is
+// the payload echoed back on Update.CallbackData when tapped.
+type Button struct {
+	Label string
+	Data  string
 }
 
 // Client is the transport contract cmd/bot depends on.
@@ -43,6 +53,12 @@ type Client interface {
 	// SendRecordingAction shows the "recording voice" chat action
 	// (server-side it lasts ~5s, so cmd/bot re-sends it on a ticker).
 	SendRecordingAction(ctx context.Context, chatID int64) error
+	// SendButtons sends text with an inline keyboard, one button per row
+	// (a handful of topics never needs a denser layout).
+	SendButtons(ctx context.Context, chatID int64, text string, buttons []Button) error
+	// AnswerCallback acks an inline-keyboard tap — Telegram requires this or
+	// the tapped button shows a spinner until it times out client-side.
+	AnswerCallback(ctx context.Context, callbackID string) error
 }
 
 type client struct {
@@ -60,7 +76,7 @@ func New(token string) (Client, error) {
 
 	b, err := bot.New(token,
 		bot.WithDefaultHandler(c.dispatch),
-		bot.WithAllowedUpdates(bot.AllowedUpdates{"message"}),
+		bot.WithAllowedUpdates(bot.AllowedUpdates{"message", "callback_query"}),
 		// One synchronous worker with a cap-1 buffer: the getUpdates loop
 		// stalls on our blocking dispatch until cmd/bot pulls the update,
 		// so at most ~2 updates are acked-but-undelivered on a crash
@@ -98,6 +114,17 @@ func (c *client) dispatch(ctx context.Context, _ *bot.Bot, u *models.Update) {
 }
 
 func toUpdate(u *models.Update) (Update, bool) {
+	if cq := u.CallbackQuery; cq != nil {
+		// an inaccessible message (too old, or the chat became inaccessible)
+		// carries no *Message — nothing to reply into, so drop it. The tap
+		// itself is still lost without an AnswerCallback, but that is no
+		// worse than any other message this boundary already drops.
+		if cq.Message.Message == nil || cq.Message.Message.Chat.ID == 0 {
+			return Update{}, false
+		}
+		return Update{ChatID: cq.Message.Message.Chat.ID, CallbackData: cq.Data, CallbackID: cq.ID}, true
+	}
+
 	m := u.Message
 	if m == nil || m.Chat.ID == 0 {
 		return Update{}, false
@@ -196,6 +223,29 @@ func (c *client) SendRecordingAction(ctx context.Context, chatID int64) error {
 	})
 	if err != nil {
 		return fmt.Errorf("telegram: sendChatAction: %w", err)
+	}
+	return nil
+}
+
+func (c *client) SendButtons(ctx context.Context, chatID int64, text string, buttons []Button) error {
+	rows := make([][]models.InlineKeyboardButton, len(buttons))
+	for i, b := range buttons {
+		rows[i] = []models.InlineKeyboardButton{{Text: b.Label, CallbackData: b.Data}}
+	}
+	_, err := c.b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:      chatID,
+		Text:        text,
+		ReplyMarkup: models.InlineKeyboardMarkup{InlineKeyboard: rows},
+	})
+	if err != nil {
+		return fmt.Errorf("telegram: sendMessage (buttons): %w", err)
+	}
+	return nil
+}
+
+func (c *client) AnswerCallback(ctx context.Context, callbackID string) error {
+	if _, err := c.b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{CallbackQueryID: callbackID}); err != nil {
+		return fmt.Errorf("telegram: answerCallbackQuery: %w", err)
 	}
 	return nil
 }
