@@ -370,14 +370,26 @@ return false
 
 ```
 lastAsst := the most recent Msg{Role:"assistant"} in session.History, "" if none
+if !contains(lastAsst, "?")            { return false }   // the bot just asked something
+if session.Slots.Complete()            { return false }
+if filledSlots(session.Slots) >= 2     { return true }    // mid-quote: any reply counts, no length cap
 return len(tokenize(userText)) <= SlotAnswerMaxTok
-       && strings.HasSuffix(trimspace(lastAsst), "?")   // the bot just asked something
-       && session.Slots has at least one nil field
 ```
 
 So a short message only bypasses the gate when it is plausibly an answer to
 the bot's own question — "5 pages" after "how many pages?" bypasses; a bare
 "apostille?" out of nowhere does not.
+
+**No `GateStrike` special-case here (removed 2026-09-05).** `clarifyLine`'s
+"ask" tail ends in "?" specifically so a reply to *it* also qualifies —
+before this, `isSlotAnswer` returned `false` outright whenever `GateStrike`
+was set, so *any* reply right after a first gate strike — including a
+correct one like "5 сторінок" after "Скільки сторінок?" — failed the
+check and, on low KB overlap (typical for a bare number), immediately
+escalated to a human. Traded for: a second genuinely off-topic *short*
+message now also reaches the model (as a presumed slot answer) instead of
+pre-LLM escalating, since the heuristic (length + "?" + nil slot) has no
+way to tell the two apart by content. See REQ-DLG-13.
 
 ### isSmallTalk(userText string) bool   (added 2026-08-31, test-5_1)
 

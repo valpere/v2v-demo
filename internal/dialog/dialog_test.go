@@ -194,14 +194,45 @@ func TestHandleGroundingGate(t *testing.T) {
 		t.Fatal("generator called despite the gate firing")
 	}
 
-	// second hit in a row — hand off. A *short* second message must not slip
-	// through isSlotAnswer just because the clarify line preceded it.
+	// second message, still short: isSlotAnswer now accepts a reply to the
+	// clarify line's own "?" the same as any other question it asked
+	// (2026-09-05 — see the GateStrike note on isSlotAnswer in gate.go).
+	// That means this reaches the model rather than pre-LLM escalating: the
+	// heuristic (length + "?" + nil slot) can't tell a short off-topic
+	// message from a short legit answer, so the model itself decides from
+	// here via its own signal.
 	r2, _ := dialogHandle(t, sess, gen, "qwerty asdf")
-	if r2.Signal != SignalEscalate {
-		t.Fatalf("second gate hit: signal = %q, want escalate", r2.Signal)
+	if gen.calls != 1 {
+		t.Fatalf("generator calls = %d, want 1 — a short reply to the clarify line's own question should reach the model", gen.calls)
 	}
-	if gen.calls != 0 {
-		t.Fatal("generator called on the second gate hit")
+	if r2.Signal != SignalContinue {
+		t.Fatalf("second short reply: signal = %q, want continue (the fake generator's own signal)", r2.Signal)
+	}
+}
+
+// TestHandleSlotAnswerAcceptedAfterGateStrike is the regression test for the
+// 2026-09-05 fix: a legitimate short answer to the bot's own question,
+// arriving right after a first gate strike, must reach the model instead of
+// being pre-LLM escalated. Before the fix, isSlotAnswer checked GateStrike
+// first and always returned false for the turn right after any strike —
+// "5 сторінок" answering "Скільки сторінок?" escalated to a human instead
+// of being accepted, purely because an off-topic message happened earlier
+// in the same conversation.
+func TestHandleSlotAnswerAcceptedAfterGateStrike(t *testing.T) {
+	gen := &fakeGen{reply: reply("Дякую, записала.", "continue", map[string]string{"volume": "5 pages"})}
+	sess := &Session{History: []Msg{{Role: "assistant", Text: "Скільки сторінок потрібно перекласти?"}}}
+
+	dialogHandle(t, sess, gen, "What is the capital of Australia and how tall is Everest") // strike 1
+	if !sess.GateStrike {
+		t.Fatal("expected a gate strike after the off-topic message")
+	}
+
+	r, _ := dialogHandle(t, sess, gen, "5 сторінок")
+	if r.Signal == SignalEscalate {
+		t.Fatal("a legit slot answer right after a gate strike must not escalate")
+	}
+	if gen.calls != 1 {
+		t.Fatalf("generator calls = %d, want 1", gen.calls)
 	}
 }
 

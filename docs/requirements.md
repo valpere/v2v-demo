@@ -277,11 +277,20 @@ named constants are `@schema GateParams` in §1.
     with the fixed `clarifyLine` (states the bureau only does translations,
     lists the still-missing slots or the "already complete" tail) at
     `signal: continue`, records the exchange in history, and sets
-    `Session.GateStrike`. Only a **second consecutive** gate hit (`GateStrike`
-    already set) escalates. `GateStrike` clears on any turn that reaches the
-    model, is small talk, or is a slot answer. `hardEscalate` (REQ-DLG-20),
-    an explicit "I want a manager", and the model's own `signal: escalate`
-    still hand off immediately.
+    `Session.GateStrike`. A **second consecutive** gate hit (`GateStrike`
+    already set) escalates — **but only when the message also fails
+    `isSlotAnswer`** (2026-09-05): `clarifyLine`'s "ask" tail ends in "?" on
+    purpose, so a short reply to *it* qualifies as a slot answer the same as
+    a reply to any other question and reaches the model instead of
+    pre-LLM-escalating — the heuristic (length + "?" + a nil slot) cannot
+    otherwise tell a real short answer from a short off-topic message, and a
+    real answer escalating to a human purely because an earlier message in
+    the same conversation was off-topic was worse than the alternative (the
+    model gets one extra, usually harmless, call on a still-off-topic short
+    reply). `GateStrike` clears on any turn that reaches the model, is small
+    talk, or is a slot answer. `hardEscalate` (REQ-DLG-20), an explicit "I
+    want a manager", and the model's own `signal: escalate` still hand off
+    immediately.
     -> [FUN-DLG-13] dialog.groundingGate(overlap float64, slotAnswer bool) (forceEscalate bool) @constraint(rule: "pure function of its two arguments"); dialog.isSmallTalk; dialog.clarifyLine(sess) @constraint(rule: "pre-LLM, deterministic — no hallucination, no political statement possible"); Session.GateStrike
 
 19. [REQ-DLG-14] `dialog.Handle` must execute the exact 14-step sequence in

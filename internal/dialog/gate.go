@@ -226,10 +226,20 @@ func hardEscalate(query string) bool {
 // the model routinely asks "…?" and then adds a clarifying sentence, e.g.
 // "…для якої установи? Це потрібно, щоб підібрати тип засвідчення." (found in
 // live testing 2026-08-31 — "для університету в Берліні" was escalating).
+//
+// This deliberately does NOT special-case GateStrike (2026-09-05, .agents/
+// changes.md): clarifyLine's "ask" tail ends in "?" specifically so a reply
+// to *it* qualifies too — a legitimate short answer right after a first
+// gate strike (e.g. "5 сторінок") used to be misread as "not a slot answer"
+// and could hand off to a human instead of being accepted. The accepted
+// trade-off: a *second* short, genuinely off-topic message now reaches the
+// model (as a presumed slot answer) instead of pre-LLM escalating — the
+// model itself is expected to recognize it can't extract anything and
+// respond accordingly (its own signal:escalate, or another clarify-style
+// reply), rather than the gate silently discarding the possibility that the
+// message was a real answer. This heuristic cannot otherwise tell the two
+// cases apart (it does not look at content, only length/"?"/nil-slot).
 func isSlotAnswer(sess *Session, userText string) bool {
-	if sess.GateStrike {
-		return false // the last reply was "I didn't understand", not a slot question
-	}
 	if !strings.Contains(lastAssistant(sess.History), "?") {
 		return false
 	}
