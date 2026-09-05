@@ -33,10 +33,10 @@ type app struct {
 	greeting string
 	loc      *time.Location // bureau timezone (BOT_TIMEZONE) — for the prompt's CURRENT TIME block
 
-	mu       sync.Mutex
-	sessions map[int64]*dialog.Session
-	seen     map[int64]bool
-	inbox    map[int64]chan telegram.Update // per-chat FIFO queue (one serial worker each)
+	sessions sessionStore
+
+	mu    sync.Mutex
+	inbox map[int64]chan telegram.Update // per-chat FIFO queue (one serial worker each)
 }
 
 func main() {
@@ -73,6 +73,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	sessions, err := newSessionStore(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer sessions.Close()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -92,8 +97,7 @@ func main() {
 		sys:      string(sys),
 		greeting: greeting,
 		loc:      loc,
-		sessions: make(map[int64]*dialog.Session),
-		seen:     make(map[int64]bool),
+		sessions: sessions,
 		inbox:    make(map[int64]chan telegram.Update),
 	}
 
@@ -106,8 +110,8 @@ func main() {
 	if dialogModel == "" {
 		dialogModel = "(backend default)"
 	}
-	log.Printf("v2v-demo: listening — dialog=%s/%s tts=%s stt=%s tz=%s; %d KB sections",
-		cfg.DialogBackend, dialogModel, cfg.TTSBackend, cfg.STTBackend, cfg.Timezone, len(sections))
+	log.Printf("v2v-demo: listening — dialog=%s/%s tts=%s stt=%s sessions=%s tz=%s; %d KB sections",
+		cfg.DialogBackend, dialogModel, cfg.TTSBackend, cfg.STTBackend, cfg.SessionStore, cfg.Timezone, len(sections))
 
 	for u := range updates {
 		a.dispatch(ctx, u)

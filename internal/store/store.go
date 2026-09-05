@@ -1,6 +1,8 @@
-// Package store is the append-only JSONL log (REQ-LOG-01): one TurnRecord per
-// turn in turns.jsonl, one LeadRecord per lead_ready turn in leads.jsonl. It
-// is written under DATA_DIR and sent nowhere.
+// Package store is persistence: the append-only JSONL log (REQ-LOG-01, one
+// TurnRecord per turn in turns.jsonl, one LeadRecord per lead_ready turn in
+// leads.jsonl, written under DATA_DIR and sent nowhere) plus, optionally, a
+// SQLite-backed session store (SESSION_STORE=sqlite — see session.go /
+// session_sqlite.go) that lets dialog.Session survive a bot restart.
 package store
 
 import (

@@ -16,6 +16,7 @@ var configEnvKeys = []string{
 	"DIALOG_BACKEND", "DIALOG_MODEL", "GEMINI_API_KEY", "OLLAMA_BASE_URL", "OPENAI_API_KEY",
 	"KB_PATH", "SYSTEM_PROMPT_PATH", "GREETING_PATH", "DATA_DIR",
 	"BOT_TIMEZONE",
+	"SESSION_STORE", "SESSION_DB_PATH",
 }
 
 // chdirWithEnv chdirs into a temp dir holding the given .env and blanks every
@@ -87,6 +88,8 @@ func TestLoadConfigDefaults(t *testing.T) {
 		"DataDir":       {cfg.DataDir, "./data"},
 		"KBPath":        {cfg.KBPath, "kb/translation-bureau.md"},
 		"Timezone":      {cfg.Timezone, "Europe/Kyiv"},
+		"SessionStore":  {cfg.SessionStore, "memory"},
+		"SessionDBPath": {cfg.SessionDBPath, "./data/sessions.db"},
 	}
 	for field, cw := range checks {
 		if cw[0] != cw[1] {
@@ -119,6 +122,7 @@ func TestLoadConfigValidation(t *testing.T) {
 		"azure no key":        "TELEGRAM_BOT_TOKEN=t\nTTS_BACKEND=azure\n",
 		"bad timezone":        minValidEnv + "BOT_TIMEZONE=Mars/Olympus\n",
 		"bad stt backend":     "TELEGRAM_BOT_TOKEN=t\nSTT_BACKEND=carrier-pigeon\n",
+		"bad session store":   "TELEGRAM_BOT_TOKEN=t\nSESSION_STORE=redis\n",
 	}
 	for name, dotenv := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -138,6 +142,17 @@ func TestLoadConfigTimezoneOverride(t *testing.T) {
 	}
 	if cfg.Timezone != "UTC" {
 		t.Fatalf("Timezone = %q, want UTC", cfg.Timezone)
+	}
+}
+
+func TestLoadConfigSessionStoreSQLite(t *testing.T) {
+	chdirWithEnv(t, minValidEnv+"SESSION_STORE=sqlite\nSESSION_DB_PATH=/tmp/x.db\n")
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("SESSION_STORE=sqlite should validate: %v", err)
+	}
+	if cfg.SessionStore != "sqlite" || cfg.SessionDBPath != "/tmp/x.db" {
+		t.Fatalf("got %+v", cfg)
 	}
 }
 

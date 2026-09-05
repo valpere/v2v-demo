@@ -1,6 +1,7 @@
 # Requirements — v2v-demo
 
-Traced requirements for this throwaway demo. Written in **tumanomir's
+Traced requirements for this demo, now the base for ongoing development
+past v0.1.0. Written in **tumanomir's
 traceable markup** (`[REQ-*] -> [FUN-*] / [LOG-*] / [PHY-*]`, `@schema`,
 `@constraint`) so `tumanomir check` can measure trace coverage (`K_drift`)
 and constraint density (`D_const`) over this file.
@@ -42,7 +43,9 @@ repo is public).
   system_prompt_path: String @constraint(default: "prompt/system.md"),
   greeting_path:    String @constraint(default: "prompt/greeting.md"),
   data_dir:         String @constraint(default: "./data"),
-  bot_timezone:     String @constraint(default: "Europe/Kyiv", rule: "IANA name; the office-hours block in the runtime prompt (Mon–Fri 09:00–18:00) is computed in this zone, not the server's — the host may be UTC. Validated with time.LoadLocation")
+  bot_timezone:     String @constraint(default: "Europe/Kyiv", rule: "IANA name; the office-hours block in the runtime prompt (Mon–Fri 09:00–18:00) is computed in this zone, not the server's — the host may be UTC. Validated with time.LoadLocation"),
+  session_store:    Enum["memory","sqlite"] @constraint(default: "memory", rule: "memory = today's map[chatID]*Session, lost on restart. sqlite persists Session (modernc.org/sqlite, no cgo) — a bot restart mid-conversation resumes slots/topic/voice instead of starting over"),
+  session_db_path:  String @constraint(default: "./data/sessions.db", rule: "used only when session_store=sqlite; parent dir is created if missing")
 }
 
 @schema GateParams {
@@ -71,12 +74,15 @@ repo is public).
 
 @schema Session {
   slots:     QuoteSlots,
-  history:   List<Msg> @constraint(rule: "trimmed to the last 20 Msg entries (about 10 turns); lost on restart"),
+  history:   List<Msg> @constraint(rule: "trimmed to the last 20 Msg entries (about 10 turns); lost on restart under the default session_store=memory, persisted under session_store=sqlite"),
   voice:     Enum["a","b"] @constraint(default: "a"),
   lang:      Enum["uk","en"] @constraint(rule: "set by detectLang (lingua-go) every turn it is confident — a mid-dialogue switch propagates; feeds STT langHint + the prompt language line + the fallback for handoff/apology lines (D-19)"),
   escalated: Bool @constraint(default: false),
   lead_done:  Bool @constraint(default: false, rule: "a lead_ready already fired this session"),
-  lead_slots: String @constraint(rule: "slot JSON at the last recorded lead; a repeat lead_ready with the same slots is a spurious re-trigger -> continue, one with different slots is a correction -> a fresh LeadRecord")
+  lead_slots: String @constraint(rule: "slot JSON at the last recorded lead; a repeat lead_ready with the same slots is a spurious re-trigger -> continue, one with different slots is a correction -> a fresh LeadRecord"),
+  gate_strike: Bool @constraint(default: false, rule: "two-strike grounding-gate counter, see REQ-DLG-13"),
+  topic:      String @constraint(rule: "which topics.json bundle this session belongs to; empty until chosen (single-topic mode auto-fills it) — see the topics/multi-assistant feature")
+  @constraint(rule: "all fields exported with explicit json tags (Go field != wire key for gate_strike/lead_slots) since a persisted session_store=sqlite row is encoding/json — an unexported field would silently vanish across a restart")
 }
 
 @schema Msg {
@@ -270,12 +276,12 @@ named constants are `@schema GateParams` in §1.
     with the fixed `clarifyLine` (states the bureau only does translations,
     lists the still-missing slots or the "already complete" tail) at
     `signal: continue`, records the exchange in history, and sets
-    `Session.gateStrike`. Only a **second consecutive** gate hit (`gateStrike`
-    already set) escalates. `gateStrike` clears on any turn that reaches the
+    `Session.GateStrike`. Only a **second consecutive** gate hit (`GateStrike`
+    already set) escalates. `GateStrike` clears on any turn that reaches the
     model, is small talk, or is a slot answer. `hardEscalate` (REQ-DLG-20),
     an explicit "I want a manager", and the model's own `signal: escalate`
     still hand off immediately.
-    -> [FUN-DLG-13] dialog.groundingGate(overlap float64, slotAnswer bool) (forceEscalate bool) @constraint(rule: "pure function of its two arguments"); dialog.isSmallTalk; dialog.clarifyLine(sess) @constraint(rule: "pre-LLM, deterministic — no hallucination, no political statement possible"); Session.gateStrike
+    -> [FUN-DLG-13] dialog.groundingGate(overlap float64, slotAnswer bool) (forceEscalate bool) @constraint(rule: "pure function of its two arguments"); dialog.isSmallTalk; dialog.clarifyLine(sess) @constraint(rule: "pre-LLM, deterministic — no hallucination, no political statement possible"); Session.GateStrike
 
 19. [REQ-DLG-14] `dialog.Handle` must execute the exact 14-step sequence in
     plan.md §"Behavioural spec": lock `Session.Lang` -> `hardEscalate` check
@@ -316,7 +322,7 @@ named constants are `@schema GateParams` in §1.
     is downgraded to `continue` and a warning logged; and a repeat `lead_ready`
     after one already fired this session (`Session.LeadDone`) is downgraded to
     `continue` **only when the slots are unchanged** from the recorded lead
-    (`Session.leadSlots`, JSON-compared) — a spurious re-trigger (2026-08-31
+    (`Session.LeadSlots`, JSON-compared) — a spurious re-trigger (2026-08-31
     test-5_1). A repeat `lead_ready` whose slots *differ* is a post-summary
     correction and IS let through, writing a fresh `LeadRecord`; consumers of
     `leads.jsonl` take the newest row per `chat_id` (2026-09-02, smoke 11d).
@@ -366,7 +372,7 @@ named constants are `@schema GateParams` in §1.
 25a. [REQ-DLG-21] `looksLikeInjection(text)` returns true when a client message
     is shaped like the model's own output — a JSON object naming a slot/signal
     field, or a ```` ``` ```` fence around one. A true result answers with the
-    `clarifyLine` **before the LLM** (a repeat still escalates via `gateStrike`)
+    `clarifyLine` **before the LLM** (a repeat still escalates via `GateStrike`)
     and never lets the text reach the model: gpt-4.1-mini otherwise reads slot
     values out of pasted JSON and emits `lead_ready` (smoke §15c).
     -> [FUN-DLG-21] dialog.looksLikeInjection(text string) bool
@@ -461,9 +467,24 @@ named constants are `@schema GateParams` in §1.
 35. [REQ-BOT-04] `telegram.Client.Updates` must advance the `getUpdates`
     offset only after an update is delivered on its channel. A crash before
     that re-delivers the update (a repeated greeting or turn, at worst a
-    duplicate lead in the log) — acceptable for a demo; no persistence is
-    added (deferred, §6).
+    duplicate lead in the log) — acceptable for a demo; no update-id dedup is
+    added (deferred, §6). Independent of `Session` persistence (REQ-BOT-05):
+    a re-delivered update still replays against whatever `Session` state
+    `session_store` currently holds.
     -> [PHY-BOT-04] internal/telegram long-poll: offset = last delivered update_id + 1
+
+35a. [REQ-BOT-05] `cmd/bot` reads and writes `Session` through exactly one
+    `sessionStore.Load`/`Save` pair per update — loaded once at the top of
+    `handleUpdate`, saved once via a deferred call, skipped only when the
+    turn deleted the session (`/reset`, `/clean`). Both the `memory` and
+    `sqlite` backends are copy-semantics (`Load` never returns a pointer
+    aliased to stored state), so a code path that mutates `Session` and
+    forgets to go through the single save point loses the change under
+    *either* backend — the bug can't hide behind the cheap default. First
+    contact (REQ-UX-02's "greet once") is derived from `Load`'s `found`
+    result, not a separate in-memory set, so `/reset` deleting the row also
+    makes the next message replay the greeting.
+    -> [FUN-BOT-05] cmd/bot sessionStore interface (Load/Save/Delete/Close); cmd/bot.newMemSessions; internal/store.SQLiteSessions; cmd/bot handleUpdate single load/save point
 
 ---
 
@@ -508,9 +529,11 @@ named constants are `@schema GateParams` in §1.
 ## 6. Deferred — explicitly NOT in the demo
 
 Real Zoho CRM connection; telephony (inbound calls, recording, transcription,
-warm transfer, a phone number); real-time full-duplex voice; any database
-(Postgres, SQLite, pgvector, FTS); other channels (web widget, WhatsApp);
-self-service KB editing; persistence across restart; auth; multi-tenant; real
+warm transfer, a phone number); real-time full-duplex voice; a database for
+anything beyond `Session` (Postgres, pgvector, FTS, analytics/KB storage —
+`session_store=sqlite` is opt-in session persistence only, see @schema
+Config, not a general-purpose store); other channels (web widget, WhatsApp);
+self-service KB editing; auth; multi-tenant; real
 analytics dashboards; Google Cloud TTS (the `Synthesizer` interface should
 accept a third impl, but do not build it); the full GDPR data architecture
 (the demo shows only the consent line REQ-UX-02 and uses no real data). The

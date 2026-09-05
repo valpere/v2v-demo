@@ -27,13 +27,13 @@ make run            # starts the bot (Ctrl-C to stop)
 
 - There is **one chat**: you ↔ `@v2v_demo_bot`. Two separate reset actions —
   the doc says which one each step needs:
-  - **Reset the session** — clears the **in-memory session** (slots,
-    history, language, escalated flag). Send **`/reset`** in the chat (fast,
-    no interruption, and **no greeting replay** — a test aid). A bot restart
-    (Ctrl-C + `make run`) also clears it *and* re-arms the greeting — use
-    that for section 1 (first-contact / greeting tests); `/reset` for
-    everything else. `/start` only re-sends the greeting text, clears
-    nothing. Neither touches `data/`.
+  - **Reset the session** — clears the session (slots, history, language,
+    escalated flag) **and re-arms the greeting**: send **`/reset`** in the
+    chat, then the *next* message gets the greeting again before its own
+    reply (first-contact is derived from whether a session row exists —
+    `/reset` deletes it, same as a chat the bot has never seen). Fast, no
+    interruption. `/start` only re-sends the greeting text, clears nothing.
+    Neither touches `data/`.
   - **Clear the logs** — with the bot stopped, `rm -f data/*.jsonl` (the bot
     recreates them). Do this when a step checks `data/leads.jsonl` for
     "one row" / "one new row" — it makes the count absolute instead of
@@ -41,6 +41,11 @@ make run            # starts the bot (Ctrl-C to stop)
   - **Full reset** = `/reset` **and** clear the logs. Section 2 (and any
     step checking a `leads.jsonl` row count) needs a full reset before every
     lettered scenario.
+  - **`SESSION_STORE`** (default `memory`) — a bot restart (Ctrl-C +
+    `make run`) also clears the session under the default `memory` store,
+    same as `/reset`. Set `SESSION_STORE=sqlite` (`.env`) to have a restart
+    resume mid-conversation instead — the distinction below between "restart"
+    and "`/reset`" for section 1 only holds under the default `memory` mode.
 - The **first voice message ever** downloads the Whisper model (~1.5 GB) —
   that one turn takes minutes. After that, ≈ 12 s STT + ~40 s LLM per voice
   turn on the dev backends (the client config is much faster — see below).
@@ -1080,7 +1085,7 @@ Mostly **covered by Go tests** — the observable half you can still eyeball in
 | normal grounded answer → `matched` lists the KB sections | `dialog.TestKBOverlap` + the section 2–16 live runs |
 | bot asks "Хто одержувач?", answer `Для мого дядька в Торонто` → slot answer, **not** escalated despite zero KB overlap `[R]` | `dialog.TestIsSlotAnswer` ("answer after a question + trailing clause") |
 | conversation past 20 turns → history trims, no error, the six slot values survive (slot state is separate from history) | `dialog.TestHandleHistoryTrimKeepsSlots` |
-| restart the bot mid-conversation → that chat's slots / history are **gone** | by design — `app.sessions` is an in-memory map, nothing persists it. A quick live confirmation is fine but there's nothing to assert. |
+| restart the bot mid-conversation → that chat's slots / history are **gone** under the default `SESSION_STORE=memory`, **survive** under `SESSION_STORE=sqlite` | `internal/store.TestSQLiteSessionsRoundTrip` + concurrency/not-found tests. A quick live confirmation of either mode is fine but there's nothing more to assert. |
 
 ---
 

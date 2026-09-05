@@ -28,8 +28,8 @@ func (s QuoteSlots) Complete() bool {
 
 // Msg is one entry of the rolling conversation history.
 type Msg struct {
-	Role string // "user" | "assistant"
-	Text string
+	Role string `json:"role"` // "user" | "assistant"
+	Text string `json:"text"`
 }
 
 // Signal is the model's per-turn control signal (or one the gate forces).
@@ -41,28 +41,38 @@ const (
 	SignalEscalate  Signal = "escalate"
 )
 
-// Session is the per-chat state, held in memory and dropped on restart.
+// Session is the per-chat state. By default it lives in memory only and is
+// dropped on restart; SESSION_STORE=sqlite persists it (cmd/bot + internal/store).
+// All fields are exported (and json-tagged) so the whole struct round-trips
+// through encoding/json for storage — encoding/json silently drops
+// unexported fields, which would otherwise reset LeadSlots/GateStrike on
+// every reload.
 type Session struct {
-	Slots     QuoteSlots
-	History   []Msg  // trimmed to the last HistoryLimit entries
-	Voice     string // "a" | "b"; default "a"
-	Lang      string // "uk" | "en"; locked from the first non-empty user turn
-	Escalated bool
-	LeadDone  bool // a lead_ready already fired this session
+	Slots     QuoteSlots `json:"slots"`
+	History   []Msg      `json:"history"` // trimmed to the last HistoryLimit entries
+	Voice     string     `json:"voice"`   // "a" | "b"; default "a"
+	Lang      string     `json:"lang"`    // "uk" | "en"; locked from the first non-empty user turn
+	Escalated bool       `json:"escalated"`
+	LeadDone  bool       `json:"lead_done"` // a lead_ready already fired this session
 
-	// leadSlots is the slot JSON at the last lead_ready that was allowed
+	// LeadSlots is the slot JSON at the last lead_ready that was allowed
 	// through. A later lead_ready with the *same* slots is a spurious
 	// re-trigger and is downgraded to continue; a later one with *different*
 	// slots is a real post-summary correction and is let through so a
 	// corrected LeadRecord gets written (consumers take the newest row per
 	// chat). Empty until the first lead.
-	leadSlots string
+	LeadSlots string `json:"lead_slots"`
 
-	// gateStrike is set when the grounding gate fired on the previous turn
+	// GateStrike is set when the grounding gate fired on the previous turn
 	// and the bot answered with the fixed clarification line instead of
 	// escalating. A second consecutive gate hit escalates. Cleared on any
 	// turn that reaches the model, is small talk, or is a slot answer.
-	gateStrike bool
+	GateStrike bool `json:"gate_strike"`
+
+	// Topic is the chosen assistant/KB id (cmd/bot topics.go); empty means
+	// no topic has been picked yet. Ignored by Handle itself — cmd/bot
+	// resolves which KB/system prompt to pass in based on this.
+	Topic string `json:"topic"`
 }
 
 // Reply is the outcome of one turn.

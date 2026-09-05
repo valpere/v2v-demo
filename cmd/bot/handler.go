@@ -19,29 +19,6 @@ import (
 // while a turn runs (server-side it lasts ~5s). See @schema GateParams.
 const RecordingTick = 4 * time.Second
 
-func (a *app) session(id int64) *dialog.Session {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	s := a.sessions[id]
-	if s == nil {
-		s = &dialog.Session{Voice: "a"}
-		a.sessions[id] = s
-	}
-	return s
-}
-
-// firstContact marks the chat seen and reports whether this is the first time
-// (REQ-UX-02 — greet once per chat).
-func (a *app) firstContact(id int64) bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.seen[id] {
-		return false
-	}
-	a.seen[id] = true
-	return true
-}
-
 func (a *app) send(ctx context.Context, chatID int64, text string) {
 	if err := a.tg.SendText(ctx, chatID, text); err != nil {
 		log.Printf("send (chat %d): %v", chatID, err)
@@ -82,6 +59,13 @@ func (a *app) startRecordingTicker(ctx context.Context, chatID int64) (stop func
 // handleUpdate processes one inbound update. The per-chat worker calls this
 // serially, so no locking is needed for sess. A panic is recovered and
 // logged — it never stops the worker (REQ-NFR-03).
+//
+// Session state has exactly one load point and one save point: Load here,
+// and the deferred Save below (skipped only when the turn deleted the
+// session, e.g. /reset). Every mutation in between — slot fills, /voice,
+// the gate strike, etc. — relies on that deferred Save to persist; nothing
+// else in this file calls a.sessions.Save directly. See sessionStore's doc
+// comment in sessions.go for why that discipline matters.
 func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -89,9 +73,25 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 		}
 	}()
 
-	sess := a.session(u.ChatID)
+	sess, found, err := a.sessions.Load(u.ChatID)
+	if err != nil {
+		log.Printf("session load (chat %d): %v", u.ChatID, err)
+	}
+	if sess == nil {
+		sess = &dialog.Session{Voice: "a"}
+	}
 
-	if first := a.firstContact(u.ChatID); u.IsStart || first {
+	deleted := false
+	defer func() {
+		if deleted {
+			return
+		}
+		if err := a.sessions.Save(u.ChatID, sess); err != nil {
+			log.Printf("session save (chat %d): %v", u.ChatID, err)
+		}
+	}()
+
+	if isFirst := !found; u.IsStart || isFirst {
 		a.send(ctx, u.ChatID, a.greeting)
 		if u.IsStart {
 			return // /start carries no other content
@@ -105,7 +105,9 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 
 	// slash commands are handled here, never reach dialog.Handle
 	if strings.HasPrefix(strings.TrimSpace(text), "/") {
-		a.handleCommand(ctx, sess, u.ChatID, text)
+		if a.handleCommand(ctx, sess, u.ChatID, text) {
+			deleted = true
+		}
 		return
 	}
 
@@ -191,24 +193,28 @@ func (a *app) resolveText(ctx context.Context, sess *dialog.Session, u telegram.
 }
 
 // handleCommand handles /voice and /reset (and swallows any other slash
-// command with a short hint, so a stray "/foo" never becomes a dialogue turn).
-func (a *app) handleCommand(ctx context.Context, sess *dialog.Session, chatID int64, text string) {
+// command with a short hint, so a stray "/foo" never becomes a dialogue
+// turn). It reports whether the session was deleted, so handleUpdate's
+// deferred Save can skip re-persisting a session that no longer exists.
+func (a *app) handleCommand(ctx context.Context, sess *dialog.Session, chatID int64, text string) bool {
 	switch cmd := strings.ToLower(strings.TrimSpace(text)); cmd {
 	case "/voice a", "/voice b":
 		sess.Voice = cmd[len(cmd)-1:]
 		a.send(ctx, chatID, dialog.VoiceSwitchedLine(sess))
 	case "/reset", "/clean":
-		// drop this chat's in-memory session (slots, history, language,
-		// escalated flag) — a smoke-test aid. `seen` is kept, so the greeting
-		// does NOT replay; testing first-contact / the greeting itself needs
-		// a real bot restart. Harmless if a real user finds it.
-		a.mu.Lock()
-		delete(a.sessions, chatID)
-		a.mu.Unlock()
+		// drop this chat's session (slots, history, language, escalated
+		// flag) — a smoke-test aid. First-contact is now derived from
+		// whether Load finds a row, so /reset also makes the next message
+		// replay the greeting (unlike the old in-memory-only "seen" map).
+		if err := a.sessions.Delete(chatID); err != nil {
+			log.Printf("session delete (chat %d): %v", chatID, err)
+		}
 		a.send(ctx, chatID, "Сесію очищено. / Session cleared.")
+		return true
 	default: // "/voice", "/start" after greeting, "/help", anything unknown
 		a.send(ctx, chatID, voiceHelp(sess))
 	}
+	return false
 }
 
 func voiceHelp(sess *dialog.Session) string {

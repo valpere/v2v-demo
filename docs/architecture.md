@@ -118,23 +118,40 @@ All HTTP is stdlib.
 
 ## 4. Session & slot state
 
-In-memory `map[chatID]*Session`, dropped on restart (NFR: persistence is
-deferred, D-7).
+`SESSION_STORE` (default `memory`) picks the backend behind `cmd/bot`'s
+`sessionStore` interface (`Load`/`Save`/`Delete`/`Close`):
+
+- `memory` — a `map[chatID][]byte` of the same JSON encoding the SQLite
+  backend uses, dropped on restart.
+- `sqlite` — `internal/store.SQLiteSessions` (`modernc.org/sqlite`, no cgo;
+  `SESSION_DB_PATH`, default `./data/sessions.db`), survives a restart.
+
+Both are **copy-semantics**: `Load` always hands back a session decoded
+fresh from storage, never a pointer aliased to what the store holds.
+`cmd/bot.handleUpdate` reads and writes through exactly one load/save pair
+per update (`Load` at the top, a deferred `Save` — skipped only when the
+turn deleted the session via `/reset`), so a mutation that forgot to persist
+fails identically under either backend instead of only surfacing after
+switching to `sqlite`.
 
 ```
 Session
-  History  []Msg          // last 20 entries (about 10 turns), trimmed
-  Slots    QuoteSlots     // 6 optional fields (FR-7)
-  Voice    string         // "a" | "b" (FR-11)
-  Lang     string         // "uk" | "en" — detectLang (lingua-go) each confident turn; feeds STT + prompt + fixed lines
-  Escalated bool
-  LeadDone  bool          // a lead_ready already fired this session
-  leadSlots string        // slot JSON at the last lead — repeat lead_ready: same slots -> continue, changed -> a corrected LeadRecord
+  History    []Msg        // last 20 entries (about 10 turns), trimmed
+  Slots      QuoteSlots   // 6 optional fields (FR-7)
+  Voice      string       // "a" | "b" (FR-11)
+  Lang       string       // "uk" | "en" — detectLang (lingua-go) each confident turn; feeds STT + prompt + fixed lines
+  Escalated  bool
+  LeadDone   bool         // a lead_ready already fired this session
+  LeadSlots  string       // slot JSON at the last lead — repeat lead_ready: same slots -> continue, changed -> a corrected LeadRecord
+  GateStrike bool         // two-strike grounding-gate counter (§5)
+  Topic      string       // which topics.json bundle this session belongs to
 ```
 
 Per-chat turns are processed by one **serial worker goroutine per chat**
 (fed by a buffered channel), so they run in arrival order; different chats
-run concurrently. A `sync.Mutex` guards the shared maps only.
+run concurrently. A `sync.Mutex` guards the shared `inbox` map only —
+session state goes through `sessionStore`, not a locked map, now that
+either backend can be swapped in.
 
 `QuoteSlots`: `LanguagePair, DocType, Volume, Deadline, Certification,
 Delivery` — all `*string` (or small typed enums where the KB constrains the
@@ -190,7 +207,7 @@ The demo validates the *conversation design*; the MVP swaps the *substrate*.
 |---|---|
 | `dialog.Handle` (transcript + state + KB → reply + state + signal) | L1 orchestrator + a confidence/HITL gate (ragivka's `pkg/orchestrator` + `pkg/tools.HITLGate`, or the equivalent) |
 | whole KB in the prompt + kbOverlap gate | SQLite FTS5 + vector search (see §7.1) |
-| `map[chatID]*Session`, lost on restart | SQLite `session` table + FSM |
+| `sessionStore`: memory (default) or SQLite session persistence (§4) — done today, opt-in | full FSM on top of the SQLite `session` table |
 | JSONL turn log | SQLite `message` + `audit_log` tables |
 | lead record written to the log | real Zoho lead via REST (`.eu` base) |
 | Telegram voice glue in `internal/telegram` | a reusable `channel/voice` adapter |

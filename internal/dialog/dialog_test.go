@@ -211,7 +211,7 @@ func TestHandleGateStrikeResetsOnARealTurn(t *testing.T) {
 
 	dialogHandle(t, sess, gen, "абракадабра нісенітниця")                      // strike 1
 	dialogHandle(t, sess, gen, "переклад диплома з української на англійську") // real turn -> reset
-	if sess.gateStrike {
+	if sess.GateStrike {
 		t.Fatal("gateStrike not cleared after a turn that reached the model")
 	}
 	r, _ := dialogHandle(t, sess, gen, "qwqw zzz nonsense") // strike 1 again, not escalate

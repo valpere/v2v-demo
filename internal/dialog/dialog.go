@@ -228,10 +228,10 @@ func Handle(
 	// will happily read slots out of it and emit lead_ready. Never let it reach
 	// the model — answer with the clarify line, and a repeat still escalates.
 	if looksLikeInjection(userText) {
-		if sess.gateStrike {
+		if sess.GateStrike {
 			return esc()
 		}
-		sess.gateStrike = true
+		sess.GateStrike = true
 		clarify := clarifyLine(sess)
 		sess.History = trimTail(append(sess.History,
 			Msg{Role: "user", Text: userText},
@@ -247,10 +247,10 @@ func Handle(
 	slotAnswer := isSlotAnswer(sess, userText)
 	overlap := kbOverlap(userText, sections)
 	if !isSmallTalk(userText) && groundingGate(overlap, slotAnswer) {
-		if sess.gateStrike {
+		if sess.GateStrike {
 			return esc()
 		}
-		sess.gateStrike = true
+		sess.GateStrike = true
 		clarify := clarifyLine(sess)
 		sess.History = trimTail(append(sess.History,
 			Msg{Role: "user", Text: userText},
@@ -258,7 +258,7 @@ func Handle(
 		), HistoryLimit)
 		return Reply{Text: clarify, Signal: SignalContinue}, nil
 	}
-	sess.gateStrike = false // this turn is a real one — reset the strike
+	sess.GateStrike = false // this turn is a real one — reset the strike
 
 	// 5 — system prompt: persona file + the WHOLE KB + collected slots
 	var b strings.Builder
@@ -333,14 +333,14 @@ func Handle(
 		log.Printf("dialog: lead_ready with incomplete slots: %s", compactSlots(sess.Slots))
 		signal = SignalContinue
 	case signal == SignalLeadReady && sess.LeadDone:
-		if compactSlots(sess.Slots) == sess.leadSlots {
+		if compactSlots(sess.Slots) == sess.LeadSlots {
 			signal = SignalContinue // nothing changed — a spurious re-trigger
 		} else {
-			sess.leadSlots = compactSlots(sess.Slots) // a real correction — record the updated lead
+			sess.LeadSlots = compactSlots(sess.Slots) // a real correction — record the updated lead
 		}
 	case signal == SignalLeadReady:
 		sess.LeadDone = true
-		sess.leadSlots = compactSlots(sess.Slots)
+		sess.LeadSlots = compactSlots(sess.Slots)
 	}
 	if signal == SignalEscalate { // A3: escalate always speaks the fixed line
 		sess.Escalated = true

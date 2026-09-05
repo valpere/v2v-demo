@@ -119,21 +119,54 @@ func newTestApp(t *testing.T, gen dialog.Generator) (*app, *fakeTG) {
 		sys:      "SYS",
 		greeting: "GREETING",
 		loc:      time.UTC,
-		sessions: make(map[int64]*dialog.Session),
-		seen:     make(map[int64]bool),
+		sessions: newMemSessions(),
 		inbox:    make(map[int64]chan telegram.Update),
 	}, tg
+}
+
+// seed marks chatID as already contacted (so handleUpdate skips the
+// greeting) and returns a fresh *dialog.Session for the test to mutate —
+// call save(t, a, chatID, sess) to persist any change before the next
+// handleUpdate, since sessionStore is copy-semantics (see sessions.go).
+func seed(t *testing.T, a *app, chatID int64) *dialog.Session {
+	t.Helper()
+	sess := &dialog.Session{Voice: "a"}
+	if err := a.sessions.Save(chatID, sess); err != nil {
+		t.Fatalf("seed session %d: %v", chatID, err)
+	}
+	return sess
+}
+
+// loadSession is the test-side equivalent of handleUpdate's load point —
+// used to peek at a session's state after a turn.
+func loadSession(t *testing.T, a *app, chatID int64) *dialog.Session {
+	t.Helper()
+	sess, _, err := a.sessions.Load(chatID)
+	if err != nil {
+		t.Fatalf("load session %d: %v", chatID, err)
+	}
+	if sess == nil {
+		sess = &dialog.Session{Voice: "a"}
+	}
+	return sess
+}
+
+func save(t *testing.T, a *app, chatID int64, sess *dialog.Session) {
+	t.Helper()
+	if err := a.sessions.Save(chatID, sess); err != nil {
+		t.Fatalf("save session %d: %v", chatID, err)
+	}
 }
 
 // ── tests ───────────────────────────────────────────────────────
 
 func TestVoiceCommand(t *testing.T) {
 	a, tg := newTestApp(t, &fakeGen{})
-	a.seen[7] = true // skip greeting
+	seed(t, a, 7) // skip greeting
 
 	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, Text: "/voice b"})
-	if a.session(7).Voice != "b" {
-		t.Fatalf("voice = %q, want b", a.session(7).Voice)
+	if v := loadSession(t, a, 7).Voice; v != "b" {
+		t.Fatalf("voice = %q, want b", v)
 	}
 	if last := tg.sent()[len(tg.sent())-1]; !contains(last, "другий") {
 		t.Fatalf("/voice b line = %q, want the 'second voice' one", last)
@@ -154,7 +187,7 @@ func TestVoiceCommand(t *testing.T) {
 func TestTextOnlyWhenNoTTS(t *testing.T) {
 	a, tg := newTestApp(t, &fakeGen{})
 	a.tts = nil // TTS_BACKEND=none
-	a.seen[7] = true
+	seed(t, a, 7)
 
 	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, Text: "Скільки коштує?"})
 
@@ -170,7 +203,7 @@ func TestVoiceMessageWhenNoSTT(t *testing.T) {
 	gen := &fakeGen{}
 	a, tg := newTestApp(t, gen)
 	a.stt = nil // STT_BACKEND=none
-	a.seen[7] = true
+	seed(t, a, 7)
 
 	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, VoiceFileID: "vf"})
 
@@ -195,13 +228,18 @@ func TestResetClearsSession(t *testing.T) {
 
 	ctx := context.Background()
 	a.handleUpdate(ctx, telegram.Update{ChatID: 7, Text: "Треба перекласти диплом"}) // greeting + turn
-	a.session(7).Slots.DocType = strptr("диплом")
+	sess := loadSession(t, a, 7)
+	sess.Slots.DocType = strptr("диплом")
+	save(t, a, 7, sess)
 
 	a.handleUpdate(ctx, telegram.Update{ChatID: 7, Text: "/reset"})
-	if a.session(7).Slots.DocType != nil {
+	if loadSession(t, a, 7).Slots.DocType != nil {
 		t.Fatal("/reset should drop the session's slots")
 	}
 
+	// first-contact is derived from sessionStore.Load's found flag, so a
+	// deleted session (via /reset) is indistinguishable from a chat that
+	// never wrote — the greeting correctly replays.
 	greetings := func() (n int) {
 		for _, s := range tg.sent() {
 			if s == "GREETING" {
@@ -212,8 +250,8 @@ func TestResetClearsSession(t *testing.T) {
 	}
 	before := greetings()
 	a.handleUpdate(ctx, telegram.Update{ChatID: 7, Text: "hi again"})
-	if greetings() != before {
-		t.Fatalf("greeting replayed after /reset (%d → %d); it should not", before, greetings())
+	if greetings() != before+1 {
+		t.Fatalf("greeting count after /reset+message = %d, want %d (should replay once)", greetings(), before+1)
 	}
 }
 
@@ -222,7 +260,7 @@ func strptr(s string) *string { return &s }
 func TestUnknownCommandNotADialogueTurn(t *testing.T) {
 	gen := &fakeGen{}
 	a, _ := newTestApp(t, gen)
-	a.seen[7] = true
+	seed(t, a, 7)
 	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, Text: "/wat"})
 	if len(gen.seen) != 0 {
 		t.Fatalf("slash command reached the generator: %v", gen.seen)
@@ -247,7 +285,7 @@ func TestGreetingOncePerChat(t *testing.T) {
 func TestPerChatFIFOOrdering(t *testing.T) {
 	gen := &fakeGen{delay: 20 * time.Millisecond}
 	a, _ := newTestApp(t, gen)
-	a.seen[7] = true
+	seed(t, a, 7)
 
 	ctx := context.Background()
 	want := []string{"translation 1", "translation 2", "translation 3", "translation 4", "translation 5"}
@@ -282,26 +320,27 @@ func TestPerChatFIFOOrdering(t *testing.T) {
 // 16b — two chats at once: one escalates, the other is untouched.
 func TestPerChatIsolation(t *testing.T) {
 	a, tg := newTestApp(t, &fakeGen{})
-	a.seen[3], a.seen[9] = true, true
+	seed(t, a, 9)
 	ctx := context.Background()
 
 	// chat 3 is mid-quote — 4 of 6 slots filled
-	s3 := a.session(3)
+	s3 := seed(t, a, 3)
 	s3.Slots.LanguagePair = strptr("uk->pl")
 	s3.Slots.DocType = strptr("диплом")
 	s3.Slots.Volume = strptr("2 pages")
 	s3.Slots.Deadline = strptr("Friday")
+	save(t, a, 3, s3)
 
 	// chat 9 sends a refund demand -> hard escalate
 	a.handleUpdate(ctx, telegram.Update{ChatID: 9, Text: "Поверніть гроші за переклад, це скарга"})
 
-	if !a.session(9).Escalated {
+	if !loadSession(t, a, 9).Escalated {
 		t.Fatal("chat 9 should be escalated")
 	}
-	if a.session(3).Escalated {
+	if loadSession(t, a, 3).Escalated {
 		t.Fatal("chat 9's escalation leaked into chat 3")
 	}
-	if got := a.session(3).Slots; got.LanguagePair == nil || got.DocType == nil ||
+	if got := loadSession(t, a, 3).Slots; got.LanguagePair == nil || got.DocType == nil ||
 		got.Volume == nil || got.Deadline == nil {
 		t.Fatalf("chat 3 lost its slots: %+v", got)
 	}
@@ -319,7 +358,7 @@ func TestGeneratorErrorNoCrashThenRecovers(t *testing.T) {
 	gen := &fakeGen{err: errors.New("dial tcp 127.0.0.1:1: connection refused")}
 	a, tg := newTestApp(t, gen)
 	a.kb = []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}
-	a.seen[5] = true
+	seed(t, a, 5)
 	ctx := context.Background()
 
 	a.handleUpdate(ctx, telegram.Update{ChatID: 5, Text: "Скільки коштує переклад диплома?"})
@@ -347,7 +386,7 @@ func TestTTSErrorFallsBackToText(t *testing.T) {
 	a, tg := newTestApp(t, &fakeGen{})
 	a.tts = fakeTTS{err: errors.New("401 Unauthorized")}
 	a.kb = []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}
-	a.seen[5] = true
+	seed(t, a, 5)
 
 	a.handleUpdate(context.Background(), telegram.Update{ChatID: 5, Text: "Скільки коштує переклад диплома?"})
 
@@ -366,7 +405,7 @@ func TestTTSErrorFallsBackToText(t *testing.T) {
 func TestWhitespaceInputNotADialogueTurn(t *testing.T) {
 	gen := &fakeGen{}
 	a, _ := newTestApp(t, gen)
-	a.seen[5] = true
+	seed(t, a, 5)
 
 	a.handleUpdate(context.Background(), telegram.Update{ChatID: 5, Text: "    "})
 
@@ -379,7 +418,7 @@ func TestWhitespaceInputNotADialogueTurn(t *testing.T) {
 func TestDegenerateShortInputsNoCrash(t *testing.T) {
 	gen := &fakeGen{}
 	a, tg := newTestApp(t, gen)
-	a.seen[5] = true
+	seed(t, a, 5)
 	ctx := context.Background()
 
 	for _, msg := range []string{"5", "👍", "."} {
@@ -396,7 +435,7 @@ func TestTurnRecordOnlyForDialogueTurns(t *testing.T) {
 	a, _ := newTestApp(t, &fakeGen{})
 	a.stt = fakeSTT{err: errors.New("whisper exploded")}
 	a.kb = []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}
-	a.seen[7] = true
+	seed(t, a, 7)
 	ctx := context.Background()
 	turns := filepath.Join(a.cfg.DataDir, "turns.jsonl")
 

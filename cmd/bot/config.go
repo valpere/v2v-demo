@@ -41,6 +41,9 @@ type Config struct {
 
 	Timezone string // IANA name for the bureau's local time (BOT_TIMEZONE); the
 	// server may be UTC, so this is what the "office hours" prompt block uses
+
+	SessionStore  string // "memory" (default) | "sqlite" (SESSION_STORE)
+	SessionDBPath string // SQLite file, only used when SessionStore=="sqlite"
 }
 
 // LoadConfig builds Config from the process environment, falling back to a
@@ -93,6 +96,9 @@ func LoadConfig() (Config, error) {
 		DataDir:          def("DATA_DIR", "./data"),
 
 		Timezone: def("BOT_TIMEZONE", "Europe/Kyiv"),
+
+		SessionStore:  def("SESSION_STORE", "memory"),
+		SessionDBPath: def("SESSION_DB_PATH", "./data/sessions.db"),
 	}
 
 	if err := cfg.validate(); err != nil {
@@ -160,6 +166,12 @@ func (c Config) validate() error {
 
 	if _, err := time.LoadLocation(c.Timezone); err != nil {
 		errs = append(errs, fmt.Sprintf("BOT_TIMEZONE %q: %v", c.Timezone, err))
+	}
+
+	switch c.SessionStore {
+	case "memory", "sqlite":
+	default:
+		errs = append(errs, fmt.Sprintf("SESSION_STORE %q: want memory|sqlite", c.SessionStore))
 	}
 
 	if len(errs) > 0 {

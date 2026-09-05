@@ -151,15 +151,20 @@ type modelReply struct {
 	Signal Signal     `json:"signal"`
 }
 
+// All fields exported with explicit json tags — a SESSION_STORE=sqlite row
+// is encoding/json, and an unexported field silently vanishes across a
+// restart (that's why leadSlots/gateStrike were renamed from their original
+// unexported form).
 type Session struct {
-	Slots     QuoteSlots
-	History   []Msg  // trimmed to the last HistoryLimit (20) Msg entries ≈ 10 turns
-	Voice     string // "a" | "b"; default "a"
-	Lang      string // "uk" | "en"; last turn detectLang was confident (mid-switch propagates); "" until then
-	Escalated bool
-	LeadDone   bool   // a lead_ready already fired this session
-	leadSlots  string // slot JSON at the last recorded lead; repeat lead_ready — same slots -> continue (test-5_1), changed -> a corrected LeadRecord (11d)
-	gateStrike bool   // gate fired last turn (-> clarifyLine); a 2nd hit in a row escalates
+	Slots      QuoteSlots `json:"slots"`
+	History    []Msg      `json:"history"`     // trimmed to the last HistoryLimit (20) Msg entries ≈ 10 turns
+	Voice      string     `json:"voice"`       // "a" | "b"; default "a"
+	Lang       string     `json:"lang"`        // "uk" | "en"; last turn detectLang was confident (mid-switch propagates); "" until then
+	Escalated  bool       `json:"escalated"`
+	LeadDone   bool       `json:"lead_done"`   // a lead_ready already fired this session
+	LeadSlots  string     `json:"lead_slots"`  // slot JSON at the last recorded lead; repeat lead_ready — same slots -> continue (test-5_1), changed -> a corrected LeadRecord (11d)
+	GateStrike bool       `json:"gate_strike"` // gate fired last turn (-> clarifyLine); a 2nd hit in a row escalates
+	Topic      string     `json:"topic"`       // which topics.json bundle this session belongs to (multi-topic feature; empty in single-topic mode)
 }
 
 type Generator interface {
@@ -237,7 +242,7 @@ type Config struct {
 	AzureVoiceA  string
 	AzureVoiceB  string
 
-	STTBackend   string // "local" (default) | "openai" (I-10 client recording)
+	STTBackend   string // "none" | "local" (default) | "openai" (I-10 client recording)
 	WhisperBin   string // openai-whisper CLI; default "whisper"
 	WhisperModel string // openai-whisper model name; default "turbo"
 	WhisperLang  string // "auto" | "uk" | "en"
@@ -252,6 +257,9 @@ type Config struct {
 	SystemPromptPath string
 	GreetingPath     string
 	DataDir          string
+
+	SessionStore  string // "memory" (default) | "sqlite" (SESSION_STORE)
+	SessionDBPath string // SQLite file; only used when SessionStore=="sqlite"; default "./data/sessions.db"
 }
 func LoadConfig() (Config, error)
 // env + optional .env (tiny hand parser: KEY=VALUE lines, "#" comments, no
@@ -261,6 +269,7 @@ func LoadConfig() (Config, error)
 //   STT_BACKEND WHISPER_BIN WHISPER_MODEL WHISPER_LANG
 //   DIALOG_BACKEND DIALOG_MODEL GEMINI_API_KEY OLLAMA_BASE_URL OPENAI_API_KEY
 //   KB_PATH SYSTEM_PROMPT_PATH GREETING_PATH DATA_DIR
+//   SESSION_STORE SESSION_DB_PATH
 ```
 
 ## Behavioural spec (pseudocode)
@@ -460,8 +469,19 @@ NOT order: two quick messages race for the lock and ~half the time invert.
 Fixed 2026-08-31, test-5_1.)
 
 ```
-sessions : map[int64]*Session          // guarded by mu sync.Mutex (map access only)
-seen     : map[int64]bool               // greeted this chat? guarded by mu
+// sessionStore replaces a bare map: Load/Save/Delete/Close, backed by
+// memory (default) or SQLite (SESSION_STORE=sqlite). Both implementations
+// are copy-semantics — Load never returns a pointer aliased to stored
+// state — so handleUpdate's single load/save pair (below) is the only
+// place a mutation becomes durable.
+type sessionStore interface {
+    Load(chatID int64) (sess *Session, found bool, err error)
+    Save(chatID int64, sess *Session) error
+    Delete(chatID int64) error
+    Close() error
+}
+
+sessions : sessionStore                 // memory (map[int64][]byte) or SQLite
 inbox    : map[int64]chan Update         // per-chat FIFO; guarded by mu
 
 main:
@@ -477,21 +497,32 @@ chatWorker(ch):  for u := range ch { handleUpdate(u) }   // sequential, in order
 
 handleUpdate(u Update):
     defer recover-and-log                             // a panic in one turn never kills the worker
-    sess := getOrCreateSession(u.ChatID)              // no per-turn lock — the worker is the serialization
+
+    // single load/save point: Load here, a deferred Save below (skipped
+    // only when the turn deleted the session, e.g. /reset). No per-turn
+    // lock needed — the worker is the serialization.
+    sess, found, err := sessions.Load(u.ChatID)
+    if sess == nil { sess = &Session{Voice: "a"} }
+    deleted := false
+    defer func() { if !deleted { sessions.Save(u.ChatID, sess) } }()
 
     // slash commands (after greeting, after transcript) are handled here,
     // never reach dialog.Handle: "/voice a|b" switches sess.Voice;
-    // "/reset" | "/clean" drops this chat's dialog.Session (slots/history/
-    // lang/escalated) — a smoke-test aid; `seen` is kept so the greeting does
-    // not replay. Any other "/..." gets a one-line /voice usage hint.
+    // "/reset" | "/clean" calls sessions.Delete + sets deleted=true — since
+    // first-contact is derived from Load's found flag (not a separate
+    // "seen" set), this also makes the greeting replay on the next message.
+    // Any other "/..." gets a one-line /voice usage hint.
 
-    if u.IsStart || firstMessage(u.ChatID):
-        tg.SendText(ctx, u.ChatID, greet); markSeen(u.ChatID)
+    if u.IsStart || !found:
+        tg.SendText(ctx, u.ChatID, greet)
         if u.IsStart { return }                       // /start carries no other content
 
     // 1. transcript
     var text string
     if u.VoiceFileID != "":
+        if stt == nil:                                 // STT_BACKEND=none
+            tg.SendText(ctx, u.ChatID, voiceUnavailableLine(sessLang(sess)))
+            return                                    // no download attempted, no turn record
         stopTicker := startRecordingTicker(ctx, tg, u.ChatID)   // re-sends every RecordingTick
         ogg, err := tg.DownloadVoice(ctx, u.VoiceFileID)
         if err == nil { text, err = stt.Transcribe(ctx, ogg, cfg.WhisperLang); os.Remove(ogg) }
@@ -506,6 +537,9 @@ handleUpdate(u Update):
     if text starts with "/":
         if lower(trim(text)) in {"/voice a","/voice b"}:
             sess.Voice = last char; tg.SendText(ctx, u.ChatID, voiceSwitched(sessLang(sess)))
+        else if lower(trim(text)) in {"/reset","/clean"}:
+            sessions.Delete(u.ChatID); deleted = true
+            tg.SendText(ctx, u.ChatID, "Сесію очищено. / Session cleared.")
         else:  // "/voice", "/help", any unknown "/..."
             tg.SendText(ctx, u.ChatID, voiceHelp(sess))
         return
