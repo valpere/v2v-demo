@@ -17,7 +17,7 @@ file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
    `openai-whisper` CLI; `STT_BACKEND=openai` `whisper-1` — mandatory for the
    I-10 client recording, B2).
 2. `cmd/bot` starts the recording-action ticker, then calls
-   `dialog.Handle(ctx, sess, kb, gen, systemPrompt, transcript, time.Now().In(a.loc))`.
+   `dialog.Handle(ctx, sess, topic, gen, transcript, time.Now().In(a.loc))` (topic = the chosen dialog.TopicSpec).
 3. `dialog.Handle` runs the sequence in **§"Behavioural spec (pseudocode)"**
    below — that section is authoritative; every step, constant, and edge case
    is spelled out there. LLM dev default `ollama` (`gemma4:cloud`);
@@ -31,12 +31,15 @@ file-by-file *how*. FR-/NFR-/D- IDs refer to the requirements file.
 6. `store.AppendTurn` always; `store.AppendLead` iff `Reply.Signal ==
    lead_ready`.
 
-## Quote parameters (FR-7)
+## Slot parameters (FR-7)
 
-`language pair · document type · volume · deadline · certification/notarization
-· delivery`. Session holds them as six optional fields; "lead ready" = all six
-set. No FSM — the state *is* which fields are still nil, and the LLM is
-prompted to ask about exactly those.
+Each **topic** (`topics.json`) declares its own ordered slot schema
+(`[]SlotSpec`). The translation topic's: `language pair · document type ·
+volume · deadline · certification/notarization · delivery`. Session holds
+the collected state as `map[string]string` keyed by `SlotSpec.Key`; "lead
+ready" = every declared key has a value. No FSM — the state *is* which keys
+are still empty, and the LLM is prompted (via the generated `--- RESPONSE
+FORMAT ---` block + `--- COLLECTED SO FAR ---`) to ask about exactly those.
 
 ## Package layout
 
@@ -56,20 +59,23 @@ internal/tts/       Synthesizer interface; elevenlabs.go (eleven_multilingual_v2
 internal/kb/        load KB_PATH, split on "##" into titled sections
 internal/dialog/    gate.go (kbOverlap + hardEscalate + isSlotAnswer +
                     isSmallTalk + groundingGate) · lang.go (detectLang —
-                    lingua-go) · dialog.go (loads prompt/system.md, builds the
+                    lingua-go) · dialog.go (loads topics/translation/system.md, builds the
                     prompt, parses the JSON reply, merges slots) · generator.go
                     (Generator interface) · openai_compat.go (shared
                     OpenAI-compat client) + ollama.go / openai.go /
                     gemini.go (DIALOG_BACKEND)
 internal/store/     append-only JSONL: turn records + lead records (DATA_DIR)
 
-prompt/system.md   the assistant persona + conversation playbook + hard rules
-                   + output format (authored, not generated — do not rewrite)
-prompt/greeting.md the fixed bilingual opening message (I-7 / FR-14)
+topics/topics.json  the topic manifest (id/title/paths/scope/slots per topic);
+                   ships with just `translation` — 2+ entries turn the picker on
+topics/translation/system.md   the assistant persona + conversation playbook +
+                   hard rules + slot-filling semantics (the JSON shape + key list
+                   is a generated --- RESPONSE FORMAT --- block, not in this file)
+topics/translation/greeting.md the fixed bilingual opening message (I-7 / FR-14)
 examples/dialogues.md  worked example conversations — test material and the
                    recorded-sample script; optionally one short example as
                    few-shot if output consistency is poor
-kb/translation-bureau.md  the fictional FromToBridge knowledge base
+topics/translation/kb.md  the fictional FromToBridge knowledge base
 ```
 
 ## Type surface
@@ -138,15 +144,26 @@ type Msg struct {
 	Text string
 }
 
-type QuoteSlots struct {
-	LanguagePair  *string `json:"language_pair"`
-	DocType       *string `json:"doc_type"`
-	Volume        *string `json:"volume"`
-	Deadline      *string `json:"deadline"`
-	Certification *string `json:"certification"`
-	Delivery      *string `json:"delivery"`
+// Per-topic slot schema. Each topics.json entry declares an ordered []SlotSpec;
+// the translation topic's keys are language_pair/doc_type/volume/deadline/
+// certification/delivery. Session.Slots and the lead record are map[string]string
+// keyed by SlotSpec.Key ("" or absent = unknown).
+type SlotSpec struct {
+	Key   string `json:"key"`
+	AskUK string `json:"ask_uk"` // "з якої мови на яку" — clarify-line phrasing when this slot is missing
+	AskEN string `json:"ask_en"`
+	Rule  string `json:"rule"` // optional hint for the --- RESPONSE FORMAT --- block
 }
-func (s QuoteSlots) Complete() bool // all six non-nil
+
+// TopicSpec is everything Handle needs that varies per topic.
+type TopicSpec struct {
+	KB              []Section
+	System          string
+	Slots           []SlotSpec
+	ScopeUK, ScopeEN string // "Я допомагаю лише з …" — the clarify line's scope sentence
+}
+
+func Complete(slots map[string]string, spec []SlotSpec) bool // every spec key has a non-empty value
 
 type Signal string
 
@@ -158,9 +175,9 @@ const (
 
 // the whole model response — one JSON object; Reply is the only text spoken
 type modelReply struct {
-	Reply  string     `json:"reply"`
-	Slots  QuoteSlots `json:"slots"`
-	Signal Signal     `json:"signal"`
+	Reply  string            `json:"reply"`
+	Slots  map[string]string `json:"slots"`
+	Signal Signal            `json:"signal"`
 }
 
 // All fields exported with explicit json tags — a SESSION_STORE=sqlite row
@@ -168,7 +185,7 @@ type modelReply struct {
 // restart (that's why leadSlots/gateStrike were renamed from their original
 // unexported form).
 type Session struct {
-	Slots      QuoteSlots `json:"slots"`
+	Slots      map[string]string `json:"slots"` // keyed by the topic's SlotSpec.Key; nil until the first write
 	History    []Msg      `json:"history"`     // trimmed to the last HistoryLimit (20) Msg entries ≈ 10 turns
 	Voice      string     `json:"voice"`       // "a" | "b"; default "a"
 	Lang       string     `json:"lang"`        // "uk" | "en"; last turn detectLang was confident (mid-switch propagates); "" until then
@@ -221,9 +238,16 @@ type TurnRecord struct {
 	UserText  string     `json:"user_text"`
 	ReplyText string     `json:"reply_text"`
 	Signal    string     `json:"signal"`
-	Matched   []string   `json:"matched"`      // empty on a pre-LLM escalate
-	Slots     QuoteSlots `json:"slots"`        // snapshot after this turn's merge
-	LatencyMS int64      `json:"latency_ms"`
+	Matched   []string          `json:"matched"` // empty on a pre-LLM escalate
+	Slots     map[string]string `json:"slots"`   // snapshot after this turn's merge
+	LatencyMS int64             `json:"latency_ms"`
+}
+
+type LeadRecord struct {
+	Time   time.Time         `json:"time"`
+	ChatID int64             `json:"chat_id"`
+	Topic  string            `json:"topic"`  // Session.Topic
+	Fields map[string]string `json:"fields"` // the topic's collected slots
 }
 
 // the shape a Zoho lead would take — written to the log, not sent anywhere
@@ -327,7 +351,7 @@ inflected Ukrainian in testing, add a stemmer (B1 fallback — candidates:
 k-centre.uacorpus.org tools) and re-tune `GateFloor`; do not reintroduce
 per-section retrieval.
 
-**Bilingual KB (D-18, 2026-08-31, step 3):** `kb/translation-bureau.md` was
+**Bilingual KB (D-18, 2026-08-31, step 3):** `topics/translation/kb.md` was
 English-only, so `kbOverlap` scored every Ukrainian content question 0 and
 the gate false-escalated it pre-LLM. Fixed by making the KB bilingual — an
 English block then a Ukrainian block under each `## ` heading (headings
@@ -364,7 +388,7 @@ return false
    "справжн" "real person" "talk to a person" "менеджера напряму"`.
   These force a handoff regardless of message length or slot state. The
   2-term cases (sworn + non-listed language; interpreting + booking) stay with
-  the model's own `escalate` and the `prompt/system.md` hard rules.
+  the model's own `escalate` and the `topics/translation/system.md` hard rules.
 
 ### isSlotAnswer(session *Session, userText string) bool   (B3)
 
@@ -449,7 +473,7 @@ spoken. Each backend forces valid JSON its own way ("model connection
 context"): `NewOpenAI` sets `response_format:{"type":"json_object"}`,
 `NewOllama` relies on the prompt, a gemini path would use `responseMimeType`.
 
-### Handle(ctx, sess, kb, gen, systemPrompt, userText, now) (Reply, error)
+### Handle(ctx, sess, topic TopicSpec, gen, userText, now) (Reply, error)
 
 `esc(sess)` = shorthand for `{ sess.Escalated = true; return Reply{Text:
 handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil }`.
@@ -458,7 +482,7 @@ handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil }`.
 0. if l := detectLang(userText); l != "" { sess.Lang = l }   // updates every confident turn (mid-switch)
 1. if hardEscalate(userText):  esc(sess)              // B3: unambiguous handoff trigger
 1b. if looksLikeInjection(userText):  clarifyLine + gateStrike (a repeat -> esc)  // pasted JSON/fence -> never reaches the LLM
-2. slotAnswer := isSlotAnswer(sess, userText)
+2. slotAnswer := isSlotAnswer(sess, topic.Slots, userText)
 3. overlap    := kbOverlap(userText, kb)
 4. if !isSmallTalk(userText) && groundingGate(overlap, slotAnswer):  esc(sess)  // content question the KB barely covers
 5. sysPrompt := systemPrompt
@@ -475,21 +499,23 @@ handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil }`.
 8. mr := parseResponse(raw)
 9. if mr == nil:  esc(sess)                           // NEVER speak un-parseable raw output
    spoken := trimspace(mr.Reply)
-10. merge — 6 explicit field assignments (QuoteSlots is a struct, no reflection):
-       if mr.Slots.LanguagePair  != nil { sess.Slots.LanguagePair  = mr.Slots.LanguagePair }
-       if mr.Slots.DocType       != nil { sess.Slots.DocType       = mr.Slots.DocType }
-       … the other four. Never assign nil (that would clear a filled slot).
+10. merge — filtered generic loop:
+       if sess.Slots == nil { sess.Slots = map[string]string{} }   // lazy init
+       known := slotKeySet(topic.Slots)
+       for k, v := range mr.Slots {
+           if v != "" && known[k] { sess.Slots[k] = v }            // "" or omitted never clears; a non-spec key is dropped
+       }
 11. signal := mr.Signal
-    if signal == SignalLeadReady && !sess.Slots.Complete():   // B4 guard
+    if signal == SignalLeadReady && !Complete(sess.Slots, topic.Slots):   // B4 guard
         log.Warn("lead_ready with incomplete slots", slots)
         signal = SignalContinue
     else if signal == SignalLeadReady && sess.LeadDone:       // a lead already fired this session
-        if compactSlots(sess.Slots) == sess.leadSlots:
+        if compactSlots(sess.Slots) == sess.LeadSlots:
             signal = SignalContinue                           // spurious re-trigger (test-5_1)
         else:
-            sess.leadSlots = compactSlots(sess.Slots)         // a real correction -> a fresh LeadRecord (11d)
+            sess.LeadSlots = compactSlots(sess.Slots)         // a real correction -> a fresh LeadRecord (11d)
     else if signal == SignalLeadReady:
-        sess.LeadDone = true; sess.leadSlots = compactSlots(sess.Slots)
+        sess.LeadDone = true; sess.LeadSlots = compactSlots(sess.Slots)
     if signal == SignalEscalate:
         sess.Escalated = true
         spoken = handoffLine(sessLang(sess))          // A3: escalate always speaks the fixed line
@@ -680,7 +706,7 @@ formatting:
 
 Helpers the update loop needs: `voiceID(cfg, "a"|"b")` picks the ElevenLabs or
 Azure voice ID for the active `TTS_BACKEND`; `greetingBody(path)` applies the
-`prompt/greeting.md` extraction rule (content after the first `---` line,
+`topics/translation/greeting.md` extraction rule (content after the first `---` line,
 further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
 `LeadRecord` (nil slots become `""`).
 
@@ -739,7 +765,7 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
   KB is tiny (not a dependency — see `docs/architecture.md` §6). Fallback if
   exact-match overlap misses inflected Ukrainian: add a stemmer (see the B1
   note in the Behavioural spec), do not bring per-section retrieval back.
-- **Persona + playbook + grounding rule:** all in `prompt/system.md` —
+- **Persona + playbook + grounding rule:** all in `topics/translation/system.md` —
   authored, load it verbatim, do not paraphrase into code. The six quote
   slots, the intake order, "never a final price", the escalate list, and the
   output-format spec all live there (NFR-7, NFR-9).
@@ -749,7 +775,7 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
   `escalate`). Missing / unparseable object or a blank `reply` → treat as
   `signal: escalate`, log it. Each backend forces valid JSON its own way (see
   parseResponse).
-- **Slots:** the six keys from `prompt/system.md`
+- **Slots:** the six keys from `topics/translation/system.md`
   (`language_pair, doc_type, volume, deadline, certification, delivery`) as
   `*string`. Merge only keys the model filled with a non-null value this turn;
   never clear a filled slot unless the user corrected it; log every change in
@@ -772,7 +798,7 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
   codes/symbols (`EUR`, `€`, `USD`, `$`) into the spoken word in the reply
   language, and spells out abbreviations Azure uk-UA mangles — `ПДВ` →
   "пе де ве" (Azure read it as "Проблем Дальнього Востока"), `ЄДРПОУ`,
-  `NDA`, `EET` → "за київським часом". Backstop for `prompt/system.md`'s
+  `NDA`, `EET` → "за київським часом". Backstop for `topics/translation/system.md`'s
   "write for the ear" rule.
 - **Voices:** `VOICE_A` / `VOICE_B` per backend
   (`ELEVENLABS_VOICE_A`/`_B`, `AZURE_VOICE_A`/`_B`); `/voice b` swaps for that

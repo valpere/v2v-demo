@@ -7,11 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/valpere/v2v-demo/internal/dialog"
 )
-
-func ptr(s string) *string { return &s }
 
 func countLines(t *testing.T, path string) int {
 	t.Helper()
@@ -38,7 +34,7 @@ func TestAppendTurn(t *testing.T) {
 		ReplyText: "Уточню кілька деталей…",
 		Signal:    "continue",
 		Matched:   []string{"Services"},
-		Slots:     dialog.QuoteSlots{DocType: ptr("diploma")},
+		Slots:     map[string]string{"doc_type": "diploma"},
 		LatencyMS: 1234,
 	}
 	if err := AppendTurn(dir, rec); err != nil {
@@ -61,14 +57,14 @@ func TestAppendTurn(t *testing.T) {
 	if err := json.Unmarshal(sc.Bytes(), &back); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if back.ChatID != 42 || back.Signal != "continue" || back.Slots.DocType == nil || *back.Slots.DocType != "diploma" {
+	if back.ChatID != 42 || back.Signal != "continue" || back.Slots["doc_type"] != "diploma" {
 		t.Fatalf("round-trip mismatch: %+v", back)
 	}
 }
 
 func TestAppendLead(t *testing.T) {
 	dir := t.TempDir()
-	if err := AppendLead(dir, LeadRecord{ChatID: 7, LanguagePair: "uk->de"}); err != nil {
+	if err := AppendLead(dir, LeadRecord{ChatID: 7, Topic: "translation", Fields: map[string]string{"language_pair": "uk->de"}}); err != nil {
 		t.Fatalf("AppendLead: %v", err)
 	}
 	if got := countLines(t, filepath.Join(dir, "leads.jsonl")); got != 1 {

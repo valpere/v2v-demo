@@ -239,32 +239,22 @@ func hardEscalate(query string) bool {
 // reply), rather than the gate silently discarding the possibility that the
 // message was a real answer. This heuristic cannot otherwise tell the two
 // cases apart (it does not look at content, only length/"?"/nil-slot).
-func isSlotAnswer(sess *Session, userText string) bool {
+func isSlotAnswer(sess *Session, spec []SlotSpec, userText string) bool {
 	if !strings.Contains(lastAssistant(sess.History), "?") {
 		return false
 	}
-	if sess.Slots.Complete() {
+	if Complete(sess.Slots, spec) {
 		return false
 	}
-	// Once a quote is clearly under way (2+ slots filled) any reply to the
+	// Once an intake is clearly under way (2+ slots filled) any reply to the
 	// bot's question is a slot answer — a full sentence like "диплом на одну
 	// сторінку і додаток на дві, бажано за тиждень" must not hit the grounding
-	// gate. The LLM handles a mid-quote off-topic itself. Before that, keep the
-	// terse-answer check so an opening ramble still gets grounded.
-	if filledSlots(sess.Slots) >= 2 {
+	// gate. The LLM handles a mid-intake off-topic itself. Before that, keep
+	// the terse-answer check so an opening ramble still gets grounded.
+	if filledSlots(sess.Slots, spec) >= 2 {
 		return true
 	}
 	return len(tokens(userText)) <= SlotAnswerMaxTok
-}
-
-func filledSlots(s QuoteSlots) int {
-	n := 0
-	for _, p := range []*string{s.LanguagePair, s.DocType, s.Volume, s.Deadline, s.Certification, s.Delivery} {
-		if p != nil {
-			n++
-		}
-	}
-	return n
 }
 
 func lastAssistant(history []Msg) string {

@@ -11,13 +11,12 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/valpere/v2v-demo/internal/dialog"
 )
 
 // TurnRecord is one dialogue turn: what the user said, what the bot replied,
 // the resolved signal, the KB section titles consulted, the slot snapshot
-// after this turn's merge, and the turn latency.
+// after this turn's merge, and the turn latency. Slots keys are the topic's
+// SlotSpec keys (see internal/dialog.TopicSpec).
 type TurnRecord struct {
 	Time      time.Time         `json:"time"`
 	ChatID    int64             `json:"chat_id"`
@@ -25,21 +24,18 @@ type TurnRecord struct {
 	ReplyText string            `json:"reply_text"`
 	Signal    string            `json:"signal"`
 	Matched   []string          `json:"matched"` // empty on a pre-LLM escalate
-	Slots     dialog.QuoteSlots `json:"slots"`
+	Slots     map[string]string `json:"slots"`
 	LatencyMS int64             `json:"latency_ms"`
 }
 
-// LeadRecord is the shape a Zoho lead would take — written to leads.jsonl,
-// sent nowhere. Unset slots become "".
+// LeadRecord is the shape a CRM lead would take — written to leads.jsonl,
+// sent nowhere. Fields are the topic's collected slots (keyed by SlotSpec
+// key); which keys are present depends on which topic produced the lead.
 type LeadRecord struct {
-	Time          time.Time `json:"time"`
-	ChatID        int64     `json:"chat_id"`
-	LanguagePair  string    `json:"language_pair"`
-	DocType       string    `json:"doc_type"`
-	Volume        string    `json:"volume"`
-	Deadline      string    `json:"deadline"`
-	Certification string    `json:"certification"`
-	Delivery      string    `json:"delivery"`
+	Time   time.Time         `json:"time"`
+	ChatID int64             `json:"chat_id"`
+	Topic  string            `json:"topic"`
+	Fields map[string]string `json:"fields"`
 }
 
 // AppendTurn appends r to dir/turns.jsonl, creating dir if needed.

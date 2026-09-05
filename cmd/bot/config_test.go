@@ -87,7 +87,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 		"DialogModel":   {cfg.DialogModel, ""}, // "" → the generator picks its backend default
 		"OllamaBaseURL": {cfg.OllamaBaseURL, "http://localhost:11434"},
 		"DataDir":       {cfg.DataDir, "./data"},
-		"KBPath":        {cfg.KBPath, "kb/translation-bureau.md"},
+		"KBPath":        {cfg.KBPath, "topics/translation/kb.md"},
 		"Timezone":      {cfg.Timezone, "Europe/Kyiv"},
 		"SessionStore":  {cfg.SessionStore, "memory"},
 		"SessionDBPath": {cfg.SessionDBPath, "./data/sessions.db"},

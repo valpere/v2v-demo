@@ -43,7 +43,7 @@ What do you need?`
 }
 
 func TestGreetingBodyRealFile(t *testing.T) {
-	got, err := greetingBody("../../prompt/greeting.md")
+	got, err := greetingBody("../../topics/translation/greeting.md")
 	if err != nil {
 		t.Fatalf("greetingBody(real): %v", err)
 	}

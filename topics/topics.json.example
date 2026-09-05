@@ -1,9 +1,0 @@
-[
-  {
-    "id": "translations",
-    "title": "Переклад документів",
-    "kb": "kb/translation-bureau.md",
-    "system_prompt": "prompt/system.md",
-    "greeting": "prompt/greeting.md"
-  }
-]

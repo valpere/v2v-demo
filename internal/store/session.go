@@ -11,7 +11,10 @@ import (
 // it (and add a migration in DecodeSession) if Session's fields ever change
 // incompatibly; today an old/unknown version is just treated as "not found"
 // — losing a demo session is cheap, silently misreading one is not.
-const sessionSchemaVersion = 1
+//
+// v2 (2026-09-06): Session.Slots went from the fixed QuoteSlots struct to a
+// per-topic map[string]string.
+const sessionSchemaVersion = 2
 
 type sessionRow struct {
 	Version int            `json:"version"`

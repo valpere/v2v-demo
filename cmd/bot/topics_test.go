@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,6 +24,15 @@ func writeTopicFixture(t *testing.T, dir, id string) (kbPath, sysPath, greetPath
 		t.Fatal(err)
 	}
 	return kbPath, sysPath, greetPath
+}
+
+// validSlots is a manifest slots array that passes validateSlots.
+const validSlots = `"scope_uk":"Я допомагаю з X.","scope_en":"I help with X.","slots":[{"key":"a","ask_uk":"а","ask_en":"a-en","rule":""},{"key":"b","ask_uk":"б","ask_en":"b-en","rule":""}]`
+
+// entryJSON is one full, valid manifest entry.
+func entryJSON(id, title, kb, sys, greet string) string {
+	return fmt.Sprintf(`{"id":%q,"title":%q,"kb":%q,"system_prompt":%q,"greeting":%q,%s}`,
+		id, title, kb, sys, greet, validSlots)
 }
 
 func baseCfg(t *testing.T, dir string) Config {
@@ -73,7 +83,7 @@ func TestLoadTopicsSingleEntryLoadsFromManifestNotConfigDefaults(t *testing.T) {
 	dir := t.TempDir()
 	cfg := baseCfg(t, dir)
 	kbPath, sysPath, greetPath := writeTopicFixture(t, dir, "notary")
-	manifest := `[{"id":"notary","title":"Нотаріус","kb":"` + kbPath + `","system_prompt":"` + sysPath + `","greeting":"` + greetPath + `"}]`
+	manifest := "[" + entryJSON("notary", "Нотаріус", kbPath, sysPath, greetPath) + "]"
 	if err := os.WriteFile(cfg.TopicsPath, []byte(manifest), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -95,10 +105,7 @@ func TestLoadTopicsMultipleEntriesPreserveManifestOrder(t *testing.T) {
 	cfg := baseCfg(t, dir)
 	kbA, sysA, greetA := writeTopicFixture(t, dir, "translations")
 	kbB, sysB, greetB := writeTopicFixture(t, dir, "notary")
-	manifest := `[
-		{"id":"translations","title":"Переклад","kb":"` + kbA + `","system_prompt":"` + sysA + `","greeting":"` + greetA + `"},
-		{"id":"notary","title":"Нотаріус","kb":"` + kbB + `","system_prompt":"` + sysB + `","greeting":"` + greetB + `"}
-	]`
+	manifest := "[" + entryJSON("translations", "Переклад", kbA, sysA, greetA) + "," + entryJSON("notary", "Нотаріус", kbB, sysB, greetB) + "]"
 	if err := os.WriteFile(cfg.TopicsPath, []byte(manifest), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -119,10 +126,7 @@ func TestLoadTopicsDuplicateIDIsAnError(t *testing.T) {
 	dir := t.TempDir()
 	cfg := baseCfg(t, dir)
 	kbPath, sysPath, greetPath := writeTopicFixture(t, dir, "dup")
-	manifest := `[
-		{"id":"dup","title":"A","kb":"` + kbPath + `","system_prompt":"` + sysPath + `","greeting":"` + greetPath + `"},
-		{"id":"dup","title":"B","kb":"` + kbPath + `","system_prompt":"` + sysPath + `","greeting":"` + greetPath + `"}
-	]`
+	manifest := "[" + entryJSON("dup", "A", kbPath, sysPath, greetPath) + "," + entryJSON("dup", "B", kbPath, sysPath, greetPath) + "]"
 	if err := os.WriteFile(cfg.TopicsPath, []byte(manifest), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +140,7 @@ func TestLoadTopicsEmptyIDIsAnError(t *testing.T) {
 	dir := t.TempDir()
 	cfg := baseCfg(t, dir)
 	kbPath, sysPath, greetPath := writeTopicFixture(t, dir, "x")
-	manifest := `[{"id":"","title":"A","kb":"` + kbPath + `","system_prompt":"` + sysPath + `","greeting":"` + greetPath + `"}]`
+	manifest := "[" + entryJSON("", "A", kbPath, sysPath, greetPath) + "]"
 	if err := os.WriteFile(cfg.TopicsPath, []byte(manifest), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -149,13 +153,39 @@ func TestLoadTopicsEmptyIDIsAnError(t *testing.T) {
 func TestLoadTopicsMissingReferencedFileIsAnError(t *testing.T) {
 	dir := t.TempDir()
 	cfg := baseCfg(t, dir)
-	manifest := `[{"id":"ghost","title":"A","kb":"` + filepath.Join(dir, "does-not-exist.md") + `","system_prompt":"x","greeting":"y"}]`
+	manifest := "[" + entryJSON("ghost", "A", filepath.Join(dir, "does-not-exist.md"), "x", "y") + "]"
 	if err := os.WriteFile(cfg.TopicsPath, []byte(manifest), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	if _, _, err := loadTopics(cfg); err == nil {
 		t.Fatal("want an error when a manifest entry's kb file doesn't exist")
+	}
+}
+
+func TestLoadTopicsInvalidSlots(t *testing.T) {
+	dir := t.TempDir()
+	cfg := baseCfg(t, dir)
+	kbPath, sysPath, greetPath := writeTopicFixture(t, dir, "x")
+	base := fmt.Sprintf(`{"id":"x","title":"X","kb":%q,"system_prompt":%q,"greeting":%q,"scope_uk":"u","scope_en":"e",`,
+		kbPath, sysPath, greetPath)
+
+	cases := map[string]string{
+		"no slots":       base + `"slots":[]}`,
+		"empty key":      base + `"slots":[{"key":"","ask_uk":"а","ask_en":"a"}]}`,
+		"missing ask_en": base + `"slots":[{"key":"a","ask_uk":"а"}]}`,
+		"duplicate key":  base + `"slots":[{"key":"a","ask_uk":"а","ask_en":"a"},{"key":"a","ask_uk":"б","ask_en":"b"}]}`,
+		"missing scope":  fmt.Sprintf(`{"id":"x","title":"X","kb":%q,"system_prompt":%q,"greeting":%q,"slots":[{"key":"a","ask_uk":"а","ask_en":"a"}]}`, kbPath, sysPath, greetPath),
+	}
+	for name, entry := range cases {
+		t.Run(name, func(t *testing.T) {
+			if err := os.WriteFile(cfg.TopicsPath, []byte("["+entry+"]"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := loadTopics(cfg); err == nil {
+				t.Fatalf("want an error for %s", name)
+			}
+		})
 	}
 }
 

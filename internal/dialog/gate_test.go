@@ -17,6 +17,30 @@ func testKB() []kb.Section {
 	}
 }
 
+// testSlots is the translation slot schema the dialog tests run against.
+func testSlots() []SlotSpec {
+	return []SlotSpec{
+		{Key: "language_pair", AskUK: "з якої мови на яку", AskEN: "which languages", Rule: "e.g. uk->de"},
+		{Key: "doc_type", AskUK: "який це документ", AskEN: "what kind of document"},
+		{Key: "volume", AskUK: "скільки сторінок", AskEN: "how many pages"},
+		{Key: "deadline", AskUK: "до якого терміну", AskEN: "the deadline"},
+		{Key: "certification", AskUK: "для кого переклад", AskEN: "who it's for", Rule: "none|certified|notarized|sworn|manager to confirm"},
+		{Key: "delivery", AskUK: "як доставити", AskEN: "how to deliver it"},
+	}
+}
+
+// testTopic bundles testKB + testSlots + the translation scope lines and a
+// stub system prompt — the TopicSpec the dialog tests pass to Handle.
+func testTopic() TopicSpec {
+	return TopicSpec{
+		KB:      testKB(),
+		System:  "SYSTEM PROMPT",
+		Slots:   testSlots(),
+		ScopeUK: "Я допомагаю лише з перекладами документів.",
+		ScopeEN: "I only help with document translations.",
+	}
+}
+
 func almost(a, b float64) bool { return math.Abs(a-b) < 1e-9 }
 
 func TestKBOverlap(t *testing.T) {
@@ -163,9 +187,9 @@ func TestIsSlotAnswer(t *testing.T) {
 	asked := &Session{History: []Msg{{Role: "assistant", Text: "How many pages is it?"}}}
 	askedFull := &Session{
 		History: []Msg{{Role: "assistant", Text: "Anything else?"}},
-		Slots: QuoteSlots{
-			LanguagePair: sp("uk->de"), DocType: sp("d"), Volume: sp("2"),
-			Deadline: sp("fri"), Certification: sp("none"), Delivery: sp("email"),
+		Slots: map[string]string{
+			"language_pair": "uk->de", "doc_type": "d", "volume": "2",
+			"deadline": "fri", "certification": "none", "delivery": "email",
 		},
 	}
 	noQuestion := &Session{History: []Msg{{Role: "assistant", Text: "Thanks, noted."}}}
@@ -173,7 +197,7 @@ func TestIsSlotAnswer(t *testing.T) {
 	empty := &Session{}
 	midQuote := &Session{ // 2+ slots filled, bot asked a question -> a full-sentence answer still counts
 		History: []Msg{{Role: "assistant", Text: "Скільки сторінок і на коли?"}},
-		Slots:   QuoteSlots{LanguagePair: sp("uk->de"), DocType: sp("диплом")},
+		Slots:   map[string]string{"language_pair": "uk->de", "doc_type": "диплом"},
 	}
 
 	tests := []struct {
@@ -193,7 +217,7 @@ func TestIsSlotAnswer(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := isSlotAnswer(tc.sess, tc.text); got != tc.want {
+			if got := isSlotAnswer(tc.sess, testSlots(), tc.text); got != tc.want {
 				t.Fatalf("isSlotAnswer = %v, want %v", got, tc.want)
 			}
 		})
@@ -264,5 +288,3 @@ func TestSessLang(t *testing.T) {
 		t.Errorf("got %q, want en", got)
 	}
 }
-
-func sp(s string) *string { return &s }

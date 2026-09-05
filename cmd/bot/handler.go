@@ -195,7 +195,7 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	if a.tts != nil {
 		stopTicker = a.startRecordingTicker(ctx, u.ChatID)
 	}
-	reply, _ := dialog.Handle(ctx, sess, topic.KB, a.gen, topic.Sys, text, time.Now().In(a.loc)) // never returns a non-nil error
+	reply, _ := dialog.Handle(ctx, sess, topic.Spec, a.gen, text, time.Now().In(a.loc)) // never returns a non-nil error
 
 	if a.tts != nil {
 		ogg, terr := a.tts.Speak(ctx, tts.Spoken(reply.Text, sess.Lang), voiceID(a.cfg, sess.Voice), sess.Lang)
@@ -223,7 +223,7 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	}
 
 	if reply.Signal == dialog.SignalLeadReady {
-		if err := store.AppendLead(a.cfg.DataDir, leadFrom(u.ChatID, sess.Slots)); err != nil {
+		if err := store.AppendLead(a.cfg.DataDir, leadFrom(u.ChatID, sess.Topic, sess.Slots)); err != nil {
 			log.Printf("store lead (chat %d): %v", u.ChatID, err)
 		}
 	}
@@ -306,7 +306,7 @@ func (a *app) handleCommand(ctx context.Context, sess *dialog.Session, chatID in
 // they're a per-chat preference/detection, not part of any one topic's
 // conversation.
 func resetConversationState(sess *dialog.Session) {
-	sess.Slots = dialog.QuoteSlots{}
+	sess.Slots = nil
 	sess.History = nil
 	sess.Escalated = false
 	sess.LeadDone = false
@@ -325,21 +325,11 @@ func voiceHelp(sess *dialog.Session) string {
 	return "Команди голосу: /voice a, /voice b (зараз: " + cur + ")."
 }
 
-func leadFrom(chatID int64, s dialog.QuoteSlots) store.LeadRecord {
-	deref := func(p *string) string {
-		if p == nil {
-			return ""
-		}
-		return *p
-	}
+func leadFrom(chatID int64, topic string, fields map[string]string) store.LeadRecord {
 	return store.LeadRecord{
-		Time:          time.Now(),
-		ChatID:        chatID,
-		LanguagePair:  deref(s.LanguagePair),
-		DocType:       deref(s.DocType),
-		Volume:        deref(s.Volume),
-		Deadline:      deref(s.Deadline),
-		Certification: deref(s.Certification),
-		Delivery:      deref(s.Delivery),
+		Time:   time.Now(),
+		ChatID: chatID,
+		Topic:  topic,
+		Fields: fields,
 	}
 }

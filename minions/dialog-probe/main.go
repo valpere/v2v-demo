@@ -22,6 +22,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -32,26 +33,46 @@ import (
 	"github.com/valpere/v2v-demo/internal/kb"
 )
 
+// topicEntry is the subset of a topics.json row this probe needs.
+type topicEntry struct {
+	ID           string            `json:"id"`
+	KB           string            `json:"kb"`
+	SystemPrompt string            `json:"system_prompt"`
+	ScopeUK      string            `json:"scope_uk"`
+	ScopeEN      string            `json:"scope_en"`
+	Slots        []dialog.SlotSpec `json:"slots"`
+}
+
 func main() {
 	var (
-		backend  = flag.String("backend", env("DIALOG_BACKEND", "openai"), "ollama|openai|gemini")
-		model    = flag.String("model", env("DIALOG_MODEL", ""), "model id ('' = backend default)")
-		kbPath   = flag.String("kb", env("KB_PATH", "kb/translation-bureau.md"), "KB path")
-		sysPath  = flag.String("prompt", env("SYSTEM_PROMPT_PATH", "prompt/system.md"), "system prompt path")
-		tzName   = flag.String("tz", env("BOT_TIMEZONE", "Europe/Kyiv"), "IANA timezone for the CURRENT TIME block")
-		verbose  = flag.Bool("v", false, "print the full reply text, not a one-line preview")
-		showSlot = flag.Bool("slots", false, "print the full slot JSON after each turn")
+		backend    = flag.String("backend", env("DIALOG_BACKEND", "openai"), "ollama|openai|gemini")
+		model      = flag.String("model", env("DIALOG_MODEL", ""), "model id ('' = backend default)")
+		topicsPath = flag.String("topics", env("TOPICS_PATH", "topics/topics.json"), "topics.json manifest")
+		topicID    = flag.String("topic", "", "topic id to probe ('' = the sole entry)")
+		tzName     = flag.String("tz", env("BOT_TIMEZONE", "Europe/Kyiv"), "IANA timezone for the CURRENT TIME block")
+		verbose    = flag.Bool("v", false, "print the full reply text, not a one-line preview")
+		showSlot   = flag.Bool("slots", false, "print the full slot JSON after each turn")
 	)
 	flag.Parse()
 
-	sections, err := kb.Load(*kbPath)
+	topic, err := loadTopic(*topicsPath, *topicID)
 	must(err)
-	sysBytes, err := os.ReadFile(*sysPath)
+	sections, err := kb.Load(topic.KB)
+	must(err)
+	sysBytes, err := os.ReadFile(topic.SystemPrompt)
 	must(err)
 	loc, err := time.LoadLocation(*tzName)
 	must(err)
 	gen, err := newGen(*backend, *model)
 	must(err)
+
+	spec := dialog.TopicSpec{
+		KB:      sections,
+		System:  string(sysBytes),
+		Slots:   topic.Slots,
+		ScopeUK: topic.ScopeUK,
+		ScopeEN: topic.ScopeEN,
+	}
 
 	in := os.Stdin
 	if flag.NArg() > 0 {
@@ -61,12 +82,11 @@ func main() {
 		in = f
 	}
 
-	sys := string(sysBytes)
 	sess := &dialog.Session{}
 	turn := 0
 	sc := bufio.NewScanner(in)
 	sc.Buffer(make([]byte, 1<<20), 1<<20)
-	fmt.Printf("backend=%s model=%q  kb=%d sections  tz=%s\n\n", *backend, *model, len(sections), *tzName)
+	fmt.Printf("backend=%s model=%q  topic=%s  kb=%d sections  tz=%s\n\n", *backend, *model, topic.ID, len(sections), *tzName)
 
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())
@@ -85,7 +105,7 @@ func main() {
 
 		before := compact(sess.Slots)
 		start := time.Now()
-		reply, _ := dialog.Handle(context.Background(), sess, sections, gen, sys, line, time.Now().In(loc))
+		reply, _ := dialog.Handle(context.Background(), sess, spec, gen, line, time.Now().In(loc))
 		lat := time.Since(start)
 		turn++
 
@@ -152,14 +172,43 @@ func env(key, fallback string) string {
 	return fallback
 }
 
-func compact(s dialog.QuoteSlots) map[string]string {
-	m := map[string]string{}
-	for k, p := range map[string]*string{
-		"language_pair": s.LanguagePair, "doc_type": s.DocType, "volume": s.Volume,
-		"deadline": s.Deadline, "certification": s.Certification, "delivery": s.Delivery,
-	} {
-		if p != nil {
-			m[k] = *p
+// loadTopic reads topics.json and returns the requested entry (or the sole
+// one when id is "").
+func loadTopic(path, id string) (topicEntry, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return topicEntry{}, err
+	}
+	var entries []topicEntry
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return topicEntry{}, fmt.Errorf("parse %s: %w", path, err)
+	}
+	if len(entries) == 0 {
+		return topicEntry{}, fmt.Errorf("%s has no topics", path)
+	}
+	if id == "" {
+		if len(entries) != 1 {
+			ids := make([]string, len(entries))
+			for i, e := range entries {
+				ids[i] = e.ID
+			}
+			return topicEntry{}, fmt.Errorf("%s has %d topics (%s) — pass -topic", path, len(entries), strings.Join(ids, ", "))
+		}
+		return entries[0], nil
+	}
+	for _, e := range entries {
+		if e.ID == id {
+			return e, nil
+		}
+	}
+	return topicEntry{}, fmt.Errorf("%s has no topic %q", path, id)
+}
+
+func compact(s map[string]string) map[string]string {
+	m := make(map[string]string, len(s))
+	for k, v := range s {
+		if v != "" {
+			m[k] = v
 		}
 	}
 	return m

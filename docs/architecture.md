@@ -74,7 +74,7 @@ All HTTP is stdlib.
 
 1. Telegram update arrives. If voice: download OGG to a temp file (path
    validated), transcribe, delete the file. If text: use it directly.
-2. `dialog.Handle(ctx, sess, kb, gen, sys, text)` — full pseudocode in
+2. `dialog.Handle(ctx, sess, topic, gen, text, now)` — full pseudocode in
    `.agents/plan.md` §"Behavioural spec":
    a. **`hardEscalate(text)`** — keyword list for liability topics; a hit
       returns the fixed handoff line, no LLM.
@@ -86,9 +86,11 @@ All HTTP is stdlib.
       **second consecutive hit → the handoff line**. Both pre-LLM, so no
       hallucination and no possible statement on an off-topic subject. B1: no
       per-section retrieval — the score only feeds this gate.
-   c. **LLM call** — system prompt = `prompt/system.md` + `--- KNOWLEDGE BASE
-      ---` + **the whole KB** (every `## Title` + body) + `--- COLLECTED SO
-      FAR ---` + the slot state + `--- CONVERSATION LANGUAGE ---` + `--- CURRENT
+   c. **LLM call** — system prompt = the topic's system.md + `--- KNOWLEDGE
+      BASE ---` + **the whole KB** (every `## Title` + body) + `--- COLLECTED
+      SO FAR ---` + the slot state + `--- RESPONSE FORMAT ---` (the JSON shape
+      + the topic's slot keys, generated from its SlotSpec list) + `---
+      CONVERSATION LANGUAGE ---` + `--- CURRENT
       TIME ---` (local time in `BOT_TIMEZONE` + an office-open flag computed in
       Go — the bot has no clock, so this is injected every turn and drives the
       "~15 min vs next business morning" promise); messages = the last 20 Msg
@@ -136,9 +138,9 @@ switching to `sqlite`.
 
 ```
 Session
-  History    []Msg        // last 20 entries (about 10 turns), trimmed
-  Slots      QuoteSlots   // 6 optional fields (FR-7)
-  Voice      string       // "a" | "b" (FR-11)
+  History    []Msg              // last 20 entries (about 10 turns), trimmed
+  Slots      map[string]string  // keyed by the topic's SlotSpec.Key (FR-7); nil until the first write
+  Voice      string             // "a" | "b" (FR-11)
   Lang       string       // "uk" | "en" — detectLang (lingua-go) each confident turn; feeds STT + prompt + fixed lines
   Escalated  bool
   LeadDone   bool         // a lead_ready already fired this session
@@ -153,23 +155,29 @@ run concurrently. A `sync.Mutex` guards the shared `inbox` map only —
 session state goes through `sessionStore`, not a locked map, now that
 either backend can be swapped in.
 
-`QuoteSlots`: `LanguagePair, DocType, Volume, Deadline, Certification,
-Delivery` — all `*string` (or small typed enums where the KB constrains the
-values). "Lead ready" = all six non-nil. There is no elaborate FSM; the
-"state machine" is *which slots are still nil*, and the LLM is prompted to ask
-about exactly those.
+**Slots are per-topic.** Each topic (`topics.json`) declares an ordered
+`[]SlotSpec` (`{key, ask_uk, ask_en, rule}`); `Session.Slots` and the lead
+record are `map[string]string` keyed by `SlotSpec.Key`. The translation
+topic's keys: `language_pair, doc_type, volume, deadline, certification,
+delivery`. "Lead ready" = every declared key has a non-empty value
+(`dialog.Complete(slots, spec)`). No FSM; the "state machine" is *which keys
+are still empty*, and the LLM is prompted — via `--- COLLECTED SO FAR ---`
+plus a generated `--- RESPONSE FORMAT ---` block listing the topic's keys —
+to ask about exactly those. The merge filters incoming values to the
+topic's declared keys, so a model-invented key can't pollute the state.
 
-### 4.1 Topics — multiple assistants on one bot (opt-in)
+### 4.1 Topics — multiple assistants on one bot
 
-`TOPICS_PATH` (default `topics/topics.json`, see `topics/README.md`) can
-configure **more than one genuinely distinct assistant** behind the same
-bot — each topic is its own KB + system prompt + greeting, not a KB slice
-of one persona. `cmd/bot.loadTopics` builds `app.topics
-map[string]topicBundle` and `app.topicIDs []string` (display order) from
-the manifest, falling back to one synthetic topic built from
-`KB_PATH`/`SYSTEM_PROMPT_PATH`/`GREETING_PATH` when the manifest is
-missing or has a single entry — **this is the default and the only shipped
-state**, so the picker below never appears out of the box.
+`TOPICS_PATH` (default `topics/topics.json`, see `topics/README.md`)
+configures **genuinely distinct assistants** behind one bot — each topic is
+its own KB + system prompt + greeting + slot schema, not a KB slice of one
+persona. `cmd/bot.loadTopics` builds `app.topics map[string]topicBundle`
+(each holding a `dialog.TopicSpec`) and `app.topicIDs []string` (display
+order) from the manifest, falling back to one synthetic topic
+(`KB_PATH`/`SYSTEM_PROMPT_PATH`/`GREETING_PATH` + the translation slot
+schema) when the manifest is missing or empty. **The repo ships a
+one-topic `topics.json`, so the picker below does not appear by default;**
+2+ entries turn it on.
 
 With 2+ topics, first contact sends a Telegram inline keyboard (one button
 per topic) instead of the plain greeting; tapping a button is a
@@ -184,7 +192,7 @@ of guessing which assistant should answer.
 
 The model is prevented from waffling by four layers, cheapest first:
 
-1. **Bounded context.** The LLM never sees more than: `prompt/system.md`,
+1. **Bounded context.** The LLM never sees more than: `topics/translation/system.md`,
    the **whole KB** (~19 KB — an English block and a Ukrainian block under
    every `## Title`; the bilingual text is what lets `kbOverlap` score a
    Ukrainian query — D-18), the slot state, the last 20 Msg entries. It
@@ -196,11 +204,11 @@ The model is prevented from waffling by four layers, cheapest first:
    handoff line and never call the LLM. Greetings / thanks / farewells
    (`isSmallTalk`) skip the gate — a dialogue boundary is not a content
    question.
-3. **The rules in `prompt/system.md`.** "Answer only from the KNOWLEDGE BASE.
+3. **The rules in `topics/translation/system.md`.** "Answer only from the KNOWLEDGE BASE.
    If it's not covered, set `signal: escalate`. Never state a final price."
    Plus the explicit escalate list. (NFR-7, NFR-9.)
 4. **Low temperature + a fixed persona.** 0.2–0.3, and the specific persona +
-   playbook in `prompt/system.md` so tone and flow don't wander.
+   playbook in `topics/translation/system.md` so tone and flow don't wander.
 
 This is the same discipline as `ragline`'s `Decide` function (retrieve →
 score → answer-or-escalate); reimplemented here at demo scale, in memory, no

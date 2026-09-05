@@ -39,14 +39,14 @@ repo is public).
   gemini_key:       String @constraint(rule: "required when dialog_backend=gemini"),
   ollama_base_url:  String @constraint(default: "http://localhost:11434"),
   openai_key:       String @constraint(rule: "required when stt_backend=openai (the I-10 client recording) or dialog_backend=openai; not needed for the dev default"),
-  kb_path:          String @constraint(default: "kb/translation-bureau.md"),
-  system_prompt_path: String @constraint(default: "prompt/system.md"),
-  greeting_path:    String @constraint(default: "prompt/greeting.md"),
+  kb_path:          String @constraint(default: "topics/translation/kb.md"),
+  system_prompt_path: String @constraint(default: "topics/translation/system.md"),
+  greeting_path:    String @constraint(default: "topics/translation/greeting.md"),
   data_dir:         String @constraint(default: "./data"),
   bot_timezone:     String @constraint(default: "Europe/Kyiv", rule: "IANA name; the office-hours block in the runtime prompt (Mon–Fri 09:00–18:00) is computed in this zone, not the server's — the host may be UTC. Validated with time.LoadLocation"),
   session_store:    Enum["memory","sqlite"] @constraint(default: "memory", rule: "memory = today's map[chatID]*Session, lost on restart. sqlite persists Session (modernc.org/sqlite, no cgo) — a bot restart mid-conversation resumes slots/topic/voice instead of starting over"),
   session_db_path:  String @constraint(default: "./data/sessions.db", rule: "used only when session_store=sqlite; parent dir is created if missing"),
-  topics_path:      String @constraint(default: "topics/topics.json", rule: "a JSON array of {id,title,kb,system_prompt,greeting}; a missing file (the shipped default) or a single-entry manifest falls back to one synthetic topic built from kb_path/system_prompt_path/greeting_path below, and the bot never shows a picker — opt-in, see topics/README.md")
+  topics_path:      String @constraint(default: "topics/topics.json", rule: "a JSON array of {id,title,kb,system_prompt,greeting,scope_uk,scope_en,slots:[SlotSpec]}; the repo ships one with a single topic (translation) so no picker appears by default. 2+ entries -> the picker. A missing file or an empty array falls back to a synthetic topic from kb_path/system_prompt_path/greeting_path + the translation slot schema. See topics/README.md")
 }
 
 @schema GateParams {
@@ -57,24 +57,22 @@ repo is public).
   @constraint(rule: "package-level consts in internal/dialog and cmd/bot; not runtime config. B1: there is NO retrieval config — the whole KB goes in the prompt")
 }
 
-@schema QuoteSlots {
-  language_pair:  String? @constraint(rule: "e.g. uk->de"),
-  doc_type:       String?,
-  volume:         String?,
-  deadline:       String?,
-  certification:  String? @constraint(rule: "none | certified | notarized | sworn"),
-  delivery:       String?
-  @constraint(rule: "complete = all six non-null; drives the lead_ready signal")
+@schema SlotSpec {
+  key:    String @constraint(rule: "the JSON key the model returns this slot under, and the key in Session.slots / the lead record"),
+  ask_uk: String @constraint(rule: "plain-words phrasing the clarify line uses when this slot is missing — 'з якої мови на яку'"),
+  ask_en: String,
+  rule:   String @constraint(rule: "optional one-line constraint hint injected into the --- RESPONSE FORMAT --- block, e.g. 'e.g. uk->de'")
+  @constraint(rule: "each topic in topics.json declares an ordered []SlotSpec; the translation topic's is language_pair/doc_type/volume/deadline/certification/delivery. Session.slots and lead Fields are map[string]string keyed by SlotSpec.key. Complete = every declared key has a non-empty value; drives lead_ready. cmd/bot.validateSlots: >=1 slot, non-empty key + ask_uk + ask_en, unique keys")
 }
 
 @schema ModelReply {
   reply:  String @constraint(rule: "the spoken text — the only thing the client hears; empty -> treated as unparseable"),
-  slots:  QuoteSlots @constraint(rule: "all six keys present; null when unknown; merge only non-null keys learned this turn"),
+  slots:  Map<String,String> @constraint(rule: "the topic's declared SlotSpec.key names; null/absent when unknown; the merge keeps only non-empty values for keys the topic declares (a model-invented key is dropped)"),
   signal: Enum["continue","lead_ready","escalate"] @constraint(default: "continue", rule: "missing or unparseable response -> escalate")
 }
 
 @schema Session {
-  slots:     QuoteSlots,
+  slots:     Map<String,String> @constraint(rule: "keyed by the topic's SlotSpec.key; absent key or '' = unknown. May be nil (fresh session / reset) — Handle lazily inits before the first write"),
   history:   List<Msg> @constraint(rule: "trimmed to the last 20 Msg entries (about 10 turns); lost on restart under the default session_store=memory, persisted under session_store=sqlite"),
   voice:     Enum["a","b"] @constraint(default: "a"),
   lang:      Enum["uk","en"] @constraint(rule: "set by detectLang (lingua-go) every turn it is confident — a mid-dialogue switch propagates; feeds STT langHint + the prompt language line + the fallback for handoff/apology lines (D-19)"),
@@ -98,20 +96,16 @@ repo is public).
   reply_text: String,
   signal:     String,
   matched:    List<String> @constraint(rule: "titles of the KB sections used this turn; empty on a pre-LLM escalate"),
-  slots:      QuoteSlots @constraint(rule: "snapshot of Session.Slots after this turn's merge — the slot-change trail"),
+  slots:      Map<String,String> @constraint(rule: "snapshot of Session.slots after this turn's merge — the slot-change trail"),
   latency_ms: Int
 }
 
 @schema LeadRecord {
-  time:          Timestamp,
-  chat_id:       Int,
-  language_pair: String,
-  doc_type:      String,
-  volume:        String,
-  deadline:      String,
-  certification: String,
-  delivery:      String
-  @constraint(rule: "the shape a Zoho lead would take; written to data_dir/leads.jsonl, sent nowhere")
+  time:   Timestamp,
+  chat_id: Int,
+  topic:  String @constraint(rule: "which topic produced the lead — Session.Topic"),
+  fields: Map<String,String>
+  @constraint(rule: "the shape a CRM lead would take; fields are the topic's collected slots (keyed by SlotSpec.key), so which keys are present depends on the topic. Written to data_dir/leads.jsonl, sent nowhere")
 }
 
 ---
@@ -189,27 +183,28 @@ dialogue. Out: everything in §6.
 6. [REQ-DLG-01] Each user turn must produce one reply generated by an LLM
    given the whole KB and the rolling conversation history, not a scripted
    response.
-   -> [FUN-DLG-01] dialog.Handle(ctx, sess, kb, gen, systemPrompt, userText) (Reply, error)
+   -> [FUN-DLG-01] dialog.Handle(ctx, sess, topic TopicSpec, gen, userText, now) (Reply, error)
 
 7. [REQ-DLG-02] The assistant must ask relevant clarifying questions that move
    the conversation toward a quote, asking only about the quote parameters not
    yet known.
-   -> [LOG-DLG-02] prompt/system.md "conversation playbook" section defines the intake order; dialog.Handle passes the current QuoteSlots as "COLLECTED SO FAR" so the model asks only about nil fields
+   -> [LOG-DLG-02] topics/translation/system.md "conversation playbook" section defines the intake order; dialog.Handle passes the current slots as "COLLECTED SO FAR" and a generated "--- RESPONSE FORMAT ---" block listing the topic's slot keys, so the model asks only about empty ones
 
-8. [REQ-DLG-03] The assistant must collect six quote parameters:
-   `language_pair`, `doc_type`, `volume`, `deadline`, `certification`,
-   `delivery` (see @schema QuoteSlots).
-   -> [FUN-DLG-03] dialog.QuoteSlots struct; the model returns them in the JSON response object, dialog.Handle merges non-null keys into sess.Slots
+8. [REQ-DLG-03] The assistant must collect the parameters its **topic**
+   declares (`topics.json` `slots: [SlotSpec]`, in ask order). The
+   translation topic's six: `language_pair`, `doc_type`, `volume`,
+   `deadline`, `certification`, `delivery` (see @schema SlotSpec).
+   -> [FUN-DLG-03] dialog.TopicSpec.Slots []SlotSpec; the model returns them under those keys in the JSON response object's `slots` map, dialog.Handle merges non-empty values for declared keys into sess.Slots
 
-9. [REQ-DLG-04] When all six parameters are known, the assistant must
-   summarize them back, tell the client a manager will send the quote, emit
-   the `lead_ready` signal, and the bot must append one LeadRecord.
-   -> [FUN-DLG-04] dialog.QuoteSlots.Complete() gates SignalLeadReady; store.AppendLead(dataDir, LeadRecord) on that signal
+9. [REQ-DLG-04] When every parameter the topic declares is known, the
+   assistant must summarize them back, tell the client a manager will follow
+   up, emit the `lead_ready` signal, and the bot must append one LeadRecord.
+   -> [FUN-DLG-04] dialog.Complete(sess.Slots, topic.Slots) gates SignalLeadReady; store.AppendLead(dataDir, LeadRecord{Topic, Fields}) on that signal
 
 10. [REQ-DLG-05] The assistant must detect the user's language (Ukrainian or
     English) from the first turn, converse in it, and follow a mid-dialogue
     switch. Russian is out of demo scope: not tested and not prompted for.
-    -> [LOG-DLG-05] prompt/system.md "Language" section: detect uk/en, mirror the user, one language per message; no RU test case in examples/dialogues.md
+    -> [LOG-DLG-05] topics/translation/system.md "Language" section: detect uk/en, mirror the user, one language per message; no RU test case in examples/dialogues.md
 
 11. [REQ-DLG-06] The assistant must hand off to a human — reply with a fixed
     handoff line and set `sess.Escalated` — on any of: the user asks for a
@@ -217,7 +212,7 @@ dialogue. Out: everything in §6.
     list; a legal / liability / admissibility question; a complaint about
     delivered work; a payment or refund dispute; an interpreting booking; or
     a content question the KB does not cover.
-    -> [FUN-DLG-06] dialog.Signal == SignalEscalate path in dialog.Handle sets sess.Escalated, substitutes the handoff line; escalate list enumerated in prompt/system.md "Hard rules"
+    -> [FUN-DLG-06] dialog.Signal == SignalEscalate path in dialog.Handle sets sess.Escalated, substitutes the handoff line; escalate list enumerated in topics/translation/system.md "Hard rules"
 
 12. [REQ-DLG-07] The LLM call must go through a `Generator` interface with
     three interchangeable implementations — `ollama` (default), `openai`,
@@ -266,7 +261,7 @@ named constants are `@schema GateParams` in §1.
     `GateParams.slot_answer_max_tok` tokens, **the most recent assistant
     message ends with "?"**, and a quote slot is still nil (B3: the
     "bot just asked" clause stops a bare "apostille?" from bypassing the gate).
-    -> [FUN-DLG-12] dialog.isSlotAnswer(sess *Session, userText string) bool
+    -> [FUN-DLG-12] dialog.isSlotAnswer(sess *Session, spec []SlotSpec, userText string) bool
 
 18. [REQ-DLG-13] The grounding gate decides, from `(kbOverlap, slotAnswer)`
     only: a slot answer never fires it; otherwise `kbOverlap` below
@@ -303,7 +298,7 @@ named constants are `@schema GateParams` in §1.
     user msg, trim to `history_limit` -> Generate -> parse the JSON response
     -> merge slots (6 explicit field assignments) -> resolve signal (incl. the
     B4 guard) -> append assistant msg -> return Reply.
-    -> [FUN-DLG-14] dialog.Handle(ctx, sess *Session, kb []Section, gen Generator, systemPrompt, userText string, now time.Time) (Reply, error)
+    -> [FUN-DLG-14] dialog.Handle(ctx, sess *Session, topic TopicSpec, gen Generator, userText string, now time.Time) (Reply, error)
 
 19a. [REQ-DLG-17] The bot has no clock of its own. `cmd/bot` passes the
     current time (in `bot_timezone`) into `Handle` every turn; the prompt's
@@ -328,7 +323,7 @@ named constants are `@schema GateParams` in §1.
 
 21. [REQ-DLG-16] Signal resolution: a `nil` parse result -> escalate, reply text is the
     fixed handoff line, logged. Otherwise the signal is `mr.Signal` verbatim,
-    with two guards: (B4) a `lead_ready` while `QuoteSlots.Complete()` is false
+    with two guards: (B4) a `lead_ready` while `Complete(slots, spec)` is false
     is downgraded to `continue` and a warning logged; and a repeat `lead_ready`
     after one already fired this session (`Session.LeadDone`) is downgraded to
     `continue` **only when the slots are unchanged** from the recorded lead
@@ -352,7 +347,7 @@ named constants are `@schema GateParams` in §1.
 23. [REQ-DLG-18] The assistant must never state a final total price; it
     collects parameters and defers the quote to a manager. Ranges quoted from
     the KB are allowed; a computed or committed total is not.
-    -> [LOG-DLG-18] prompt/system.md "Hard rules"; kb/translation-bureau.md "How a price is formed" repeats it in-domain
+    -> [LOG-DLG-18] topics/translation/system.md "Hard rules"; topics/translation/kb.md "How a price is formed" repeats it in-domain
 
 24. [REQ-DLG-19] `detectLang(text)` (lingua-go over {Ukrainian, English,
     Russian}) returns `"uk"` | `"en"` | `""` — Russian maps to `"uk"` (out of
@@ -411,7 +406,7 @@ named constants are `@schema GateParams` in §1.
 29. [REQ-UX-02] The bot's first message in a chat (on `/start` or the first
     inbound message) must state that this is a demo and that the conversation
     is logged. Fixed bilingual text, not LLM-generated.
-    -> [FUN-UX-02] cmd/bot sends the body of prompt/greeting.md once per chat, gated on Update.IsStart or an unseen chat id @constraint(rule: "the sent text is the file content after the first line that is exactly '---', with further '---' lines dropped and the result trimmed — the header is never sent")
+    -> [FUN-UX-02] cmd/bot sends the body of topics/translation/greeting.md once per chat, gated on Update.IsStart or an unseen chat id @constraint(rule: "the sent text is the file content after the first line that is exactly '---', with further '---' lines dropped and the result trimmed — the header is never sent")
 
 29a. [REQ-UX-03] When `topics_path` configures **two or more** topics, first
     contact shows a Telegram inline keyboard (one button per topic, in
@@ -443,8 +438,8 @@ named constants are `@schema GateParams` in §1.
     (short+question+nil, short-no-question, long), `isSmallTalk`
     (greeting/thanks/farewell vs. embedded question vs. content),
     `parseResponse` (bare object, fenced, prose-wrapped, JSON error, empty reply, unknown or
-    missing signal), the 6-way slot merge (non-nil overwrite, nil never clears), the
-    B4 + LeadDone guards, `QuoteSlots.Complete`, `detectLang` (uk / en /
+    missing signal), the slot merge (non-empty overwrite, an omitted key never clears, a non-spec key is dropped), the
+    B4 + LeadDone guards, `dialog.Complete`, `detectLang` (uk / en /
     ru→uk / too-short), `sessLang`, `greetingBody`, `voiceID`. `cmd/bot` also
     has a per-chat FIFO-ordering test (a slow fake generator, five queued
     messages, assert call order). The HTTP backend impls (Ollama / OpenAI /
@@ -532,7 +527,7 @@ named constants are `@schema GateParams` in §1.
 
 39. [REQ-NFR-04] No real personal data anywhere: the KB is fictional; the only
     personal data in the logs is the client's own test messages.
-    -> [LOG-NFR-04] kb/translation-bureau.md is invented ("FromToBridge"); no ingestion of external data; TurnRecord stores only what the tester typed
+    -> [LOG-NFR-04] topics/translation/kb.md is invented ("FromToBridge"); no ingestion of external data; TurnRecord stores only what the tester typed
 
 40. [REQ-NFR-05] Secrets must come only from the environment (or a local
     `.env`); never in code, logs, or git.
@@ -540,7 +535,7 @@ named constants are `@schema GateParams` in §1.
 
 41. [REQ-NFR-06] All bot-authored copy must be in the user's language
     (Ukrainian by default); code, identifiers and comments in English.
-    -> [LOG-NFR-06] prompt/system.md and prompt/greeting.md are UA/EN; Go source is English per S5
+    -> [LOG-NFR-06] topics/translation/system.md and topics/translation/greeting.md are UA/EN; Go source is English per S5
 
 42. [REQ-NFR-07] The bot must be reachable by the client while they evaluate
     it. It runs locally for now; an always-on host is a step before an
@@ -568,7 +563,7 @@ MVP substrate is in `docs/architecture.md` §7.
 
 Accounts, keys and authored assets (I-1 … I-15) with status are in
 `.engage/inventory.md` (local only). Authored and done:
-`kb/translation-bureau.md`, `prompt/system.md`, `prompt/greeting.md`,
+`topics/translation/kb.md`, `topics/translation/system.md`, `topics/translation/greeting.md`,
 `examples/dialogues.md`.
 
 ---

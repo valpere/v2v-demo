@@ -1,7 +1,7 @@
 # v2v-demo
 
 A throwaway demo: a **Telegram voice assistant for a translation bureau**.
-Neutral scenario, fabricated data (`kb/translation-bureau.md`, bilingual
+Neutral scenario, fabricated data (`topics/translation/kb.md`, bilingual
 UK/EN). Built to let a prospective client hear how the assistant sounds and
 holds a conversation — not production code, not a framework. Design notes:
 `docs/`, `.agents/plan.md`.

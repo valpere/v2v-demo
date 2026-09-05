@@ -24,30 +24,17 @@ func (f *fakeGen) Generate(_ context.Context, sys string, hist []Msg) (string, e
 	return f.reply, f.err
 }
 
-func slotsJSON(kv map[string]string) string {
-	slots := map[string]any{
-		"language_pair": nil, "doc_type": nil, "volume": nil,
-		"deadline": nil, "certification": nil, "delivery": nil,
-	}
-	for k, v := range kv {
-		slots[k] = v
-	}
-	var pairs []string
-	for _, k := range []string{"language_pair", "doc_type", "volume", "deadline", "certification", "delivery"} {
-		if slots[k] == nil {
-			pairs = append(pairs, `"`+k+`":null`)
-		} else {
-			pairs = append(pairs, `"`+k+`":"`+slots[k].(string)+`"`)
-		}
-	}
-	return "{" + strings.Join(pairs, ",") + "}"
-}
-
 // reply builds a model response in the current contract: a single JSON object
-// {"reply","slots","signal"}.
+// {"reply","slots","signal"}. kv is the slots the model "learned" this turn
+// (an empty/nil kv → "slots":{}, i.e. nothing new).
 func reply(text, sig string, kv map[string]string) string {
 	b, _ := json.Marshal(text)
-	return `{"reply":` + string(b) + `,"slots":` + slotsJSON(kv) + `,"signal":"` + sig + `"}`
+	slots := "{}"
+	if len(kv) > 0 {
+		s, _ := json.Marshal(kv)
+		slots = string(s)
+	}
+	return `{"reply":` + string(b) + `,"slots":` + slots + `,"signal":"` + sig + `"}`
 }
 
 // ── parseResponse ──────────────────────────────────────────────
@@ -61,7 +48,7 @@ func TestParseResponse(t *testing.T) {
 		if mr.Reply != "Hello there." {
 			t.Fatalf("reply = %q", mr.Reply)
 		}
-		if mr.Signal != SignalContinue || mr.Slots.LanguagePair == nil || *mr.Slots.LanguagePair != "uk->de" {
+		if mr.Signal != SignalContinue || mr.Slots["language_pair"] != "uk->de" {
 			t.Fatalf("mr = %+v", mr)
 		}
 	})
@@ -125,7 +112,7 @@ func TestHandleContinueAndMerge(t *testing.T) {
 	if r.Signal != SignalContinue {
 		t.Fatalf("signal = %q", r.Signal)
 	}
-	if sess.Slots.LanguagePair == nil || *sess.Slots.LanguagePair != "uk->de" || sess.Slots.DocType == nil {
+	if sess.Slots["language_pair"] != "uk->de" || sess.Slots["doc_type"] == "" {
 		t.Fatalf("slots not merged: %s", compactSlots(sess.Slots))
 	}
 	if sess.Lang != "en" {
@@ -141,17 +128,17 @@ func TestHandleContinueAndMerge(t *testing.T) {
 
 func TestHandleMergeNeverClears(t *testing.T) {
 	sess := &Session{
-		Slots:   QuoteSlots{DocType: sp("contract")},
+		Slots:   map[string]string{"doc_type": "contract"},
 		History: []Msg{{Role: "assistant", Text: "How many pages is it?"}},
 	}
 	gen := &fakeGen{reply: reply("ok?", "continue", map[string]string{"volume": "10 pages"})}
 	if _, err := dialogHandle(t, sess, gen, "about ten pages"); err != nil { // slot answer -> bypasses the gate
 		t.Fatal(err)
 	}
-	if sess.Slots.DocType == nil || *sess.Slots.DocType != "contract" {
-		t.Fatal("existing slot was cleared by a null in the trailer")
+	if sess.Slots["doc_type"] != "contract" {
+		t.Fatal("existing slot was cleared by an omitted key in the response")
 	}
-	if sess.Slots.Volume == nil || *sess.Slots.Volume != "10 pages" {
+	if sess.Slots["volume"] != "10 pages" {
 		t.Fatal("new slot not merged")
 	}
 }
@@ -255,7 +242,7 @@ func TestHandleSlotAnswerBypassesGate(t *testing.T) {
 	gen := &fakeGen{reply: reply("Записала.", "continue", map[string]string{"volume": "5 pages"})}
 	sess := &Session{
 		History: []Msg{{Role: "assistant", Text: "Скільки сторінок у документі?"}},
-		Slots:   QuoteSlots{DocType: sp("diploma")},
+		Slots:   map[string]string{"doc_type": "diploma"},
 	}
 	r, _ := dialogHandle(t, sess, gen, "п'ять сторінок")
 	if gen.calls != 1 {
@@ -308,8 +295,8 @@ func TestOfficeStatus(t *testing.T) {
 func TestHandleInjectsCurrentTime(t *testing.T) {
 	run := func(when time.Time) string {
 		gen := &fakeGen{reply: reply("ok", "continue", nil)}
-		_, err := Handle(context.Background(), &Session{}, testKB(), gen,
-			"SYSTEM PROMPT", "certified translation of a diploma, tell me about delivery", when)
+		_, err := Handle(context.Background(), &Session{}, testTopic(), gen,
+			"certified translation of a diploma, tell me about delivery", when)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -328,7 +315,7 @@ func TestHandleInjectsCurrentTime(t *testing.T) {
 
 	// zero time -> no block at all (the shared test helper's default)
 	gen := &fakeGen{reply: reply("ok", "continue", nil)}
-	_, _ = Handle(context.Background(), &Session{}, testKB(), gen, "SYSTEM PROMPT",
+	_, _ = Handle(context.Background(), &Session{}, testTopic(), gen,
 		"certified translation of a diploma, tell me about delivery", time.Time{})
 	if strings.Contains(gen.gotSys, "CURRENT TIME") {
 		t.Fatalf("zero now should omit the block:\n%s", gen.gotSys)
@@ -351,7 +338,7 @@ func TestHandleHistoryTrimKeepsSlots(t *testing.T) {
 	if len(sess.History) > HistoryLimit {
 		t.Fatalf("history not trimmed: %d entries, limit %d", len(sess.History), HistoryLimit)
 	}
-	if sess.Slots.LanguagePair == nil || *sess.Slots.LanguagePair != "uk->de" {
+	if sess.Slots["language_pair"] != "uk->de" {
 		t.Fatalf("early slot lost after the history trim: %+v", sess.Slots)
 	}
 }
@@ -388,7 +375,7 @@ func TestHandleLeadReady(t *testing.T) {
 	if r.Signal != SignalLeadReady {
 		t.Fatalf("signal = %q, want lead_ready", r.Signal)
 	}
-	if !sess.Slots.Complete() {
+	if !Complete(sess.Slots, testSlots()) {
 		t.Fatal("slots not complete")
 	}
 }
@@ -518,7 +505,7 @@ func TestHandleCorrectionAfterLeadRecordsUpdatedLead(t *testing.T) {
 	if r2.Signal != SignalLeadReady {
 		t.Fatalf("correction lead_ready downgraded to %s — a real change must be recorded", r2.Signal)
 	}
-	if got := deref(sess.Slots.DocType); got != "birth certificate" {
+	if got := sess.Slots["doc_type"]; got != "birth certificate" {
 		t.Fatalf("doc_type = %q, want the correction", got)
 	}
 
@@ -530,17 +517,10 @@ func TestHandleCorrectionAfterLeadRecordsUpdatedLead(t *testing.T) {
 	}
 }
 
-func deref(p *string) string {
-	if p == nil {
-		return ""
-	}
-	return *p
-}
-
-// dialogHandle runs Handle with the shared test KB and a stub system prompt.
-// A zero `now` omits the CURRENT TIME block — tests that care about it call
-// Handle directly with a fixed timestamp.
+// dialogHandle runs Handle with the shared test topic (testKB + testSlots +
+// translation scope). A zero `now` omits the CURRENT TIME block — tests that
+// care about it call Handle directly with a fixed timestamp.
 func dialogHandle(t *testing.T, sess *Session, gen Generator, text string) (Reply, error) {
 	t.Helper()
-	return Handle(context.Background(), sess, testKB(), gen, "SYSTEM PROMPT", text, time.Time{})
+	return Handle(context.Background(), sess, testTopic(), gen, text, time.Time{})
 }

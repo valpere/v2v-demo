@@ -1,0 +1,19 @@
+[
+  {
+    "id": "translation",
+    "title": "Бюро перекладів",
+    "kb": "topics/translation/kb.md",
+    "system_prompt": "topics/translation/system.md",
+    "greeting": "topics/translation/greeting.md",
+    "scope_uk": "Я допомагаю лише з перекладами документів.",
+    "scope_en": "I only help with document translations.",
+    "slots": [
+      { "key": "language_pair", "ask_uk": "з якої мови на яку", "ask_en": "which languages", "rule": "e.g. uk->de" },
+      { "key": "doc_type", "ask_uk": "який це документ", "ask_en": "what kind of document", "rule": "" },
+      { "key": "volume", "ask_uk": "скільки сторінок", "ask_en": "how many pages", "rule": "" },
+      { "key": "deadline", "ask_uk": "до якого терміну", "ask_en": "the deadline", "rule": "" },
+      { "key": "certification", "ask_uk": "для кого переклад", "ask_en": "who it's for", "rule": "none|certified|notarized|sworn|manager to confirm" },
+      { "key": "delivery", "ask_uk": "як доставити", "ask_en": "how to deliver it", "rule": "" }
+    ]
+  }
+]

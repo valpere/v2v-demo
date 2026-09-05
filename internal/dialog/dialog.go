@@ -7,16 +7,16 @@ import (
 	"log"
 	"strings"
 	"time"
-
-	"github.com/valpere/v2v-demo/internal/kb"
 )
 
 // modelReply is the whole model response — a single JSON object. `reply` is
 // the spoken text for the client; the code never speaks anything else.
+// `slots` carries the topic's declared keys (see TopicSpec.Slots); a value
+// of "" (or a key the model omits) means "still unknown".
 type modelReply struct {
-	Reply  string     `json:"reply"`
-	Slots  QuoteSlots `json:"slots"`
-	Signal Signal     `json:"signal"`
+	Reply  string            `json:"reply"`
+	Slots  map[string]string `json:"slots"`
+	Signal Signal            `json:"signal"`
 }
 
 // Fixed lines — one per language, no formatting. Handoff wording follows
@@ -41,10 +41,10 @@ const (
 
 	// clarify* is the first response when the grounding gate fires — off-topic,
 	// gibberish, or a request with nothing the KB can answer. It does NOT hand
-	// off (a second gate hit in a row does). The %s is missingSlotsPhrase, or
-	// the "already complete" tail when every slot is filled.
-	clarifyUK = "Перепрошую, я не зовсім зрозуміла ваш запит. Я допомагаю лише з перекладами документів. %s"
-	clarifyEN = "Sorry, I didn't quite follow. I only help with document translations. %s"
+	// off (a second gate hit in a row does). The first %s is the topic's scope
+	// sentence ("Я допомагаю лише з …"); the second is the ask/done tail.
+	clarifyUK = "Перепрошую, я не зовсім зрозуміла ваш запит. %s %s"
+	clarifyEN = "Sorry, I didn't quite follow. %s %s"
 
 	clarifyDoneUK = "Ваш запит уже повний — менеджер зв'яжеться з вами найближчим часом. Якщо хочете щось змінити чи поговорити з менеджером — просто напишіть."
 	clarifyDoneEN = "Your request is already complete — a manager will be in touch shortly. Just say so if you'd like to change something or speak with a manager."
@@ -53,8 +53,8 @@ const (
 	// message contains '?'" as "the bot asked something", and a reply to
 	// this line (however short) needs to qualify (see the GateStrike note
 	// on isSlotAnswer in gate.go).
-	clarifyAskUK = "Підкажіть, будь ласка, що саме вам потрібно перекласти: %s? Або напишіть «менеджер», якщо хочете поговорити з людиною."
-	clarifyAskEN = "Please tell me what you need translated: %s? Or say \"manager\" if you'd like to talk to a person."
+	clarifyAskUK = "Підкажіть, будь ласка: %s? Або напишіть «менеджер», якщо хочете поговорити з людиною."
+	clarifyAskEN = "Please tell me: %s? Or say \"manager\" if you'd like to talk to a person."
 )
 
 func line(lang, uk, en string) string {
@@ -71,7 +71,7 @@ func apologyLine(lang string) string { return line(lang, apologyUK, apologyEN) }
 // clock of its own, so the current local time is injected every turn and the
 // office-open decision is made here (in Go, not by the model — LLMs are
 // unreliable at "is 19:40 on Friday within Mon–Fri 09:00–18:00").
-// `now` is already in the bureau's configured zone (BOT_TIMEZONE).
+// `now` is already in the configured zone (BOT_TIMEZONE).
 func officeStatus(now time.Time) string {
 	wd := now.Weekday()
 	open := wd >= time.Monday && wd <= time.Friday && now.Hour() >= 9 && now.Hour() < 18
@@ -83,41 +83,59 @@ func officeStatus(now time.Time) string {
 		now.Format("Monday, 2 January 2006"), now.Hour(), now.Minute(), now.Format("MST"), state)
 }
 
-// clarifyLine is the gate's first, non-escalating response. It names what's
-// still missing (or says the request is already complete).
-func clarifyLine(sess *Session) string {
+// clarifyLine is the gate's first, non-escalating response. It states what
+// the assistant is for (topic.ScopeUK/EN) and names what's still missing (or
+// says the request is already complete).
+func clarifyLine(sess *Session, topic TopicSpec) string {
 	lang := sessLang(sess)
+	scope := line(lang, topic.ScopeUK, topic.ScopeEN)
 	var tail string
-	if miss := missingSlotsPhrase(sess.Slots, lang); miss != "" {
+	if miss := missingSlotsPhrase(sess.Slots, topic.Slots, lang); miss != "" {
 		tail = fmt.Sprintf(line(lang, clarifyAskUK, clarifyAskEN), miss)
 	} else {
 		tail = line(lang, clarifyDoneUK, clarifyDoneEN)
 	}
-	return fmt.Sprintf(line(lang, clarifyUK, clarifyEN), tail)
+	return fmt.Sprintf(line(lang, clarifyUK, clarifyEN), scope, tail)
 }
 
-// missingSlotsPhrase lists the still-nil quote slots in plain words, joined
-// with ", ". Empty when all six are filled.
-func missingSlotsPhrase(s QuoteSlots, lang string) string {
-	type q struct {
-		nil    bool
-		uk, en string
-	}
-	items := []q{
-		{s.LanguagePair == nil, "з якої мови на яку", "which languages"},
-		{s.DocType == nil, "який це документ", "what kind of document"},
-		{s.Volume == nil, "скільки сторінок", "how many pages"},
-		{s.Deadline == nil, "до якого терміну", "the deadline"},
-		{s.Certification == nil, "для кого переклад", "who it's for"},
-		{s.Delivery == nil, "як доставити", "how to deliver it"},
-	}
+// missingSlotsPhrase lists the topic's still-empty slots in plain words,
+// joined with ", ". Empty when every slot is filled.
+func missingSlotsPhrase(slots map[string]string, spec []SlotSpec, lang string) string {
 	var out []string
-	for _, it := range items {
-		if it.nil {
-			out = append(out, line(lang, it.uk, it.en))
+	for _, s := range spec {
+		if slots[s.Key] == "" {
+			out = append(out, line(lang, s.AskUK, s.AskEN))
 		}
 	}
 	return strings.Join(out, ", ")
+}
+
+// responseFormatBlock is the "--- RESPONSE FORMAT ---" section Handle appends
+// to the system prompt — the single source of truth for the model's JSON
+// shape and slot key names, generated from the topic's SlotSpec list. Each
+// topic's system.md keeps its own *semantic* rules (reply ⊇ slots, "never
+// estimate", the lead_ready-needs-a-summary rule, domain inferences).
+func responseFormatBlock(spec []SlotSpec) string {
+	var b strings.Builder
+	b.WriteString("Reply with ONE JSON object and nothing else — no text before or after, no markdown fence:\n")
+	b.WriteString(`{"reply":"<what the client hears, 2-4 sentences>","slots":{`)
+	for i, s := range spec {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(`"` + s.Key + `":null`)
+	}
+	b.WriteString(`},"signal":"continue"}`)
+	b.WriteString("\n\nslots has exactly these keys, each null until you learn its value from the client in plain words:\n")
+	for _, s := range spec {
+		b.WriteString("  " + s.Key)
+		if s.Rule != "" {
+			b.WriteString(" — " + s.Rule)
+		}
+		b.WriteByte('\n')
+	}
+	b.WriteString(`signal: "continue" while still collecting or answering; "lead_ready" only on the turn whose reply reads every slot back and tells the client a manager will follow up; "escalate" per your rules.`)
+	return b.String()
 }
 
 // SttFailLine / VoiceUnavailableLine / VoiceSwitchedLine are used by the
@@ -173,8 +191,16 @@ func parseResponse(raw string) *modelReply {
 	}
 }
 
-func compactSlots(s QuoteSlots) string {
-	b, _ := json.Marshal(s)
+// compactSlots is the deterministic JSON of the collected slots — used for
+// the "--- COLLECTED SO FAR ---" prompt block and the LeadSlots dedupe hash.
+// A nil map marshals to "null"; normalise it to "{}" so the hash compare and
+// the turn log stay well-formed. Map keys marshal sorted, so the output is
+// stable for a given slot set.
+func compactSlots(slots map[string]string) string {
+	if slots == nil {
+		return "{}"
+	}
+	b, _ := json.Marshal(slots)
 	return string(b)
 }
 
@@ -194,19 +220,19 @@ func trimTail(msgs []Msg, n int) []Msg {
 	return msgs[len(msgs)-n:]
 }
 
-// Handle runs the exact 14-step sequence from .agents/plan.md §"Behavioural
-// spec": lock Session.Lang -> hardEscalate -> classify slot answer ->
-// kbOverlap -> grounding gate -> build the system prompt (system file + whole
-// KB + collected slots) -> append user msg + trim -> Generate -> parse the
-// JSON response -> merge slots -> resolve signal (incl. the B4 guard) ->
-// append assistant msg -> return. It never returns a non-nil error — every
-// failure degrades to a handoff/apology Reply.
+// Handle runs the exact sequence from .agents/plan.md §"Behavioural spec":
+// lock Session.Lang -> hardEscalate -> injection check -> classify slot
+// answer -> kbOverlap -> grounding gate -> build the system prompt (topic
+// system file + whole KB + collected slots + response format) -> append user
+// msg + trim -> Generate -> parse the JSON response -> merge slots (filtered
+// to the topic's keys) -> resolve signal -> append assistant msg -> return.
+// It never returns a non-nil error — every failure degrades to a
+// handoff/apology Reply.
 func Handle(
 	ctx context.Context,
 	sess *Session,
-	sections []kb.Section,
+	topic TopicSpec,
 	gen Generator,
-	systemPrompt string,
 	userText string,
 	now time.Time,
 ) (Reply, error) {
@@ -228,15 +254,15 @@ func Handle(
 	}
 
 	// 1b — a message shaped like the model's own output (a JSON object with
-	// slots/signal, a ```json fence) is a probe, not client input. gpt-4.1-mini
-	// will happily read slots out of it and emit lead_ready. Never let it reach
-	// the model — answer with the clarify line, and a repeat still escalates.
+	// slots/signal, a ```json fence) is a probe, not client input. The model
+	// will happily read slots out of it and emit lead_ready. Never let it
+	// reach the model — answer with the clarify line, a repeat still escalates.
 	if looksLikeInjection(userText) {
 		if sess.GateStrike {
 			return esc()
 		}
 		sess.GateStrike = true
-		clarify := clarifyLine(sess)
+		clarify := clarifyLine(sess, topic)
 		sess.History = trimTail(append(sess.History,
 			Msg{Role: "user", Text: userText},
 			Msg{Role: "assistant", Text: clarify},
@@ -248,14 +274,14 @@ func Handle(
 	// The gate fires on a message the KB can't help with (off-topic, gibberish,
 	// noise). First hit → the fixed clarification line, no handoff. A second
 	// hit in a row → hand off.
-	slotAnswer := isSlotAnswer(sess, userText)
-	overlap := kbOverlap(userText, sections)
+	slotAnswer := isSlotAnswer(sess, topic.Slots, userText)
+	overlap := kbOverlap(userText, topic.KB)
 	if !isSmallTalk(userText) && groundingGate(overlap, slotAnswer) {
 		if sess.GateStrike {
 			return esc()
 		}
 		sess.GateStrike = true
-		clarify := clarifyLine(sess)
+		clarify := clarifyLine(sess, topic)
 		sess.History = trimTail(append(sess.History,
 			Msg{Role: "user", Text: userText},
 			Msg{Role: "assistant", Text: clarify},
@@ -264,11 +290,11 @@ func Handle(
 	}
 	sess.GateStrike = false // this turn is a real one — reset the strike
 
-	// 5 — system prompt: persona file + the WHOLE KB + collected slots
+	// 5 — system prompt: persona file + the WHOLE KB + collected slots + format
 	var b strings.Builder
-	b.WriteString(systemPrompt)
+	b.WriteString(topic.System)
 	b.WriteString("\n\n--- KNOWLEDGE BASE ---\n")
-	for i, s := range sections {
+	for i, s := range topic.KB {
 		if i > 0 {
 			b.WriteString("\n\n")
 		}
@@ -279,6 +305,8 @@ func Handle(
 	}
 	b.WriteString("\n\n--- COLLECTED SO FAR ---\n")
 	b.WriteString(compactSlots(sess.Slots))
+	b.WriteString("\n\n--- RESPONSE FORMAT ---\n")
+	b.WriteString(responseFormatBlock(topic.Slots))
 	if sess.Lang != "" {
 		// soft steer — the model still follows a clear mid-dialogue switch
 		b.WriteString("\n\n--- CONVERSATION LANGUAGE ---\n")
@@ -310,30 +338,22 @@ func Handle(
 	}
 	spoken := strings.TrimSpace(mr.Reply)
 
-	// 10 — merge: assign only non-nil incoming slots (never clear a filled one)
-	if mr.Slots.LanguagePair != nil {
-		sess.Slots.LanguagePair = mr.Slots.LanguagePair
+	// 10 — merge: assign only non-empty incoming values, and only for keys the
+	// topic declares (a map keeps model-invented keys; a struct dropped them).
+	if sess.Slots == nil {
+		sess.Slots = map[string]string{}
 	}
-	if mr.Slots.DocType != nil {
-		sess.Slots.DocType = mr.Slots.DocType
-	}
-	if mr.Slots.Volume != nil {
-		sess.Slots.Volume = mr.Slots.Volume
-	}
-	if mr.Slots.Deadline != nil {
-		sess.Slots.Deadline = mr.Slots.Deadline
-	}
-	if mr.Slots.Certification != nil {
-		sess.Slots.Certification = mr.Slots.Certification
-	}
-	if mr.Slots.Delivery != nil {
-		sess.Slots.Delivery = mr.Slots.Delivery
+	known := slotKeySet(topic.Slots)
+	for k, v := range mr.Slots {
+		if v != "" && known[k] {
+			sess.Slots[k] = v
+		}
 	}
 
 	// 11 — resolve the signal
 	signal := mr.Signal
 	switch {
-	case signal == SignalLeadReady && !sess.Slots.Complete(): // B4 guard
+	case signal == SignalLeadReady && !Complete(sess.Slots, topic.Slots): // B4 guard
 		log.Printf("dialog: lead_ready with incomplete slots: %s", compactSlots(sess.Slots))
 		signal = SignalContinue
 	case signal == SignalLeadReady && sess.LeadDone:
@@ -352,7 +372,7 @@ func Handle(
 	}
 
 	// 12, 13, 14
-	matched := matchedTitles(userText, sections)
+	matched := matchedTitles(userText, topic.KB)
 	sess.History = trimTail(append(hist, Msg{Role: "assistant", Text: spoken}), HistoryLimit)
 	return Reply{Text: spoken, Signal: signal, Matched: matched}, nil
 }

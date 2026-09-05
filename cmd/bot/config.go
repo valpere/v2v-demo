@@ -92,9 +92,9 @@ func LoadConfig() (Config, error) {
 		OllamaBaseURL: def("OLLAMA_BASE_URL", "http://localhost:11434"),
 		OpenAIKey:     get("OPENAI_API_KEY"),
 
-		KBPath:           def("KB_PATH", "kb/translation-bureau.md"),
-		SystemPromptPath: def("SYSTEM_PROMPT_PATH", "prompt/system.md"),
-		GreetingPath:     def("GREETING_PATH", "prompt/greeting.md"),
+		KBPath:           def("KB_PATH", "topics/translation/kb.md"),
+		SystemPromptPath: def("SYSTEM_PROMPT_PATH", "topics/translation/system.md"),
+		GreetingPath:     def("GREETING_PATH", "topics/translation/greeting.md"),
 		DataDir:          def("DATA_DIR", "./data"),
 
 		Timezone: def("BOT_TIMEZONE", "Europe/Kyiv"),

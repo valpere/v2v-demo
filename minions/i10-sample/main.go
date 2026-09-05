@@ -66,10 +66,24 @@ func main() {
 		die("ELEVENLABS_API_KEY / ELEVENLABS_VOICE_A / ELEVENLABS_VOICE_B not set")
 	}
 
-	sections, err := kb.Load(env2("KB_PATH", "kb/translation-bureau.md"))
+	sections, err := kb.Load(env2("KB_PATH", "topics/translation/kb.md"))
 	must(err)
-	sysBytes, err := os.ReadFile(env2("SYSTEM_PROMPT_PATH", "prompt/system.md"))
+	sysBytes, err := os.ReadFile(env2("SYSTEM_PROMPT_PATH", "topics/translation/system.md"))
 	must(err)
+	topic := dialog.TopicSpec{
+		KB:      sections,
+		System:  string(sysBytes),
+		ScopeUK: "Я допомагаю лише з перекладами документів.",
+		ScopeEN: "I only help with document translations.",
+		Slots: []dialog.SlotSpec{
+			{Key: "language_pair", AskUK: "з якої мови на яку", AskEN: "which languages", Rule: "e.g. uk->de"},
+			{Key: "doc_type", AskUK: "який це документ", AskEN: "what kind of document"},
+			{Key: "volume", AskUK: "скільки сторінок", AskEN: "how many pages"},
+			{Key: "deadline", AskUK: "до якого терміну", AskEN: "the deadline"},
+			{Key: "certification", AskUK: "для кого переклад", AskEN: "who it's for", Rule: "none|certified|notarized|sworn|manager to confirm"},
+			{Key: "delivery", AskUK: "як доставити", AskEN: "how to deliver it"},
+		},
+	}
 	gen := dialog.NewOpenAI(key, env("DIALOG_MODEL"))
 	synth := tts.NewElevenLabs(elevenKey)
 	loc, _ := time.LoadLocation(env2("BOT_TIMEZONE", "Europe/Kyiv"))
@@ -111,7 +125,7 @@ func main() {
 			fmt.Printf("  C: %s\n", ln.text)
 			clips = append(clips, sil)
 			// Vira's reply
-			reply, _ := dialog.Handle(ctx, sess, sections, gen, string(sysBytes), ln.text, time.Now().In(loc))
+			reply, _ := dialog.Handle(ctx, sess, topic, gen, ln.text, time.Now().In(loc))
 			spoken := tts.Spoken(reply.Text, ln.lang)
 			fmt.Fprintf(&script, "Віра [%s]: %s\n", reply.Signal, strings.TrimSpace(reply.Text))
 			fmt.Printf("  V[%s]: %s\n", reply.Signal, oneline(reply.Text))

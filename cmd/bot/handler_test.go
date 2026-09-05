@@ -151,16 +151,27 @@ func (f *faultySessions) Delete(chatID int64) error {
 // own app.topics/topicIDs instead of using this helper.
 const defaultTopicID = "default"
 
+// testBundle builds a topicBundle for the handler tests — the translation
+// slot schema (defaultTranslationSlots) + a stub system prompt + scope.
+func testBundle(id, title, greeting string, sections []kb.Section) topicBundle {
+	return topicBundle{
+		ID:       id,
+		Title:    title,
+		Greeting: greeting,
+		Spec: dialog.TopicSpec{
+			KB:      sections,
+			System:  "SYS",
+			Slots:   defaultTranslationSlots(),
+			ScopeUK: "Я допомагаю лише з перекладами документів.",
+			ScopeEN: "I only help with document translations.",
+		},
+	}
+}
+
 func newTestApp(t *testing.T, gen dialog.Generator) (*app, *fakeTG) {
 	t.Helper()
 	tg := &fakeTG{}
-	topic := topicBundle{
-		ID:       defaultTopicID,
-		Title:    "Default",
-		KB:       []kb.Section{{Title: "Services", Body: "translation"}},
-		Sys:      "SYS",
-		Greeting: "GREETING",
-	}
+	topic := testBundle(defaultTopicID, "Default", "GREETING", []kb.Section{{Title: "Services", Body: "translation"}})
 	return &app{
 		cfg:      Config{TTSBackend: "elevenlabs", ElevenVoiceA: "A", ElevenVoiceB: "B", DataDir: t.TempDir()},
 		tg:       tg,
@@ -279,11 +290,11 @@ func TestResetClearsSession(t *testing.T) {
 	ctx := context.Background()
 	a.handleUpdate(ctx, telegram.Update{ChatID: 7, Text: "Треба перекласти диплом"}) // greeting + turn
 	sess := loadSession(t, a, 7)
-	sess.Slots.DocType = strptr("диплом")
+	sess.Slots = map[string]string{"doc_type": "диплом"}
 	save(t, a, 7, sess)
 
 	a.handleUpdate(ctx, telegram.Update{ChatID: 7, Text: "/reset"})
-	if loadSession(t, a, 7).Slots.DocType != nil {
+	if loadSession(t, a, 7).Slots["doc_type"] != "" {
 		t.Fatal("/reset should drop the session's slots")
 	}
 
@@ -311,7 +322,7 @@ func TestResetClearsSession(t *testing.T) {
 func TestSessionLoadErrorSkipsSave(t *testing.T) {
 	a, tg := newTestApp(t, &fakeGen{})
 	sess := seed(t, a, 7)
-	sess.Slots.DocType = strptr("диплом")
+	sess.Slots = map[string]string{"doc_type": "диплом"}
 	save(t, a, 7, sess)
 
 	faulty := &faultySessions{sessionStore: a.sessions, failNextLoad: true}
@@ -322,8 +333,8 @@ func TestSessionLoadErrorSkipsSave(t *testing.T) {
 	if faulty.failNextLoad {
 		t.Fatal("faultySessions.Load was never called")
 	}
-	if got := loadSession(t, a, 7).Slots.DocType; got == nil || *got != "диплом" {
-		t.Fatalf("a failed Load must not overwrite the persisted session; DocType = %v", got)
+	if got := loadSession(t, a, 7).Slots["doc_type"]; got != "диплом" {
+		t.Fatalf("a failed Load must not overwrite the persisted session; doc_type = %q", got)
 	}
 	if len(tg.sentTo(7)) == 0 {
 		t.Fatal("the turn should still get a best-effort reply despite the Load error")
@@ -336,7 +347,7 @@ func TestSessionLoadErrorSkipsSave(t *testing.T) {
 func TestResetDeleteFailureKeepsSessionAndReportsError(t *testing.T) {
 	a, tg := newTestApp(t, &fakeGen{})
 	sess := seed(t, a, 7)
-	sess.Slots.DocType = strptr("диплом")
+	sess.Slots = map[string]string{"doc_type": "диплом"}
 	save(t, a, 7, sess)
 
 	faulty := &faultySessions{sessionStore: a.sessions, failNextDelete: true}
@@ -344,16 +355,14 @@ func TestResetDeleteFailureKeepsSessionAndReportsError(t *testing.T) {
 
 	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, Text: "/reset"})
 
-	if got := loadSession(t, a, 7).Slots.DocType; got == nil || *got != "диплом" {
-		t.Fatalf("a failed Delete must leave the session as it was; DocType = %v", got)
+	if got := loadSession(t, a, 7).Slots["doc_type"]; got != "диплом" {
+		t.Fatalf("a failed Delete must leave the session as it was; doc_type = %q", got)
 	}
 	last := tg.sentTo(7)
 	if len(last) == 0 || contains(last[len(last)-1], "очищено") {
 		t.Fatalf("want an error reply, not the success line, got %q", last)
 	}
 }
-
-func strptr(s string) *string { return &s }
 
 // newMultiTopicTestApp builds an app with two distinct topic bundles — own
 // KB, persona and greeting each — to exercise the picker/callback flow.
@@ -363,8 +372,8 @@ func newMultiTopicTestApp(t *testing.T, gen dialog.Generator) (*app, *fakeTG) {
 	t.Helper()
 	a, tg := newTestApp(t, gen)
 	a.topics = map[string]topicBundle{
-		"translations": {ID: "translations", Title: "Переклад", KB: []kb.Section{{Title: "T", Body: "translation"}}, Sys: "SYS-T", Greeting: "GREETING-T"},
-		"notary":       {ID: "notary", Title: "Нотаріус", KB: []kb.Section{{Title: "N", Body: "notary"}}, Sys: "SYS-N", Greeting: "GREETING-N"},
+		"translations": testBundle("translations", "Переклад", "GREETING-T", []kb.Section{{Title: "T", Body: "translation"}}),
+		"notary":       testBundle("notary", "Нотаріус", "GREETING-N", []kb.Section{{Title: "N", Body: "notary"}}),
 	}
 	a.topicIDs = []string{"translations", "notary"}
 	return a, tg
@@ -494,7 +503,7 @@ func TestTopicSwitchResetsConversationState(t *testing.T) {
 	sess := seed(t, a, 7)
 	sess.Topic = "translations"
 	sess.Voice = "b"
-	sess.Slots.DocType = strptr("диплом")
+	sess.Slots = map[string]string{"doc_type": "диплом"}
 	sess.History = []dialog.Msg{{Role: "user", Text: "hi"}, {Role: "assistant", Text: "hello"}}
 	sess.Escalated = true
 	sess.LeadDone = true
@@ -511,7 +520,7 @@ func TestTopicSwitchResetsConversationState(t *testing.T) {
 	if got.Voice != "b" {
 		t.Fatalf("Voice = %q, want b (a per-chat preference, not part of the conversation)", got.Voice)
 	}
-	if got.Slots.DocType != nil || len(got.History) != 0 || got.Escalated || got.LeadDone ||
+	if len(got.Slots) != 0 || len(got.History) != 0 || got.Escalated || got.LeadDone ||
 		got.LeadSlots != "" || got.GateStrike {
 		t.Fatalf("switching topics should reset the conversation state, got %+v", got)
 	}
@@ -609,10 +618,10 @@ func TestPerChatIsolation(t *testing.T) {
 
 	// chat 3 is mid-quote — 4 of 6 slots filled
 	s3 := seed(t, a, 3)
-	s3.Slots.LanguagePair = strptr("uk->pl")
-	s3.Slots.DocType = strptr("диплом")
-	s3.Slots.Volume = strptr("2 pages")
-	s3.Slots.Deadline = strptr("Friday")
+	s3.Slots = map[string]string{
+		"language_pair": "uk->pl", "doc_type": "диплом",
+		"volume": "2 pages", "deadline": "Friday",
+	}
 	save(t, a, 3, s3)
 
 	// chat 9 sends a refund demand -> hard escalate
@@ -624,8 +633,8 @@ func TestPerChatIsolation(t *testing.T) {
 	if loadSession(t, a, 3).Escalated {
 		t.Fatal("chat 9's escalation leaked into chat 3")
 	}
-	if got := loadSession(t, a, 3).Slots; got.LanguagePair == nil || got.DocType == nil ||
-		got.Volume == nil || got.Deadline == nil {
+	if got := loadSession(t, a, 3).Slots; got["language_pair"] == "" || got["doc_type"] == "" ||
+		got["volume"] == "" || got["deadline"] == "" {
 		t.Fatalf("chat 3 lost its slots: %+v", got)
 	}
 	if len(tg.sentTo(3)) != 0 {
@@ -641,7 +650,7 @@ func TestPerChatIsolation(t *testing.T) {
 func TestGeneratorErrorNoCrashThenRecovers(t *testing.T) {
 	gen := &fakeGen{err: errors.New("dial tcp 127.0.0.1:1: connection refused")}
 	a, tg := newTestApp(t, gen)
-	a.topics[defaultTopicID] = topicBundle{ID: defaultTopicID, Title: "Default", KB: []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}, Sys: "SYS", Greeting: "GREETING"}
+	a.topics[defaultTopicID] = testBundle(defaultTopicID, "Default", "GREETING", []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}})
 	seed(t, a, 5)
 	ctx := context.Background()
 
@@ -669,7 +678,7 @@ func TestGeneratorErrorNoCrashThenRecovers(t *testing.T) {
 func TestTTSErrorFallsBackToText(t *testing.T) {
 	a, tg := newTestApp(t, &fakeGen{})
 	a.tts = fakeTTS{err: errors.New("401 Unauthorized")}
-	a.topics[defaultTopicID] = topicBundle{ID: defaultTopicID, Title: "Default", KB: []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}, Sys: "SYS", Greeting: "GREETING"}
+	a.topics[defaultTopicID] = testBundle(defaultTopicID, "Default", "GREETING", []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}})
 	seed(t, a, 5)
 
 	a.handleUpdate(context.Background(), telegram.Update{ChatID: 5, Text: "Скільки коштує переклад диплома?"})
@@ -718,7 +727,7 @@ func TestDegenerateShortInputsNoCrash(t *testing.T) {
 func TestTurnRecordOnlyForDialogueTurns(t *testing.T) {
 	a, _ := newTestApp(t, &fakeGen{})
 	a.stt = fakeSTT{err: errors.New("whisper exploded")}
-	a.topics[defaultTopicID] = topicBundle{ID: defaultTopicID, Title: "Default", KB: []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}}, Sys: "SYS", Greeting: "GREETING"}
+	a.topics[defaultTopicID] = testBundle(defaultTopicID, "Default", "GREETING", []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}})
 	seed(t, a, 7)
 	ctx := context.Background()
 	turns := filepath.Join(a.cfg.DataDir, "turns.jsonl")

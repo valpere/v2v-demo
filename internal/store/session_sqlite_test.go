@@ -8,8 +8,6 @@ import (
 	"github.com/valpere/v2v-demo/internal/dialog"
 )
 
-func sp(s string) *string { return &s }
-
 func TestSQLiteSessionsRoundTrip(t *testing.T) {
 	db, err := NewSQLiteSessions(filepath.Join(t.TempDir(), "sessions.db"))
 	if err != nil {
@@ -18,7 +16,7 @@ func TestSQLiteSessionsRoundTrip(t *testing.T) {
 	defer db.Close()
 
 	want := &dialog.Session{
-		Slots:      dialog.QuoteSlots{DocType: sp("diploma"), Volume: sp("2 pages")},
+		Slots:      map[string]string{"doc_type": "diploma", "volume": "2 pages"},
 		History:    []dialog.Msg{{Role: "user", Text: "hi"}, {Role: "assistant", Text: "hello"}},
 		Voice:      "b",
 		Lang:       "uk",
@@ -44,7 +42,7 @@ func TestSQLiteSessionsRoundTrip(t *testing.T) {
 		got.GateStrike != want.GateStrike || got.Topic != want.Topic {
 		t.Fatalf("round-trip mismatch: got %+v, want %+v", got, want)
 	}
-	if got.Slots.DocType == nil || *got.Slots.DocType != "diploma" {
+	if got.Slots["doc_type"] != "diploma" || got.Slots["volume"] != "2 pages" {
 		t.Fatalf("Slots not round-tripped: %+v", got.Slots)
 	}
 	if len(got.History) != 2 || got.History[0].Text != "hi" {
