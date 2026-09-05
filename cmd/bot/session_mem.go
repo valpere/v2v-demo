@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"sync"
 
 	"github.com/valpere/v2v-demo/internal/dialog"
@@ -30,6 +31,7 @@ func (m *memSessions) Load(chatID int64) (*dialog.Session, bool, error) {
 	}
 	sess, err := store.DecodeSession(data)
 	if err != nil {
+		log.Printf("session %d failed to decode, starting fresh: %v", chatID, err)
 		return nil, false, nil // corrupt row (shouldn't happen in-process) — start fresh
 	}
 	return sess, true, nil

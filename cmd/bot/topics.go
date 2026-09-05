@@ -29,11 +29,14 @@ type topicBundle struct {
 }
 
 // loadTopics builds the set of topics the bot offers. If cfg.TopicsPath is
-// missing, it falls back to one synthetic topic built from
-// KB_PATH/SYSTEM_PROMPT_PATH/GREETING_PATH — this is what makes the whole
-// feature opt-in: no manifest, no picker, byte-for-byte today's behavior.
-// The same fallback applies to a manifest with exactly one entry. ids is
-// the stable display order (Go map iteration isn't).
+// missing (or parses to zero entries), it falls back to one synthetic topic
+// built from KB_PATH/SYSTEM_PROMPT_PATH/GREETING_PATH — this is what makes
+// the whole feature opt-in: no manifest, no picker, byte-for-byte today's
+// behavior. A manifest with exactly one entry is *not* replaced by that
+// synthetic topic — it still loads from the entry's own kb/system_prompt/
+// greeting paths — but the caller treats len(topics)==1 the same way either
+// way: no picker shown. ids is the stable display order (Go map iteration
+// isn't).
 func loadTopics(cfg Config) (topics map[string]topicBundle, ids []string, err error) {
 	entries, err := readTopicManifest(cfg.TopicsPath)
 	if err != nil {

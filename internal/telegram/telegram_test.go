@@ -59,6 +59,10 @@ func TestToUpdate(t *testing.T) {
 			ok:   true,
 		},
 		{
+			// still routed (and, in the real bot, still acked) even though
+			// there's no live *Message to reply into — InaccessibleMessage
+			// carries the chat id, and skipping AnswerCallback here would
+			// leave the tapped button spinning for ~10s.
 			name: "callback query on an inaccessible message",
 			in: &models.Update{CallbackQuery: &models.CallbackQuery{
 				ID:   "cbid2",
@@ -66,6 +70,15 @@ func TestToUpdate(t *testing.T) {
 				Message: models.MaybeInaccessibleMessage{
 					InaccessibleMessage: &models.InaccessibleMessage{Chat: models.Chat{ID: 9}},
 				},
+			}},
+			want: Update{ChatID: 9, CallbackData: "topic:translations", CallbackID: "cbid2"},
+			ok:   true,
+		},
+		{
+			name: "callback query with neither Message nor InaccessibleMessage",
+			in: &models.Update{CallbackQuery: &models.CallbackQuery{
+				ID:   "cbid3",
+				Data: "topic:translations",
 			}},
 			ok: false,
 		},

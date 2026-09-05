@@ -90,3 +90,29 @@ go run . read  <N>         # print the last N messages as "IN|OUT<tab>text"
 
 Its own Go module (`minions/tgdrive/go.mod`) — `go build ./...` from the
 repo root ignores it. One dependency: `github.com/gorilla/websocket`.
+
+## `council/` — fan a code review out to several third-party agent CLIs
+
+Runs the same review prompt (a git range's log + diff, embedded directly —
+not left for each agent to fetch, since some run with no shell trusted) in
+parallel through several independent coding-agent CLIs installed on this
+machine (`opencode`, `kilo`, `cursor-agent`, `kiro-cli`; `codex`/`omp` exist
+but are off by default — see the script header for why), each in the
+safest read-only/plan mode that CLI offers. Use it to get a second (third,
+fourth…) opinion on a change before or after committing it — a poor man's
+multi-model code review when `/code-review` or `/fix-review` isn't set up
+for this repo, or when you specifically want *non-Claude* eyes on it.
+
+```
+./minions/council/run.sh                              # reviews HEAD~3..HEAD, all default agents
+./minions/council/run.sh -r 31f3e75..HEAD              # a specific range
+./minions/council/run.sh -a opencode,kiro-cli -t 1200   # pick agents, longer per-agent timeout
+```
+
+Reports land in `tmp/council/<UTC timestamp>/<agent>.md` (+ `.stderr.log` +
+`.exit`); the script prints a summary table and a `git status --short` at
+the end — every agent runs read-only/plan-mode plus an explicit
+"don't edit anything" instruction in the prompt, but that's best-effort,
+not a sandbox guarantee, so the status check is the actual tripwire. Read
+the reports yourself (or hand them to Claude) — treat every finding as a
+claim to verify against the real code, not a verdict.

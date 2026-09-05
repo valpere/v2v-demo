@@ -35,6 +35,7 @@ type app struct {
 
 	mu    sync.Mutex
 	inbox map[int64]chan telegram.Update // per-chat FIFO queue (one serial worker each)
+	wg    sync.WaitGroup                 // outstanding chatWorker goroutines — see main()'s shutdown order
 }
 
 func main() {
@@ -105,6 +106,11 @@ func main() {
 	for u := range updates {
 		a.dispatch(ctx, u)
 	}
+	// every chatWorker exits once ctx is cancelled (the same ctx that closed
+	// the updates channel above), but one may still be mid-handleUpdate —
+	// wait for it before the deferred sessions.Close() runs, or a save can
+	// race a session-store shutdown.
+	a.wg.Wait()
 	log.Print("v2v-demo: shut down")
 }
 
@@ -118,6 +124,7 @@ func (a *app) dispatch(ctx context.Context, u telegram.Update) {
 	if ch == nil {
 		ch = make(chan telegram.Update, 64)
 		a.inbox[u.ChatID] = ch
+		a.wg.Add(1)
 		go a.chatWorker(ctx, ch)
 	}
 	a.mu.Unlock()
@@ -129,6 +136,7 @@ func (a *app) dispatch(ctx context.Context, u telegram.Update) {
 }
 
 func (a *app) chatWorker(ctx context.Context, ch <-chan telegram.Update) {
+	defer a.wg.Done()
 	for {
 		select {
 		case <-ctx.Done():

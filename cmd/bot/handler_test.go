@@ -121,6 +121,30 @@ func (s fakeSTT) Transcribe(context.Context, string, string) (string, error) {
 	return s.text, s.err
 }
 
+// faultySessions wraps a real sessionStore and injects one-shot errors —
+// used to exercise handleUpdate's error paths without a real SQLite failure.
+type faultySessions struct {
+	sessionStore
+	failNextLoad   bool
+	failNextDelete bool
+}
+
+func (f *faultySessions) Load(chatID int64) (*dialog.Session, bool, error) {
+	if f.failNextLoad {
+		f.failNextLoad = false
+		return nil, false, errors.New("injected load failure")
+	}
+	return f.sessionStore.Load(chatID)
+}
+
+func (f *faultySessions) Delete(chatID int64) error {
+	if f.failNextDelete {
+		f.failNextDelete = false
+		return errors.New("injected delete failure")
+	}
+	return f.sessionStore.Delete(chatID)
+}
+
 // defaultTopic is the sole topic newTestApp seeds — single-topic mode, so
 // every existing test keeps its old text/greeting/kb behavior unchanged and
 // never sees a picker. Tests exercising the multi-topic picker build their
@@ -281,6 +305,54 @@ func TestResetClearsSession(t *testing.T) {
 	}
 }
 
+// A transient Load failure must not clobber whatever is actually on disk:
+// handleUpdate falls back to a blank in-memory session for that one turn,
+// but the deferred Save must be skipped so a real persisted row survives.
+func TestSessionLoadErrorSkipsSave(t *testing.T) {
+	a, tg := newTestApp(t, &fakeGen{})
+	sess := seed(t, a, 7)
+	sess.Slots.DocType = strptr("диплом")
+	save(t, a, 7, sess)
+
+	faulty := &faultySessions{sessionStore: a.sessions, failNextLoad: true}
+	a.sessions = faulty
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, Text: "hi"})
+
+	if faulty.failNextLoad {
+		t.Fatal("faultySessions.Load was never called")
+	}
+	if got := loadSession(t, a, 7).Slots.DocType; got == nil || *got != "диплом" {
+		t.Fatalf("a failed Load must not overwrite the persisted session; DocType = %v", got)
+	}
+	if len(tg.sentTo(7)) == 0 {
+		t.Fatal("the turn should still get a best-effort reply despite the Load error")
+	}
+}
+
+// /reset must not claim success (or skip the deferred Save) when Delete
+// itself failed — otherwise the user is told "cleared" while the old
+// session row is untouched on disk.
+func TestResetDeleteFailureKeepsSessionAndReportsError(t *testing.T) {
+	a, tg := newTestApp(t, &fakeGen{})
+	sess := seed(t, a, 7)
+	sess.Slots.DocType = strptr("диплом")
+	save(t, a, 7, sess)
+
+	faulty := &faultySessions{sessionStore: a.sessions, failNextDelete: true}
+	a.sessions = faulty
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, Text: "/reset"})
+
+	if got := loadSession(t, a, 7).Slots.DocType; got == nil || *got != "диплом" {
+		t.Fatalf("a failed Delete must leave the session as it was; DocType = %v", got)
+	}
+	last := tg.sentTo(7)
+	if len(last) == 0 || contains(last[len(last)-1], "очищено") {
+		t.Fatalf("want an error reply, not the success line, got %q", last)
+	}
+}
+
 func strptr(s string) *string { return &s }
 
 // newMultiTopicTestApp builds an app with two distinct topic bundles — own
@@ -390,6 +462,82 @@ func TestVoiceCommandStillWorksBeforeTopicChosen(t *testing.T) {
 
 	if v := loadSession(t, a, 7).Voice; v != "b" {
 		t.Fatalf("voice = %q, want b — slash commands must not be gated by topic choice", v)
+	}
+}
+
+// A callback payload that doesn't carry the "topic:" prefix must never be
+// treated as a topic pick — even if, after stripping nothing, it happens to
+// coincidentally match an existing topic id.
+func TestTopicCallbackWithoutPrefixIsRejected(t *testing.T) {
+	a, tg := newMultiTopicTestApp(t, &fakeGen{})
+	seed(t, a, 7)
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, CallbackID: "cb3", CallbackData: "notary"})
+
+	if got := loadSession(t, a, 7).Topic; got != "" {
+		t.Fatalf("Topic = %q, want empty — \"notary\" has no \"topic:\" prefix", got)
+	}
+	if len(tg.acked) != 1 || tg.acked[0] != "cb3" {
+		t.Fatalf("the callback must still be acked: %v", tg.acked)
+	}
+	if len(tg.sentTo(7)) != 0 {
+		t.Fatalf("no greeting should be sent: %q", tg.sentTo(7))
+	}
+}
+
+// Picking a topic is a fresh start for that assistant: any slots/history/
+// escalation left over from a previous topic (or from before any topic was
+// picked) must not bleed into the new one. Voice is a per-chat preference,
+// not part of a topic's conversation, so it survives.
+func TestTopicSwitchResetsConversationState(t *testing.T) {
+	a, _ := newMultiTopicTestApp(t, &fakeGen{})
+	sess := seed(t, a, 7)
+	sess.Topic = "translations"
+	sess.Voice = "b"
+	sess.Slots.DocType = strptr("диплом")
+	sess.History = []dialog.Msg{{Role: "user", Text: "hi"}, {Role: "assistant", Text: "hello"}}
+	sess.Escalated = true
+	sess.LeadDone = true
+	sess.LeadSlots = `{"doc_type":"диплом"}`
+	sess.GateStrike = true
+	save(t, a, 7, sess)
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, CallbackID: "cb4", CallbackData: "topic:notary"})
+
+	got := loadSession(t, a, 7)
+	if got.Topic != "notary" {
+		t.Fatalf("Topic = %q, want notary", got.Topic)
+	}
+	if got.Voice != "b" {
+		t.Fatalf("Voice = %q, want b (a per-chat preference, not part of the conversation)", got.Voice)
+	}
+	if got.Slots.DocType != nil || len(got.History) != 0 || got.Escalated || got.LeadDone ||
+		got.LeadSlots != "" || got.GateStrike {
+		t.Fatalf("switching topics should reset the conversation state, got %+v", got)
+	}
+}
+
+// A session's persisted Topic id can go stale if topics.json drops that
+// entry across a restart. handleUpdate must not run dialog.Handle with the
+// resulting zero-value topicBundle (empty KB/system prompt) — it re-shows
+// the picker instead, same as Topic=="".
+func TestStaleTopicIDRepromptsPickerInsteadOfEmptyBundle(t *testing.T) {
+	gen := &fakeGen{}
+	a, tg := newMultiTopicTestApp(t, gen)
+	sess := seed(t, a, 7)
+	sess.Topic = "ghost" // not in a.topics
+	save(t, a, 7, sess)
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, Text: "Скільки коштує?"})
+
+	if len(gen.seen) != 0 {
+		t.Fatalf("dialog.Handle must not run with a stale topic id: %v", gen.seen)
+	}
+	if len(tg.buttons) != 1 {
+		t.Fatalf("SendButtons called %d times, want 1 (re-prompt)", len(tg.buttons))
+	}
+	if got := loadSession(t, a, 7).Topic; got != "" {
+		t.Fatalf("the stale Topic id should be cleared, got %q", got)
 	}
 }
 

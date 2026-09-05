@@ -19,8 +19,11 @@ import (
 	"github.com/go-telegram/bot/models"
 )
 
-// Update is one inbound message, reduced to what the bot acts on. Exactly one
-// of Text / VoiceFileID / CallbackData is set; the others are empty.
+// Update is one inbound message, reduced to what the bot acts on. For a
+// regular message, exactly one of Text / VoiceFileID is set and CallbackID
+// is empty. For an inline-keyboard tap, CallbackID is set (CallbackData may
+// itself be empty — Telegram allows a button with no payload) and Text /
+// VoiceFileID are empty.
 type Update struct {
 	ChatID      int64
 	Text        string // empty for a voice-only message
@@ -115,14 +118,22 @@ func (c *client) dispatch(ctx context.Context, _ *bot.Bot, u *models.Update) {
 
 func toUpdate(u *models.Update) (Update, bool) {
 	if cq := u.CallbackQuery; cq != nil {
-		// an inaccessible message (too old, or the chat became inaccessible)
-		// carries no *Message — nothing to reply into, so drop it. The tap
-		// itself is still lost without an AnswerCallback, but that is no
-		// worse than any other message this boundary already drops.
-		if cq.Message.Message == nil || cq.Message.Message.Chat.ID == 0 {
+		// An inaccessible message (too old, or the chat became inaccessible)
+		// carries no *Message, but InaccessibleMessage still has the chat —
+		// use that so the tap still gets routed and, critically, acked
+		// (AnswerCallback is what clears the tapped button's spinner;
+		// skipping it leaves the user staring at one for ~10s).
+		chatID := int64(0)
+		switch {
+		case cq.Message.Message != nil:
+			chatID = cq.Message.Message.Chat.ID
+		case cq.Message.InaccessibleMessage != nil:
+			chatID = cq.Message.InaccessibleMessage.Chat.ID
+		}
+		if chatID == 0 {
 			return Update{}, false
 		}
-		return Update{ChatID: cq.Message.Message.Chat.ID, CallbackData: cq.Data, CallbackID: cq.ID}, true
+		return Update{ChatID: chatID, CallbackData: cq.Data, CallbackID: cq.ID}, true
 	}
 
 	m := u.Message

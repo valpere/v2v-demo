@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -67,6 +68,7 @@ func (s *SQLiteSessions) Load(chatID int64) (sess *dialog.Session, found bool, e
 	}
 	sess, decErr := DecodeSession([]byte(data))
 	if decErr != nil {
+		log.Printf("store: session %d failed to decode, starting fresh: %v", chatID, decErr)
 		return nil, false, nil // corrupt/old row — start fresh rather than fail the turn
 	}
 	return sess, true, nil

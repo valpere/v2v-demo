@@ -5,6 +5,7 @@ go 1.26.6
 require (
 	github.com/go-telegram/bot v1.24.0
 	github.com/pemistahl/lingua-go v1.4.0
+	modernc.org/sqlite v1.58.0
 )
 
 require (
@@ -20,5 +21,4 @@ require (
 	modernc.org/libc v1.75.6 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
-	modernc.org/sqlite v1.58.0 // indirect
 )
