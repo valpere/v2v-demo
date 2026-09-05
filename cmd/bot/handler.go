@@ -157,6 +157,10 @@ func (a *app) resolveText(ctx context.Context, sess *dialog.Session, u telegram.
 	if u.VoiceFileID == "" {
 		return u.Text, true
 	}
+	if a.stt == nil { // STT_BACKEND=none — never attempt a download/transcribe
+		a.send(ctx, u.ChatID, dialog.VoiceUnavailableLine(sess))
+		return "", false
+	}
 
 	stop := a.startRecordingTicker(ctx, u.ChatID)
 	defer stop()

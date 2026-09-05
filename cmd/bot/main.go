@@ -161,9 +161,13 @@ func newGenerator(cfg Config) (dialog.Generator, error) {
 	}
 }
 
-// newTranscriber selects the STT backend (STT_BACKEND).
+// newTranscriber selects the STT backend (STT_BACKEND). "none" returns
+// nil — resolveText then declines any voice message with a fixed line
+// instead of attempting STT.
 func newTranscriber(cfg Config) (stt.Transcriber, error) {
 	switch cfg.STTBackend {
+	case "none":
+		return nil, nil
 	case "local":
 		return stt.NewLocal(cfg.WhisperBin, cfg.WhisperModel, cfg.WhisperLang), nil
 	case "openai":

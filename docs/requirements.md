@@ -29,7 +29,7 @@ repo is public).
   azure_region:     String @constraint(rule: "required when tts_backend=azure"),
   azure_voice_a:    String @constraint(default: "uk-UA-PolinaNeural", rule: "required when tts_backend=azure"),
   azure_voice_b:    String @constraint(default: "uk-UA-OstapNeural", rule: "required when tts_backend=azure"),
-  stt_backend:      Enum["local","openai"] @constraint(default: "local", rule: "dev default: local (openai-whisper CLI) is free + needs no key. The client-facing recording (I-10) MUST flip to openai — local Whisper on a CPU box is tens of seconds to minutes and fails REQ-NFR-02 live (B2 substance kept, its default-flip reverted)"),
+  stt_backend:      Enum["none","local","openai"] @constraint(default: "local", rule: "dev default: local (openai-whisper CLI) is free + needs no key. The client-facing recording (I-10) MUST flip to openai — local Whisper on a CPU box is tens of seconds to minutes and fails REQ-NFR-02 live (B2 substance kept, its default-flip reverted). none disables voice input entirely — a voice message gets a fixed decline reply, no download/transcribe attempted (symmetric with tts_backend=none)"),
   whisper_bin:      String @constraint(default: "whisper", rule: "the openai-whisper CLI (pipx-installed); used only when stt_backend=local"),
   whisper_model:    String @constraint(default: "turbo", rule: "openai-whisper model NAME (tiny|base|small|medium|large-v3|turbo), auto-downloaded to ~/.cache/whisper on first use; used only when stt_backend=local. turbo = large-v3-turbo: faster than medium on CPU AND better Ukrainian (benchmarked 2026-08-31, Ryzen 7700: turbo 12s vs medium 15s on a 4.6s clip)"),
   whisper_lang:     Enum["auto","uk","en"] @constraint(default: "uk", rule: "pins Whisper's language; default uk because auto-detect drifts short Ukrainian clips to Russian and the model then mirrors it (2026-08-31 test-5_1). auto/en only to test English voice messages"),
@@ -451,6 +451,12 @@ named constants are `@schema GateParams` in §1.
     `sttFailLine` in the session language and does **not** call
     `dialog.Handle`, append a turn record, or advance any slot.
     -> [FUN-BOT-03] cmd/bot resolveText; dialog stt.IsNonSpeech(transcript string) bool
+
+34a. [REQ-BOT-03a] When `stt_backend=none`, a voice message must not be
+    downloaded or transcribed — `resolveText` replies with the fixed
+    `dialog.VoiceUnavailableLine` (session language) and returns before any
+    STT call, same no-turn-record contract as REQ-BOT-03.
+    -> [FUN-BOT-03a] cmd/bot resolveText (a.stt == nil guard); dialog.VoiceUnavailableLine(sess *Session) string
 
 35. [REQ-BOT-04] `telegram.Client.Updates` must advance the `getUpdates`
     offset only after an update is delivered on its channel. A crash before

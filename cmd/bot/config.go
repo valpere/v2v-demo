@@ -131,6 +131,8 @@ func (c Config) validate() error {
 	}
 
 	switch c.STTBackend {
+	case "none":
+		// voice input disabled — the bot asks the client to type instead
 	case "local":
 		// no key needed
 	case "openai":
@@ -138,7 +140,7 @@ func (c Config) validate() error {
 			errs = append(errs, "OPENAI_API_KEY is required for STT_BACKEND=openai")
 		}
 	default:
-		errs = append(errs, fmt.Sprintf("STT_BACKEND %q: want local|openai", c.STTBackend))
+		errs = append(errs, fmt.Sprintf("STT_BACKEND %q: want none|local|openai", c.STTBackend))
 	}
 
 	switch c.DialogBackend {

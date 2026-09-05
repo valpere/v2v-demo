@@ -31,6 +31,9 @@ const (
 	sttFailUK = "Не розчув(ла), повторіть, будь ласка."
 	sttFailEN = "Sorry, I didn't catch that — could you repeat?"
 
+	voiceOffUK = "Наразі я не приймаю голосові повідомлення — напишіть, будь ласка, текстом."
+	voiceOffEN = "Voice messages aren't available right now — please type instead."
+
 	voiceAUK = "Гаразд, повертаю перший голос."
 	voiceAEN = "Ok, back to the first voice."
 	voiceBUK = "Гаразд, тепер другий голос."
@@ -113,9 +116,14 @@ func missingSlotsPhrase(s QuoteSlots, lang string) string {
 	return strings.Join(out, ", ")
 }
 
-// SttFailLine / VoiceSwitchedLine are used by the cmd/bot update loop (STT
-// failure, /voice command) — those paths never reach Handle.
+// SttFailLine / VoiceUnavailableLine / VoiceSwitchedLine are used by the
+// cmd/bot update loop (STT failure, STT_BACKEND=none, /voice command) —
+// those paths never reach Handle.
 func SttFailLine(sess *Session) string { return line(sessLang(sess), sttFailUK, sttFailEN) }
+
+// VoiceUnavailableLine is sent instead of attempting STT when
+// STT_BACKEND=none and the client sends a voice message anyway.
+func VoiceUnavailableLine(sess *Session) string { return line(sessLang(sess), voiceOffUK, voiceOffEN) }
 func VoiceSwitchedLine(sess *Session) string {
 	if sess.Voice == "b" {
 		return line(sessLang(sess), voiceBUK, voiceBEN)

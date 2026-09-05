@@ -20,14 +20,20 @@ import (
 // ── fakes ───────────────────────────────────────────────────────
 
 type fakeTG struct {
-	mu     sync.Mutex
-	texts  []string           // all chats, in send order — single-chat tests
-	byChat map[int64][]string // per-chat text, for isolation tests
-	voices int
+	mu        sync.Mutex
+	texts     []string           // all chats, in send order — single-chat tests
+	byChat    map[int64][]string // per-chat text, for isolation tests
+	voices    int
+	downloads int // DownloadVoice call count
 }
 
 func (f *fakeTG) Updates(context.Context) (<-chan telegram.Update, error) { return nil, nil }
-func (f *fakeTG) DownloadVoice(context.Context, string) (string, error)   { return "", nil }
+func (f *fakeTG) DownloadVoice(context.Context, string) (string, error) {
+	f.mu.Lock()
+	f.downloads++
+	f.mu.Unlock()
+	return "", nil
+}
 func (f *fakeTG) SendVoice(context.Context, int64, []byte) error {
 	f.mu.Lock()
 	f.voices++
@@ -157,6 +163,29 @@ func TestTextOnlyWhenNoTTS(t *testing.T) {
 	}
 	if len(tg.sent()) == 0 {
 		t.Fatal("no text reply sent")
+	}
+}
+
+func TestVoiceMessageWhenNoSTT(t *testing.T) {
+	gen := &fakeGen{}
+	a, tg := newTestApp(t, gen)
+	a.stt = nil // STT_BACKEND=none
+	a.seen[7] = true
+
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 7, VoiceFileID: "vf"})
+
+	if tg.downloads != 0 {
+		t.Fatalf("DownloadVoice called %d times, want 0 when stt is nil", tg.downloads)
+	}
+	if len(gen.seen) != 0 {
+		t.Fatalf("generator called on a voice message with stt disabled: %v", gen.seen)
+	}
+	last := tg.sent()
+	if len(last) == 0 || !contains(last[len(last)-1], "текстом") {
+		t.Fatalf("want the voice-unavailable line, got %q", last)
+	}
+	if b, _ := os.ReadFile(filepath.Join(a.cfg.DataDir, "turns.jsonl")); len(b) != 0 {
+		t.Fatalf("a declined voice message wrote a turn record:\n%s", b)
 	}
 }
 

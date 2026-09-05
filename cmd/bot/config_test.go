@@ -118,6 +118,7 @@ func TestLoadConfigValidation(t *testing.T) {
 		"openai stt no key":   minValidEnv + "STT_BACKEND=openai\n",
 		"azure no key":        "TELEGRAM_BOT_TOKEN=t\nTTS_BACKEND=azure\n",
 		"bad timezone":        minValidEnv + "BOT_TIMEZONE=Mars/Olympus\n",
+		"bad stt backend":     "TELEGRAM_BOT_TOKEN=t\nSTT_BACKEND=carrier-pigeon\n",
 	}
 	for name, dotenv := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -148,5 +149,16 @@ func TestLoadConfigTTSNone(t *testing.T) {
 	}
 	if cfg.TTSBackend != "none" {
 		t.Fatalf("TTSBackend = %q", cfg.TTSBackend)
+	}
+}
+
+func TestLoadConfigSTTNone(t *testing.T) {
+	chdirWithEnv(t, "TELEGRAM_BOT_TOKEN=t\nTTS_BACKEND=none\nSTT_BACKEND=none\n")
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("STT_BACKEND=none should validate with no key: %v", err)
+	}
+	if cfg.STTBackend != "none" {
+		t.Fatalf("STTBackend = %q", cfg.STTBackend)
 	}
 }
