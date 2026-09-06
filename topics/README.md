@@ -67,8 +67,10 @@ are two or more).
   signal is only honoured once **every** slot has a value. At least one
   slot; keys must be unique within a topic.
 
-**Fallback (default when unconfigured).** If `TOPICS_PATH` points at nothing, or the
-file parses to an empty array, the bot falls back to a single synthetic
-topic built from `KB_PATH` / `SYSTEM_PROMPT_PATH` / `GREETING_PATH` and the
-translation slot schema — no picker. A one-entry `topics.json` is treated
-the same way (no picker), it just loads from that entry's own paths.
+**Fallback (used only when the manifest is missing or empty).** The repo
+ships a `topics/topics.json` with several topics, so the picker is on by
+default. If `TOPICS_PATH` points at nothing, or the file parses to an empty
+array, the bot falls back to a single synthetic topic built from `KB_PATH` /
+`SYSTEM_PROMPT_PATH` / `GREETING_PATH` and the translation slot schema — no
+picker. A one-entry `topics.json` is treated the same way (no picker), it
+just loads from that entry's own paths.

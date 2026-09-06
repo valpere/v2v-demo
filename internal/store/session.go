@@ -8,9 +8,12 @@ import (
 )
 
 // sessionSchemaVersion guards the on-disk/DB shape of a stored session. Bump
-// it (and add a migration in DecodeSession) if Session's fields ever change
-// incompatibly; today an old/unknown version is just treated as "not found"
-// — losing a demo session is cheap, silently misreading one is not.
+// it whenever Session's fields change incompatibly. There is deliberately
+// **no migration path**: DecodeSession rejects any row whose version isn't
+// the current one, and the caller treats that as "not found" — losing a demo
+// session is cheap, silently misreading one is not. Add a real migration
+// branch here only if the demo ever grows users whose sessions must survive
+// a schema change.
 //
 // v2 (2026-09-06): Session.Slots went from the fixed QuoteSlots struct to a
 // per-topic map[string]string.

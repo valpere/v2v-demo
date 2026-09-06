@@ -46,7 +46,7 @@ repo is public).
   bot_timezone:     String @constraint(default: "Europe/Kyiv", rule: "IANA name; the office-hours block in the runtime prompt is computed in this zone, not the server's — the host may be UTC. Validated with time.LoadLocation"),
   session_store:    Enum["memory","sqlite"] @constraint(default: "memory", rule: "memory = today's map[chatID]*Session, lost on restart. sqlite persists Session (modernc.org/sqlite, no cgo) — a bot restart mid-conversation resumes slots/topic/voice instead of starting over"),
   session_db_path:  String @constraint(default: "./data/sessions.db", rule: "used only when session_store=sqlite; parent dir is created if missing"),
-  topics_path:      String @constraint(default: "topics/topics.json", rule: "a JSON array of {id,title,kb,system_prompt,greeting,scope_uk,scope_en,slots:[SlotSpec],office?:OfficeHours}; the repo ships one with a single topic (translation) so no picker appears by default. 2+ entries -> the picker. A missing file or an empty array falls back to a synthetic topic from kb_path/system_prompt_path/greeting_path + the translation slot schema. See topics/README.md")
+  topics_path:      String @constraint(default: "topics/topics.json", rule: "a JSON array of {id,title,kb,system_prompt,greeting,scope_uk,scope_en,slots:[SlotSpec],office?:OfficeHours}; the repo ships one with five topics (translation + dental + auto + realestate + cleaning) so the picker appears after /start by default. 2+ entries -> the picker; point TOPICS_PATH at a single-entry file to opt out. A missing file or an empty array falls back to a synthetic topic from kb_path/system_prompt_path/greeting_path + the translation slot schema. See topics/README.md")
 }
 
 @schema GateParams {
@@ -329,9 +329,10 @@ named constants are `@schema GateParams` in §1.
     makes `dialog.Handle` reply with the fixed handoff line and escalate (see
     REQ-DLG-16). Each backend forces valid JSON its own way (its "model
     connection context"): `NewOpenAI` sets `response_format:{"type":"json_object"}`
-    (gpt-4o-mini drops the object on trivial turns otherwise); `NewOllama`
-    relies on the prompt (gemma4:cloud complies); a gemini path would use
-    `responseMimeType`.
+    (the client model gpt-4.1-mini drops the object on trivial turns
+    otherwise; the earlier gpt-4o-mini default was dropped for cert/grounding
+    failures — see D-20); `NewOllama` relies on the prompt (gemma4:cloud
+    complies); a gemini path would use `responseMimeType`.
     -> [FUN-DLG-15] dialog.parseResponse(raw string) *modelReply
 
 21. [REQ-DLG-16] Signal resolution: a `nil` parse result -> escalate, reply text is the

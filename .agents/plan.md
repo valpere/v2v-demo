@@ -44,10 +44,13 @@ FORMAT ---` block + `--- COLLECTED SO FAR ---`) to ask about exactly those.
 ## Package layout
 
 ```
-cmd/bot/main.go     wiring: config, clients, per-chat session map (mutex-guarded),
-                    the update loop — owns /voice a|b parsing, the greeting
-                    (greeting.md body once per chat), the recording ticker,
-                    getUpdates offset, per-chat serialization, store calls
+cmd/bot/main.go     wiring: config, clients, the sessionStore (memory | sqlite),
+                    the update loop — owns /voice a|b parsing, /reset, the
+                    greeting + topic picker (per topic once per chat), the
+                    recording ticker, getUpdates offset, per-chat
+                    serialization (chatWorker + WaitGroup), store calls.
+                    handler.go / topics.go split off the update handler + the
+                    topic-manifest loader.
 internal/telegram/  long-poll getUpdates, file download, SendVoice (no caption)
                     / SendText / SendRecordingAction — transport only, no
                     command or session logic
@@ -56,18 +59,29 @@ internal/stt/       Transcriber interface; local.go (shell openai-whisper CLI
 internal/tts/       Synthesizer interface; elevenlabs.go (eleven_multilingual_v2,
                     output_format opus) · azure.go (SSML + ogg-opus header).
                     TTS_BACKEND picks. Google = documented, not built.
-internal/kb/        load KB_PATH, split on "##" into titled sections
+internal/kb/        load a KB file, split on "##" into titled sections (per topic)
 internal/dialog/    gate.go (kbOverlap + hardEscalate + isSlotAnswer +
-                    isSmallTalk + groundingGate) · lang.go (detectLang —
-                    lingua-go) · dialog.go (loads topics/translation/system.md, builds the
-                    prompt, parses the JSON reply, merges slots) · generator.go
+                    isSmallTalk + groundingGate + looksLikePhone) · lang.go
+                    (detectLang — lingua-go) · dialog.go (takes a TopicSpec:
+                    system + whole KB + slot schema + scope + OfficeHours;
+                    builds the prompt incl. the generated --- RESPONSE FORMAT
+                    --- block, parses the JSON reply, filters slots to the
+                    topic's keys, escalateReply) · types.go (SlotSpec /
+                    TopicSpec / OfficeHours / Session) · generator.go
                     (Generator interface) · openai_compat.go (shared
                     OpenAI-compat client) + ollama.go / openai.go /
                     gemini.go (DIALOG_BACKEND)
-internal/store/     append-only JSONL: turn records + lead records (DATA_DIR)
+internal/store/     store.go — append-only JSONL turn + lead records (DATA_DIR).
+                    session.go — encode/decode a stored Session +
+                    sessionSchemaVersion (no migration; a stale version reads
+                    as not-found). session_sqlite.go — SQLiteSessions
+                    (SESSION_STORE=sqlite, modernc.org/sqlite, one `sessions`
+                    table). cmd/bot/session_mem.go is the in-process default.
 
-topics/topics.json  the topic manifest (id/title/paths/scope/slots per topic);
-                   ships with just `translation` — 2+ entries turn the picker on
+topics/topics.json  the topic manifest (id/title/paths/scope/slots/office per
+                   topic); ships with five topics (translation + dental + auto
+                   + realestate + cleaning) — the picker is on by default;
+                   a single-entry manifest opts out
 topics/translation/system.md   the assistant persona + conversation playbook +
                    hard rules + slot-filling semantics (the JSON shape + key list
                    is a generated --- RESPONSE FORMAT --- block, not in this file)
