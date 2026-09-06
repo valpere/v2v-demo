@@ -2,7 +2,8 @@
 
 All names, prices, and policies below are invented for a demo. Not a real
 company. Figures are plausible for the Kyiv market (2026) but not taken from any
-real cleaning company.
+real cleaning company. Any resemblance to an existing company called «Свіжо» is
+coincidental.
 
 Svizho (Клінінгова компанія «Свіжо») is a Kyiv cleaning company working with
 private clients (apartments, houses) and businesses (offices, small commercial
@@ -12,7 +13,8 @@ figure after the client describes the object.
 
 Усі назви, ціни та умови нижче — вигадані для демо. Це не реальна компанія.
 Цифри правдоподібні для київського ринку (2026), але не взяті з жодної
-конкретної клінінгової компанії. «Свіжо» — київська клінінгова компанія, працює
+конкретної клінінгової компанії. Будь-який збіг із наявною компанією «Свіжо» —
+випадковий. «Свіжо» — київська клінінгова компанія, працює
 з приватними клієнтами (квартири, будинки) та бізнесом (офіси, невеликі
 комерційні приміщення). Обслуговує Київ і найближчі передмістя. Усі ціни — у
 гривні (грн). Асистент збирає запит; точну суму підтверджує менеджер після того,
@@ -130,7 +132,8 @@ confirm.
 ## Indicative prices / Орієнтовні ціни (грн — a manager confirms after the object is described)
 
 - Regular maintenance cleaning: 1-room **1 100–1 600**, 2-room **1 600–2 300**,
-  3-room **2 300–3 200** per visit
+  3-room **2 300–3 200** per visit; 4+ rooms or a house — a manager quotes by
+  area
 - General (deep) cleaning: **110–150 per m²**, a small discount from 100 m²
 - After-renovation cleaning: **80–100 per m²**, two stages included
 - Window cleaning: **120–200 per sash**, or **60–90 per m²** of glass
@@ -150,7 +153,8 @@ confirm.
 Орієнтовні ціни (грн — менеджер підтверджує після опису об'єкта):
 
 - Регулярне підтримуюче прибирання: 1-кімнатна **1 100–1 600**, 2-кімнатна
-  **1 600–2 300**, 3-кімнатна **2 300–3 200** за візит
+  **1 600–2 300**, 3-кімнатна **2 300–3 200** за візит; від 4 кімнат або
+  будинок — менеджер рахує за площею
 - Генеральне прибирання: **110–150 за м²**, невелика знижка від 100 м²
 - Прибирання після ремонту: **80–100 за м²**, два етапи включені
 - Миття вікон: **120–200 за стулку** або **60–90 за м²** скла
@@ -280,13 +284,15 @@ invoicing.
 
 ## How a request works / Як відбувається замовлення
 
-The assistant collects: **object type** (apartment / house / office / premises
-after renovation), **area** in m² or number of rooms, **type of cleaning**
-(regular maintenance / general / after renovation / window cleaning / upholstery
-and carpet dry cleaning), **frequency** (once / weekly / every two weeks /
-monthly), **preferred date and time**, and the **district of Kyiv** (for
-logistics — the full address goes to the manager, not through the assistant). A
-manager then confirms the price, the team, and the exact time.
+The assistant collects: **object type** (apartment / house / office), **area**
+in m² or number of rooms, **type of cleaning** (regular maintenance / general /
+after renovation / window cleaning / upholstery and carpet dry cleaning),
+**frequency** (once / weekly / every two weeks / monthly), **preferred date**,
+the **district of Kyiv** (for logistics — the full address goes to the manager,
+not through the assistant), and a **phone number** for the manager's call-back.
+A manager then confirms the price, the team, and the exact time. "After
+renovation" is a *type of cleaning*, not an object type — an after-renovation
+job on a flat is object type "apartment", cleaning type "after renovation".
 
 Service area: all districts of Kyiv (Голосіївський, Дарницький, Деснянський,
 Дніпровський, Оболонський, Печерський, Подільський, Святошинський, Солом'янський,
@@ -294,13 +300,16 @@ Service area: all districts of Kyiv (Голосіївський, Дарниць�
 Петропавлівська Борщагівка, Коцюбинське) — with a travel surcharge. Sites
 further out go to a manager.
 
-Асистент збирає: **тип об'єкта** (квартира / будинок / офіс / приміщення після
-ремонту), **площу** в м² або кількість кімнат, **вид прибирання** (регулярне
-підтримуюче / генеральне / після ремонту / миття вікон / хімчистка м'яких меблів
-і килимів), **періодичність** (разово / щотижня / раз на два тижні / щомісяця),
-**бажану дату й час** і **район Києва** (для логістики — повну адресу клієнт
-повідомляє менеджеру, а не через асистента). Далі менеджер підтверджує ціну,
-бригаду й точний час.
+Асистент збирає: **тип об'єкта** (квартира / будинок / офіс), **площу** в м²
+або кількість кімнат, **вид прибирання** (регулярне підтримуюче / генеральне /
+післяремонтне / миття вікон / хімчистка м'яких меблів і килимів),
+**періодичність** (разово / щотижня / раз на два тижні / щомісяця), **бажану
+дату**, **район Києва** (для логістики — повну адресу клієнт повідомляє
+менеджеру, а не через асистента) і **номер телефону** для зворотного дзвінка
+менеджера. Далі менеджер підтверджує ціну, бригаду й точний час.
+«Післяремонтне» — це *вид прибирання*, а не тип об'єкта: прибирання після
+ремонту у квартирі — це тип об'єкта «квартира», вид прибирання
+«післяремонтне».
 
 Зона обслуговування: усі райони Києва (Голосіївський, Дарницький, Деснянський,
 Дніпровський, Оболонський, Печерський, Подільський, Святошинський, Солом'янський,
@@ -344,7 +353,12 @@ working hours, or the next working morning for a request left overnight.
 - **"How long does it take?"** — regular maintenance 2–4 hours, general cleaning
   5–8 hours, after-renovation often over two days.
 - **"Can you come today, and is there a surcharge?"** — same-day is possible if a
-  team is free, with a +30–50% surcharge.
+  team is free, with a +30–50% surcharge; leave the request and the manager
+  confirms whether a team is available.
+- **"How do I pay?"** — cash, card, or bank transfer to an IBAN; cashless with
+  an act for sole traders and companies. You pay **after** you accept the
+  finished work; large one-off jobs and after-renovation cleaning take a 50%
+  prepayment.
 - **"What is included in maintenance cleaning?"** — floors, dust on open
   surfaces, bathrooms and toilet, kitchen surfaces and sink, appliances outside,
   mirrors, rubbish, beds; not windows, ironing, dishes (unless agreed), or the
@@ -352,8 +366,8 @@ working hours, or the next working morning for a request left overnight.
 - **"Is there a discount for regular cleaning?"** — yes: weekly −15%, every two
   weeks −10%, monthly −5%.
 - **"How do I order?"** — tell the assistant the object type, area or number of
-  rooms, type of cleaning, frequency, preferred date, and district; a manager
-  then confirms the price and time.
+  rooms, type of cleaning, frequency, preferred date, district, and a phone
+  number; a manager then confirms the price and time.
 
 Поширені запитання:
 
@@ -370,7 +384,11 @@ working hours, or the next working morning for a request left overnight.
 - **«Скільки триває прибирання?»** — регулярне підтримуюче 2–4 години,
   генеральне 5–8 годин, після ремонту часто у два дні.
 - **«Чи можна терміново, в день звернення (і чи буде доплата)?»** — того ж дня —
-  можливо, якщо є вільна бригада, з доплатою +30–50%.
+  можливо, якщо є вільна бригада, з доплатою +30–50%; залиште заявку, і менеджер
+  підтвердить наявність бригади.
+- **«Як оплатити?»** — готівка, картка або переказ на IBAN; безготівка з актом
+  для ФОП і компаній. Оплата — **після** прийняття виконаної роботи; великі
+  разові замовлення й прибирання після ремонту — передоплата 50%.
 - **«Що входить у підтримуюче прибирання?»** — підлога, пил на відкритих
   поверхнях, санвузли й туалет, поверхні та мийка на кухні, техніка ззовні,
   дзеркала, сміття, ліжка; не входять вікна, прасування, посуд (якщо не
@@ -378,8 +396,8 @@ working hours, or the next working morning for a request left overnight.
 - **«Чи є знижка за регулярність?»** — так: щотижня −15%, раз на два тижні −10%,
   щомісяця −5%.
 - **«Як замовити?»** — назвіть асистенту тип об'єкта, площу або кількість кімнат,
-  вид прибирання, періодичність, бажану дату й район; далі менеджер підтверджує
-  ціну й час.
+  вид прибирання, періодичність, бажану дату, район і номер телефону; далі
+  менеджер підтверджує ціну й час.
 
 ## Escalate to a human when / Коли передавати менеджеру
 
@@ -391,7 +409,6 @@ working hours, or the next working morning for a request left overnight.
   by truck, pool cleaning
 - an object over 300 m², a multi-storey house, or a cottage with grounds
 - a corporate contract, a tender, cashless payment with VAT, or special terms
-- a same-day urgent visit (a team has to be confirmed)
 - more than one object in the same request
 - loyalty / corporate programmes, franchise, or job enquiries
 - anything not covered above
@@ -406,7 +423,6 @@ working hours, or the next working morning for a request left overnight.
   чищення басейну
 - об'єкт понад 300 м², багатоповерховий будинок або котедж із територією
 - корпоративний договір, тендер, безготівка з ПДВ або особливі умови
-- терміновий виїзд у день звернення (потрібно підтвердити бригаду)
 - кілька об'єктів в одному запиті
 - програми лояльності / корпоративні програми, франшиза, питання працевлаштування
 - будь-що, не описане вище

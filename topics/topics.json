@@ -68,5 +68,24 @@
       { "key": "timeline", "ask_uk": "наскільки терміново", "ask_en": "how soon", "rule": "терміново|кілька місяців|придивляється" },
       { "key": "contact", "ask_uk": "ваш номер телефону", "ask_en": "a phone number", "rule": "phone for the agent callback" }
     ]
+  },
+  {
+    "id": "cleaning",
+    "title": "Клінінг «Свіжо»",
+    "kb": "topics/cleaning/kb.md",
+    "system_prompt": "topics/cleaning/system.md",
+    "greeting": "topics/cleaning/greeting.md",
+    "scope_uk": "Я приймаю заявки на прибирання і відповідаю на питання про послуги.",
+    "scope_en": "I take cleaning requests and answer questions about the services.",
+    "office": { "label": "Mon–Sun 08:00–20:00 (EET)", "weekday": [8, 20], "sat": [8, 20], "sun": [8, 20] },
+    "slots": [
+      { "key": "property_type", "ask_uk": "що прибрати — квартира, будинок чи офіс", "ask_en": "flat, house, or office", "rule": "квартира|будинок|офіс" },
+      { "key": "area", "ask_uk": "яка площа в м² або скільки кімнат", "ask_en": "area in m² or number of rooms", "rule": "m² or rooms" },
+      { "key": "service_type", "ask_uk": "який вид прибирання", "ask_en": "type of cleaning", "rule": "регулярне|генеральне|післяремонтне|миття вікон|хімчистка меблів" },
+      { "key": "frequency", "ask_uk": "як часто — разово чи регулярно", "ask_en": "one-off or regular", "rule": "разово|щотижня|раз на 2 тижні|щомісяця" },
+      { "key": "date", "ask_uk": "на яку дату", "ask_en": "preferred date", "rule": "a day" },
+      { "key": "district", "ask_uk": "який район Києва", "ask_en": "which Kyiv district", "rule": "district only; full address goes to the manager" },
+      { "key": "contact", "ask_uk": "ваш номер телефону", "ask_en": "a phone number", "rule": "phone for the manager callback" }
+    ]
   }
 ]
