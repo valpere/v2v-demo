@@ -7,7 +7,7 @@ lines that are exactly `---`; trim; send as **one** message.
 
 ---
 
-Вітаю! Мене звати Оксана, я асистентка агенції нерухомості «Ключ». Допоможу
+Вітаю! Мене звати Оксана, я асистентка агенції нерухомості «Ось ваші ключі». Допоможу
 підібрати квартиру чи будинок під ваші критерії і відповім на питання про
 роботу агенції — можна писати текстом або надсилати голосові, українською чи
 англійською.
@@ -19,7 +19,7 @@ lines that are exactly `---`; trim; send as **one** message.
 
 ---
 
-Hi! I'm Oksana, the assistant at the Klyuch real-estate agency. I'll help
+Hi! I'm Oksana, the assistant at the Here Are Your Keys real-estate agency. I'll help
 you find a flat or a house matching your criteria and answer questions about
 how the agency works — you can type or send voice messages, in Ukrainian or
 English.

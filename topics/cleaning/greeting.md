@@ -7,7 +7,7 @@ lines that are exactly `---`; trim; send as **one** message.
 
 ---
 
-Вітаю! Мене звати Юля, я асистентка клінінгової компанії «Свіжо». Прийму
+Вітаю! Мене звати Юля, я асистентка клінінгової компанії «Тримаємо чистоту». Прийму
 заявку на прибирання і відповім на питання про послуги — можна писати
 текстом або надсилати голосові, українською чи англійською.
 
@@ -18,7 +18,7 @@ lines that are exactly `---`; trim; send as **one** message.
 
 ---
 
-Hi! I'm Yulia, the assistant at the Svizho cleaning company. I'll take your
+Hi! I'm Yulia, the assistant at the Kept Clean cleaning company. I'll take your
 cleaning request and answer questions about the services — you can type or
 send voice messages, in Ukrainian or English.
 

@@ -20,8 +20,8 @@
   },
   {
     "id": "dental",
-    "title": "Стоматологія «Перлина»",
-    "title_en": "«Perlyna» dental clinic",
+    "title": "Стоматологія «Зуб даю»",
+    "title_en": "«Tooth Be Told» dental clinic",
     "kb": "topics/dental/kb.md",
     "system_prompt": "topics/dental/system.md",
     "greeting": "topics/dental/greeting.md",
@@ -60,8 +60,8 @@
   },
   {
     "id": "realestate",
-    "title": "Агенція нерухомості «Ключ»",
-    "title_en": "«Klyuch» real-estate agency",
+    "title": "Агенція нерухомості «Ось ваші ключі»",
+    "title_en": "«Here Are Your Keys» real-estate agency",
     "kb": "topics/realestate/kb.md",
     "system_prompt": "topics/realestate/system.md",
     "greeting": "topics/realestate/greeting.md",
@@ -80,8 +80,8 @@
   },
   {
     "id": "cleaning",
-    "title": "Клінінг «Свіжо»",
-    "title_en": "«Svizho» cleaning company",
+    "title": "Клінінг «Тримаємо чистоту»",
+    "title_en": "«Kept Clean» cleaning company",
     "kb": "topics/cleaning/kb.md",
     "system_prompt": "topics/cleaning/system.md",
     "greeting": "topics/cleaning/greeting.md",

@@ -8,7 +8,7 @@ gets the Ukrainian block then the English block, and never sees this header.
 
 ---
 
-Вітаю! Мене звати Аліна, я асистентка стоматології «Перлина». Допоможу
+Вітаю! Мене звати Аліна, я асистентка стоматології «Зуб даю». Допоможу
 записатися на прийом і відповім на питання про клініку — можна писати
 текстом або надсилати голосові, українською чи англійською.
 
@@ -19,7 +19,7 @@ gets the Ukrainian block then the English block, and never sees this header.
 
 ---
 
-Hi! I'm Alina, the assistant at the "Perlyna" dental clinic. I'll help you
+Hi! I'm Alina, the assistant at the «Tooth Be Told» dental clinic. I'll help you
 book an appointment and answer questions about the clinic — you can type or
 send voice messages, in Ukrainian or English.
 

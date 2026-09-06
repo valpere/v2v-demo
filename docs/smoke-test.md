@@ -11,10 +11,10 @@ scenario sweep for each assistant lives in its own file under `docs/smoke/`:
 | Topic | File | In the shipped manifest? |
 | -- | -- | -- |
 | Бюро перекладів (translation) | `docs/smoke/translation.md` | yes |
-| Стоматологія «Перлина» (dental) | `docs/smoke/dental.md` | yes |
+| Стоматологія «Зуб даю» (dental) | `docs/smoke/dental.md` | yes |
 | Автосервіс «Подбай-Авто» (auto) | `docs/smoke/auto.md` | yes |
-| Агенція нерухомості «Ключ» (realestate) | `docs/smoke/realestate.md` | yes |
-| Клінінг «Свіжо» (cleaning) | `docs/smoke/cleaning.md` | yes |
+| Агенція нерухомості «Ось ваші ключі» (realestate) | `docs/smoke/realestate.md` | yes |
+| Клінінг «Тримаємо чистоту» (cleaning) | `docs/smoke/cleaning.md` | yes |
 
 **How to read a scenario.** Each step says what to **send** and what to
 **expect** — compare against that. `[R]` = a regression case for a bug

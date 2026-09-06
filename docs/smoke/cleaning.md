@@ -1,10 +1,10 @@
-# Smoke test — cleaning company (Клінінг «Свіжо» / Юля)
+# Smoke test — cleaning company (Клінінг «Тримаємо чистоту» / Юля)
 
 The per-topic scenario sweep for the **cleaning** assistant. The shared
 Setup, the multi-topic picker checks, and the cross-topic robustness / clock
 / logging sections are in **`docs/smoke-test.md`** — read that first.
 
-**Pick the topic first.** `/start` shows a picker — tap **«Клінінг «Свіжо»»**
+**Pick the topic first.** `/start` shows a picker — tap **«Клінінг «Тримаємо чистоту»»**
 before any scenario below.
 
 **Channel:** send `code font` as a typed / pasted text message, verbatim.
@@ -22,7 +22,7 @@ only when all seven are set. "Після ремонту" is a **`service_type`**
 
 ## 1. Greeting
 
-1. `/reset`, `/start`, tap **«Клінінг «Свіжо»»**.
+1. `/reset`, `/start`, tap **«Клінінг «Тримаємо чистоту»»**.
    - **Expect:** the bilingual greeting (UK "Вітаю! Мене звати Юля…" then EN
      "Hi! I'm Yulia…"). Nothing else. No turn record.
 2. `Вітаю` → a warm one-liner moving to "що потрібно прибрати?", **not** a

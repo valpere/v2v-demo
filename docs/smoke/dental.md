@@ -1,12 +1,11 @@
-# Smoke test — dental clinic (Стоматологія «Перлина» / Аліна)
+# Smoke test — dental clinic (Стоматологія «Зуб даю» / Аліна)
 
 The per-topic scenario sweep for the **dental** assistant. The shared Setup,
 the multi-topic picker checks, and the cross-topic robustness / clock /
 logging sections are in **`docs/smoke-test.md`** — read that first.
 
-**Pick the topic first.** The shipped `topics/topics.json` has two entries
-(translation + dental), so `/start` shows a picker — tap **«Стоматологія
-«Перлина»»** before any scenario below.
+**Pick the topic first.** `/start` shows a picker — tap **«Стоматологія
+«Зуб даю»»** before any scenario below.
 
 **Channel — text or voice?** Send `code font` as a typed / pasted text
 message, verbatim. Only scenario 7 needs a real **voice message**.
@@ -26,9 +25,9 @@ Slots this assistant collects: **`service`**, **`first_visit`**,
 
 1. `/reset`, then `/start`.
    - **Expect:** the topic picker (two buttons).
-2. Tap **«Стоматологія «Перлина»»**.
+2. Tap **«Стоматологія «Зуб даю»»**.
    - **Expect:** the bilingual greeting — UK block ("Вітаю! Мене звати
-     Аліна, я асистентка стоматології «Перлина»…") then the EN block ("Hi!
+     Аліна, я асистентка стоматології «Зуб даю»…") then the EN block ("Hi!
      I'm Alina…"). Nothing else — no `# Opening message` header, no `---`
      lines. No turn written to `data/turns.jsonl`.
 

@@ -1,11 +1,11 @@
-# Knowledge base — "Perlyna" dental clinic (fictional, demo only)
+# Knowledge base — «Tooth Be Told» dental clinic (fictional, demo only)
 
 All names, prices, and policies below are invented for a demo. Not a real
 clinic. Figures are plausible for the Kyiv market (2026) but not taken from
 any real dental practice. Any resemblance to an existing clinic called
-«Перлина» is coincidental.
+«Зуб даю» is coincidental.
 
-"Perlyna" (Стоматологія «Перлина») is a mid-market private dental clinic in
+«Tooth Be Told» (Стоматологія «Зуб даю») is a mid-market private dental clinic in
 Kyiv for adults and children. Prices are in Ukrainian hryvnia (грн) and are
 **indicative** — the exact figure is confirmed only after an in-person exam
 and, where needed, an X-ray or CT. This assistant books appointment
@@ -14,7 +14,7 @@ quotes a final treatment total. It collects exactly four things and hands
 the request to an administrator, who calls back to confirm the date and
 time: **service** (консультація, професійна чистка, лікування карієсу,
 видалення зуба, протезування, імплантація, брекети / ортодонтія, дитячий
-прийом, відбілювання); **first visit** (first time at "Perlyna" or a
+прийом, відбілювання); **first visit** (first time at the clinic or a
 returning patient); **preferred time** (a day plus part of day —
 ранок / день / вечір — or a specific date); **contact** (a phone number).
 The assistant has no access to the schedule and does not confirm, cancel,
@@ -22,8 +22,8 @@ or move appointments — an administrator does that by phone.
 
 Усі назви, ціни та умови нижче — вигадані для демо. Це не реальна клініка.
 Цифри правдоподібні для київського ринку (2026), але не взяті з жодної
-конкретної практики. Будь-який збіг із наявною клінікою «Перлина» —
-випадковий. «Перлина» — приватна стоматологічна клініка середнього
+конкретної практики. Будь-який збіг із наявною клінікою «Зуб даю» —
+випадковий. «Зуб даю» — приватна стоматологічна клініка середнього
 цінового сегмента в Києві для дорослих і дітей. Ціни — у гривнях (грн) і є
 **орієнтовними**: точну суму називають лише після огляду в клініці та, за
 потреби, рентгена чи КТ. Цей асистент лише оформлює заявки на запис; він не
@@ -32,7 +32,7 @@ or move appointments — an administrator does that by phone.
 який передзвонює, щоб підтвердити дату й час: **послуга** (консультація,
 професійна чистка, лікування карієсу, видалення зуба, протезування,
 імплантація, брекети / ортодонтія, дитячий прийом, відбілювання); **перший
-візит** (перший раз у «Перлині» чи пацієнт уже лікувався тут); **бажаний
+візит** (перший раз у клініці чи пацієнт уже лікувався тут); **бажаний
 час** (день і частина доби — ранок / день / вечір — або конкретна дата);
 **контакт** (номер телефону). Асистент не має доступу до розкладу й не
 підтверджує, не скасовує та не переносить візити — це робить адміністратор

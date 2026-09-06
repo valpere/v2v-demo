@@ -1,23 +1,24 @@
-# Knowledge base — "Klyuch" real-estate agency (fictional, demo only)
+# Knowledge base — «Here Are Your Keys» real-estate agency (fictional, demo only)
 
 All names, prices, and policies below are invented for a demo. Not a real
 company. Figures are plausible for the Kyiv market (2026) but not taken from
-any real agency. Any resemblance to an existing brand called "Ключ" is
-coincidental.
+any real agency. Any resemblance to an existing brand called
+«Ось ваші ключі» is coincidental.
 
-Klyuch (Агенція нерухомості «Ключ») is a Kyiv agency working with resale
-flats (вторинка), new builds (новобудови), long-term residential rental
-(оренда), and light commercial space. It qualifies a buyer or a renter,
-hands a written brief to an agent, and the agent shortlists options and
-calls back. Fees are a percentage of the deal in hryvnia (грн, UAH) or US
-dollars (USD); the exact fee and all terms are set in the written agency
-agreement (агентський договір) signed before viewings.
+Here Are Your Keys (Агенція нерухомості «Ось ваші ключі») is a Kyiv agency
+working with resale flats (вторинка), new builds (новобудови), long-term
+residential rental (оренда), and light commercial space. It qualifies a
+buyer or a renter, hands a written brief to an agent, and the agent
+shortlists options and calls back. Fees are a percentage of the deal in
+hryvnia (грн, UAH) or US dollars (USD); the exact fee and all terms are set
+in the written agency agreement (агентський договір) signed before viewings.
 
 Усі назви, ціни та умови нижче — вигадані для демо. Це не реальна компанія.
 Цифри правдоподібні для київського ринку (2026), але не взяті з жодної
-конкретної агенції. Будь-який збіг із наявним брендом «Ключ» — випадковий.
+конкретної агенції. Будь-який збіг із наявним брендом «Ось ваші ключі» —
+випадковий.
 
-«Ключ» — київська агенція нерухомості: вторинне житло, новобудови,
+«Ось ваші ключі» — київська агенція нерухомості: вторинне житло, новобудови,
 довгострокова житлова оренда, невелика комерція. Агенція кваліфікує покупця
 чи орендаря, передає письмовий бриф агенту, а агент добирає варіанти й
 передзвонює. Комісія — відсоток від суми угоди в гривнях (грн) або доларах
@@ -26,7 +27,7 @@ agreement (агентський договір) signed before viewings.
 
 ## Services / Послуги
 
-What Klyuch does:
+What the agency does:
 
 - **Search and viewings** — a shortlist from the client's criteria,
   arranging and attending viewings, an honest read on each object.
@@ -49,7 +50,7 @@ disputes and litigation, cadastral / land-surveying work, redevelopment
 approvals. The agent connects the client with a partner broker, a certified
 appraiser, or a lawyer.
 
-Що робить «Ключ»:
+Що робить «Ось ваші ключі»:
 
 - **Підбір і покази** — добірка за критеріями клієнта, організація й
   супровід переглядів, чесна оцінка кожного об'єкта.
@@ -77,7 +78,7 @@ A percentage of the deal, fixed in writing in the agency agreement before
 any viewings. No hidden add-ons — one number, one side, agreed up front.
 
 - **Resale purchase / sale** — **3–5%** of the price, paid by one side (on
-  resale usually the buyer of the service; when Klyuch sells an owner's
+  resale usually the buyer of the service; when the agency sells an owner's
   flat, the seller). Minimum about **30 000–50 000 грн** on low-price
   objects.
 - **New build** — the developer usually pays, so the buyer's fee is often
@@ -96,7 +97,7 @@ the parameters and an agent confirms the fee in the agreement.
 узгоджено заздалегідь.
 
 - **Купівля / продаж вторинки** — **3–5%** від ціни, платить одна сторона
-  (на вторинці — переважно покупець послуги; коли «Ключ» продає квартиру
+  (на вторинці — переважно покупець послуги; коли «Ось ваші ключі» продає квартиру
   власника — продавець). Мінімум близько **30 000–50 000 грн** на дешевих
   об'єктах.
 - **Новобудова** — зазвичай платить забудовник, тож комісія покупця часто
@@ -114,7 +115,7 @@ the parameters and an agent confirms the fee in the agreement.
 
 ## Legal-cleanliness check / Перевірка юридичної чистоти
 
-Before a purchase deal Klyuch pulls and reviews: the **extract from the
+Before a purchase deal the agency pulls and reviews: the **extract from the
 State Register** (owner, basis, date, shares); **encumbrances and arrests**
 (mortgage, court arrest, ban on alienation, tax lien); the **ownership
 document** and its chain over recent years; the **technical passport** and
@@ -132,10 +133,10 @@ pressure to skip the preliminary contract or pay a large cash advance
 not match the actual layout.
 
 A specific legal question, a contract-wording question, or a dispute goes to
-Klyuch's in-house lawyer or an external lawyer. **The assistant does not
+the agency's in-house lawyer or an external lawyer. **The assistant does not
 give legal opinions.**
 
-Перед угодою купівлі «Ключ» отримує та перевіряє: **витяг з Держреєстру**
+Перед угодою купівлі «Ось ваші ключі» отримує та перевіряє: **витяг з Держреєстру**
 (власник, підстава, дата, частки); **обтяження та арешти** (іпотека,
 судовий арешт, заборона відчуження, податкова застава); **правовстановлюючий
 документ** і ланцюг переходів за останні роки; **технічний паспорт** і план
@@ -152,7 +153,7 @@ give legal opinions.**
 реальним плануванням.
 
 Конкретне юридичне питання, питання формулювань договору чи спір — до
-штатного юриста «Ключа» або зовнішнього юриста. **Асистент не дає юридичних
+штатного юриста агенції або зовнішнього юриста. **Асистент не дає юридичних
 висновків.**
 
 ## Advance, earnest money, preliminary contract / Аванс, завдаток, попередній договір
@@ -202,9 +203,9 @@ not set the amount or draft the document.
 - **Non-exclusive mandate** — the default; the client may work with other
   agencies at the same time.
 - **Exclusive mandate (ексклюзивний договір)** — optional; the client works
-  only with Klyuch for a set period in exchange for priority, a wider
+  only with the agency for a set period in exchange for priority, a wider
   off-market search, and sometimes a lower fee. Never required to start.
-- Klyuch does not take original ownership documents and does not pressure
+- The agency does not take original ownership documents and does not pressure
   the client to sign an exclusive or pay an advance quickly.
 
 Rough search times: resale flat **2–6 weeks**; new build **1–3 weeks**;
@@ -218,7 +219,7 @@ residential rental **3–10 days**; small commercial **3–8 weeks**.
 - **Ексклюзивний договір** — за бажанням; клієнт працює лише з «Ключем»
   протягом визначеного строку в обмін на пріоритет, ширший пошук поза
   ринком і іноді нижчу комісію. Для старту не обов'язковий.
-- «Ключ» не бере оригінали правовстановлюючих документів і не тисне швидко
+- «Ось ваші ключі» не бере оригінали правовстановлюючих документів і не тисне швидко
   підписати ексклюзив чи внести аванс.
 
 Орієнтовні строки підбору: вторинна квартира **2–6 тижнів**; новобудова
@@ -260,7 +261,7 @@ residential rental **3–10 days**; small commercial **3–8 weeks**.
 
 ## Mortgage / Іпотека
 
-Klyuch does not advise on mortgages, does not compare loan products, and
+The agency does not advise on mortgages, does not compare loan products, and
 does not prepare a bank appraisal. It works with **partner brokers and
 banks** and passes the client to them for pre-approval. A client with a
 **pre-approved mortgage** (or a confirmed state programme such as "єОселя")
@@ -268,7 +269,7 @@ is flagged in the brief as a **priority** — the search starts immediately
 and focuses on objects the bank will accept. A specific rate, down-payment,
 or eligibility question goes to the partner broker.
 
-«Ключ» не консультує щодо іпотеки, не порівнює кредитні продукти й не
+«Ось ваші ключі» не консультує щодо іпотеки, не порівнює кредитні продукти й не
 готує оцінку для банку. Агенція працює з **партнерами-брокерами та
 банками** і передає клієнта їм для попереднього схвалення. Клієнт із
 **попередньо схваленою іпотекою** (або підтвердженою держпрограмою, як-от
@@ -316,7 +317,7 @@ with a shortlist:
   придивляються;
 - **contact** — a phone number for the agent's call-back.
 
-**A seller or a landlord** who wants Klyuch to list and sell/rent out their
+**A seller or a landlord** who wants the agency to list and sell/rent out their
 property is **not** this flow — the assistant does not take a listing brief.
 It records that the client is an owner wanting to sell or rent out, and an
 agent calls them back to arrange a valuation and the agency agreement.
@@ -335,20 +336,20 @@ agent calls them back to arrange a valuation and the agency agreement.
   придивляються;
 - **контакт** — номер телефону для зворотного дзвінка агента.
 
-**Власник, який хоче продати або здати** свій об'єкт через «Ключ», — це не
+**Власник, який хоче продати або здати** свій об'єкт через «Ось ваші ключі», — це не
 цей сценарій: асистент не приймає бриф на виставлення об'єкта. Він фіксує, що
 клієнт — власник, який хоче продати чи здати, і агент передзвонює, щоб
 домовитися про оцінку й агентський договір.
 
 ## Payment and documents / Оплата та документи
 
-Klyuch works officially: a **рахунок** (invoice), a **чек** or payment
+The agency works officially: a **рахунок** (invoice), a **чек** or payment
 confirmation, and an **акт наданих послуг** after the deal. The relationship
 is governed by the **агентський договір**, which states the service list,
 the fee, the paying side, and the timing. Payment by bank transfer or card;
 the fee is paid at the deal, not before viewings.
 
-«Ключ» працює офіційно: **рахунок**, **чек** або підтвердження платежу та
+«Ось ваші ключі» працює офіційно: **рахунок**, **чек** або підтвердження платежу та
 **акт наданих послуг** після угоди. Відносини регулює **агентський
 договір**, у якому вказано перелік послуг, розмір комісії, сторону, що
 платить, і строки. Оплата — банківським переказом або карткою; комісія
@@ -450,13 +451,13 @@ or the next working morning for a brief left overnight or on Sunday.
   the assistant does not value objects;
 - price negotiation on a specific object;
 - mortgage or financing advice (→ partner broker);
-- a **seller or landlord** who wants Klyuch to list and sell/rent out their
+- a **seller or landlord** who wants the agency to list and sell/rent out their
   property — record it as an owner enquiry and hand to an agent (the
   assistant does not take a listing brief);
 - a request for a **land plot / земельна ділянка** — not part of the
   buyer/renter flow; hand to an agent;
 - a complaint about the agency's or an agent's work;
-- a service Klyuch does not offer (mortgage broking, bank appraisal,
+- a service the agency does not offer (mortgage broking, bank appraisal,
   cadastral work, litigation, redevelopment approvals);
 - an object or area outside coverage (other oblasts, large commercial, land
   for development, agricultural land);
@@ -471,13 +472,13 @@ or the next working morning for a brief left overnight or on Sunday.
   асистент об'єкти не оцінює;
 - торг щодо ціни конкретного об'єкта;
 - консультація щодо іпотеки чи фінансування (→ партнер-брокер);
-- **власник, який хоче продати чи здати** свій об'єкт через «Ключ» —
+- **власник, який хоче продати чи здати** свій об'єкт через «Ось ваші ключі» —
   зафіксувати як звернення власника й передати агенту (асистент бриф на
   виставлення не приймає);
 - запит на **земельну ділянку** — це не сценарій покупця/орендаря, передати
   агенту;
 - скарга на роботу агенції чи агента;
-- послуга, якої «Ключ» не надає (іпотечний брокеридж, оцінка для банку,
+- послуга, якої «Ось ваші ключі» не надає (іпотечний брокеридж, оцінка для банку,
   кадастрові роботи, судові спори, погодження перепланування);
 - об'єкт або локація поза покриттям (інші області, велика комерція, земля
   під забудову, сільськогосподарська земля);

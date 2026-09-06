@@ -1,22 +1,24 @@
-# Knowledge base — "Svizho" cleaning company (fictional, demo only)
+# Knowledge base — «Kept Clean» cleaning company (fictional, demo only)
 
 All names, prices, and policies below are invented for a demo. Not a real
 company. Figures are plausible for the Kyiv market (2026) but not taken from any
-real cleaning company. Any resemblance to an existing company called «Свіжо» is
-coincidental.
+real cleaning company. Any resemblance to an existing company called
+«Тримаємо чистоту» is coincidental.
 
-Svizho (Клінінгова компанія «Свіжо») is a Kyiv cleaning company working with
-private clients (apartments, houses) and businesses (offices, small commercial
-premises). It covers Kyiv and the nearest suburbs. All prices are in hryvnia
+Kept Clean (Клінінгова компанія «Тримаємо чистоту») is a Kyiv cleaning
+company working with private clients (apartments, houses) and businesses
+(offices, small commercial premises). It covers Kyiv and the nearest
+suburbs. All prices are in hryvnia
 (грн, UAH). The assistant collects the request; a manager confirms the exact
 figure after the client describes the object.
 
 Усі назви, ціни та умови нижче — вигадані для демо. Це не реальна компанія.
 Цифри правдоподібні для київського ринку (2026), але не взяті з жодної
-конкретної клінінгової компанії. Будь-який збіг із наявною компанією «Свіжо» —
-випадковий. «Свіжо» — київська клінінгова компанія, працює
-з приватними клієнтами (квартири, будинки) та бізнесом (офіси, невеликі
-комерційні приміщення). Обслуговує Київ і найближчі передмістя. Усі ціни — у
+конкретної клінінгової компанії. Будь-який збіг із наявною компанією
+«Тримаємо чистоту» — випадковий. «Тримаємо чистоту» — київська клінінгова
+компанія, працює з приватними клієнтами (квартири, будинки) та бізнесом
+(офіси, невеликі комерційні приміщення). Обслуговує Київ і найближчі
+передмістя. Усі ціни — у
 гривні (грн). Асистент збирає запит; точну суму підтверджує менеджер після того,
 як клієнт опише об'єкт.
 
@@ -51,7 +53,7 @@ part of regular cleaning. General cleaning does not cover bulky-waste removal,
 washing curtains, or outside windows above ground-floor reach. After-renovation
 cleaning does not cover taking debris away by vehicle, dismantling, or facades.
 
-**Svizho does not do at all** (a manager handles the referral): industrial
+**Kept Clean does not do at all** (a manager handles the referral): industrial
 sites, warehouses and production floors; cleaning after fire, flooding, or other
 emergencies; biohazard / after-death cleaning; high-rise facade or rope-access
 work; pest and rodent control; debris removal by truck; pool cleaning.
@@ -88,7 +90,7 @@ work; pest and rodent control; debris removal by truck; pool cleaning.
 прання штор, миття вікон ззовні вище рівня першого поверху. Після ремонту не
 включає вивіз сміття машиною, демонтаж, миття фасаду.
 
-**Чого «Свіжо» не робить взагалі** (менеджер підкаже, куди звернутися):
+**Чого «Тримаємо чистоту» не робить взагалі** (менеджер підкаже, куди звернутися):
 промислові об'єкти, склади та виробничі цехи; прибирання після пожежі,
 затоплення чи інших НС; біологічне очищення / прибирання після смерті; висотні
 фасадні або альпіністські роботи; дезінсекція та дератизація; вивіз будівельного
@@ -244,7 +246,7 @@ Pets may stay home — warn the assistant about the type and number; aggressive
 animals must be isolated in a separate room. Cleaning litter trays or enclosures
 is by separate agreement.
 
-Svizho works under a contract and carries liability for damage caused by a
+Kept Clean works under a contract and carries liability for damage caused by a
 cleaner's fault: it is recorded in a short act on the spot, with compensation by
 repair or market value. The company is **not** liable for items already worn or
 broken, or for antiques and fragile valuables the client did not point out in
@@ -258,7 +260,7 @@ area free — the specific spots reported, not a full re-clean.
 агресивних тварин слід ізолювати в окремій кімнаті. Прибирання лотків чи
 вольєрів — за окремою домовленістю.
 
-«Свіжо» працює за договором і несе відповідальність за пошкодження з вини
+«Тримаємо чистоту» працює за договором і несе відповідальність за пошкодження з вини
 клінера: воно фіксується коротким актом на місці, компенсація — ремонтом або за
 ринковою вартістю. Компанія **не** відповідає за вже зношені чи пошкоджені речі,
 а також за антикваріат і крихкі цінності, про які клієнт не попередив
