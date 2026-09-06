@@ -23,10 +23,16 @@ are two or more).
     "slots": [
       { "key": "language_pair", "ask_uk": "з якої мови на яку", "ask_en": "which languages", "rule": "e.g. uk->de" },
       { "key": "doc_type", "ask_uk": "який це документ", "ask_en": "what kind of document", "rule": "" }
+      // …abbreviated — the shipped translation topic has 6 slots; see topics/topics.json
     ]
   }
 ]
 ```
+
+> The `slots` array above is trimmed for readability. The real
+> `topics/topics.json` translation entry declares all six
+> (`language_pair`, `doc_type`, `volume`, `deadline`, `certification`,
+> `delivery`) — don't copy this block over it.
 
 - `id` — stable identifier, used internally (inline-button callback data,
   `Session.Topic`, the `topic` field of a lead record). Never shown to the
@@ -46,7 +52,7 @@ are two or more).
   signal is only honoured once **every** slot has a value. At least one
   slot; keys must be unique within a topic.
 
-**Fallback (opt-in default).** If `TOPICS_PATH` points at nothing, or the
+**Fallback (default when unconfigured).** If `TOPICS_PATH` points at nothing, or the
 file parses to an empty array, the bot falls back to a single synthetic
 topic built from `KB_PATH` / `SYSTEM_PROMPT_PATH` / `GREETING_PATH` and the
 translation slot schema — no picker. A one-entry `topics.json` is treated
