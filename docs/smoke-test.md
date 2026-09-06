@@ -13,7 +13,7 @@ scenario sweep for each assistant lives in its own file under `docs/smoke/`:
 | Бюро перекладів (translation) | `docs/smoke/translation.md` | yes |
 | Стоматологія «Зуб даю» (dental) | `docs/smoke/dental.md` | yes |
 | Автосервіс «Подбай-Авто» (auto) | `docs/smoke/auto.md` | yes |
-| Агенція нерухомості «Ваші Ключі» (realestate) | `docs/smoke/realestate.md` | yes |
+| Агенція «Ваші Ключі» (realestate) | `docs/smoke/realestate.md` | yes |
 | Клінінг «Тримаємо чистоту» (cleaning) | `docs/smoke/cleaning.md` | yes |
 
 **How to read a scenario.** Each step says what to **send** and what to
@@ -88,7 +88,7 @@ topic from the first message, and this section is skipped.*
      (`Мій портфоліо · My Portfolio`, …, valpere.github.io, **no** link
      preview card), then "Оберіть тему розмови · Choose a topic:", then
      **one inline button per topic** in manifest order, each label bilingual
-     ("Бюро перекладів «FromToBridge» · «FromToBridge» translation bureau",
+     ("Бюро перекладів «FromToBridge» · Translation bureau",
      …). **No** topic greeting yet, no `dialog.Handle` call —
      `data/turns.jsonl` gets no row.
 2. Send `/start` again.

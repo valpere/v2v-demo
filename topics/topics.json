@@ -2,7 +2,7 @@
   {
     "id": "translation",
     "title": "Бюро перекладів «FromToBridge»",
-    "title_en": "«FromToBridge» translation bureau",
+    "title_en": "Translation bureau",
     "kb": "topics/translation/kb.md",
     "system_prompt": "topics/translation/system.md",
     "greeting": "topics/translation/greeting.md",
@@ -21,7 +21,7 @@
   {
     "id": "dental",
     "title": "Стоматологія «Зуб даю»",
-    "title_en": "«Tooth Be Told» dental clinic",
+    "title_en": "«Tooth Be Told» dental",
     "kb": "topics/dental/kb.md",
     "system_prompt": "topics/dental/system.md",
     "greeting": "topics/dental/greeting.md",
@@ -60,8 +60,8 @@
   },
   {
     "id": "realestate",
-    "title": "Агенція нерухомості «Ваші Ключі»",
-    "title_en": "«Your Keys» real-estate agency",
+    "title": "Агенція «Ваші Ключі»",
+    "title_en": "«Your Keys» real estate",
     "kb": "topics/realestate/kb.md",
     "system_prompt": "topics/realestate/system.md",
     "greeting": "topics/realestate/greeting.md",
@@ -81,7 +81,7 @@
   {
     "id": "cleaning",
     "title": "Клінінг «Тримаємо чистоту»",
-    "title_en": "«Kept Clean» cleaning company",
+    "title_en": "«Kept Clean» cleaning",
     "kb": "topics/cleaning/kb.md",
     "system_prompt": "topics/cleaning/system.md",
     "greeting": "topics/cleaning/greeting.md",

@@ -4,8 +4,8 @@ The per-topic scenario sweep for the **realestate** assistant. The shared
 Setup, the multi-topic picker checks, and the cross-topic robustness / clock
 / logging sections are in **`docs/smoke-test.md`** — read that first.
 
-**Pick the topic first.** `/start` shows a picker — tap **«Агенція
-нерухомості «Ваші Ключі»»** before any scenario below.
+**Pick the topic first.** `/start` shows a picker — tap **«Агенція «Ваші
+Ключі»»** before any scenario below.
 
 **Channel:** send `code font` as a typed / pasted text message, verbatim.
 Only scenario 6 needs a real **voice message**.
@@ -21,7 +21,7 @@ when all seven are set.
 
 ## 1. Greeting
 
-1. `/reset`, `/start`, tap **«Агенція нерухомості «Ваші Ключі»»**.
+1. `/reset`, `/start`, tap **«Агенція «Ваші Ключі»»**.
    - **Expect:** the bilingual greeting (UK "Вітаю! Мене звати Оксана…" then
      EN "Hi! I'm Oksana…"). Nothing else. No turn record.
 2. `Вітаю` → a warm one-liner moving to "що ви шукаєте?", **not** a second
