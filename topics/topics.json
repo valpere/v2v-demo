@@ -49,5 +49,24 @@
       { "key": "preferred_date", "ask_uk": "на яку дату пригнати авто", "ask_en": "preferred date to bring the car in", "rule": "a day" },
       { "key": "contact", "ask_uk": "ваш номер телефону", "ask_en": "a phone number", "rule": "phone for the callback" }
     ]
+  },
+  {
+    "id": "realestate",
+    "title": "Агенція нерухомості «Ключ»",
+    "kb": "topics/realestate/kb.md",
+    "system_prompt": "topics/realestate/system.md",
+    "greeting": "topics/realestate/greeting.md",
+    "scope_uk": "Я допомагаю підібрати нерухомість під ваші критерії і відповідаю на питання про роботу агенції.",
+    "scope_en": "I help you find a property to your criteria and answer questions about how the agency works.",
+    "office": { "label": "Mon–Fri 09:00–20:00, Sat 10:00–17:00 (EET)", "weekday": [9, 20], "sat": [10, 17] },
+    "slots": [
+      { "key": "deal_type", "ask_uk": "купівля чи оренда", "ask_en": "buy or rent", "rule": "купівля|оренда" },
+      { "key": "property_type", "ask_uk": "який об'єкт", "ask_en": "what kind of property", "rule": "квартира|будинок|комерція" },
+      { "key": "districts", "ask_uk": "які райони чи локації Києва", "ask_en": "which Kyiv districts or areas", "rule": "one or more, or 'будь-який'" },
+      { "key": "budget", "ask_uk": "який бюджет — діапазон і валюта", "ask_en": "the budget — a range and currency", "rule": "range + грн/USD" },
+      { "key": "rooms", "ask_uk": "скільки кімнат або яка площа", "ask_en": "number of rooms or area", "rule": "rooms, or m² for a house/commercial" },
+      { "key": "timeline", "ask_uk": "наскільки терміново", "ask_en": "how soon", "rule": "терміново|кілька місяців|придивляється" },
+      { "key": "contact", "ask_uk": "ваш номер телефону", "ask_en": "a phone number", "rule": "phone for the agent callback" }
+    ]
   }
 ]
