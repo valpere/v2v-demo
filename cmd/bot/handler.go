@@ -23,6 +23,16 @@ const RecordingTick = 4 * time.Second
 // pick: "topic:<id>".
 const topicCallbackPrefix = "topic:"
 
+// pickerIntro sits above the topic buttons — a bilingual set of links to
+// Val's site (this bot is a portfolio / pitch artifact), one resource per
+// row (UK · EN), then the prompt. Sent with HTML parse mode by SendButtons.
+const pickerIntro = `<a href="https://valpere.github.io/uk/portfolio/">Мій портфоліо</a> · <a href="https://valpere.github.io/portfolio/">My Portfolio</a>
+<a href="https://valpere.github.io/uk/projects/">Мої проєкти</a> · <a href="https://valpere.github.io/projects/">My Projects</a>
+<a href="https://valpere.github.io/uk/mvb/">Мої брифи</a> · <a href="https://valpere.github.io/mvb/">My Briefs</a>
+<a href="https://valpere.github.io/uk/about/">Про мене</a> · <a href="https://valpere.github.io/about/">About Me</a>
+
+Оберіть тему розмови · Choose a topic:`
+
 // sendTopicPicker shows one inline button per configured topic, in
 // a.topicIDs order (map iteration isn't stable). The picker is the first
 // interaction — before any language is known — so both the prompt and the
@@ -32,8 +42,7 @@ func (a *app) sendTopicPicker(ctx context.Context, chatID int64) {
 	for i, id := range a.topicIDs {
 		buttons[i] = telegram.Button{Label: topicButtonLabel(a.topics[id]), Data: topicCallbackPrefix + id}
 	}
-	text := "Оберіть тему розмови · Choose a topic:"
-	if err := a.tg.SendButtons(ctx, chatID, text, buttons); err != nil {
+	if err := a.tg.SendButtons(ctx, chatID, pickerIntro, buttons); err != nil {
 		log.Printf("send topic picker (chat %d): %v", chatID, err)
 	}
 }

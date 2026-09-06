@@ -84,11 +84,13 @@ topic from the first message, and this section is skipped.*
 **0a — the picker on first contact.**
 
 1. Full reset, then send `/start`.
-   - **Expect:** a bilingual prompt ("Оберіть тему розмови · Choose a
-     topic:") with **one inline button per topic**, in manifest order, each
-     label bilingual ("Бюро перекладів · Translation bureau", …). **No**
-     topic greeting yet, no `dialog.Handle` call — `data/turns.jsonl` gets
-     no row.
+   - **Expect:** the picker message — four rows of tappable links
+     (`Мій портфоліо · My Portfolio`, …, valpere.github.io, **no** link
+     preview card), then "Оберіть тему розмови · Choose a topic:", then
+     **one inline button per topic** in manifest order, each label bilingual
+     ("Бюро перекладів «FromToBridge» · «FromToBridge» translation bureau",
+     …). **No** topic greeting yet, no `dialog.Handle` call —
+     `data/turns.jsonl` gets no row.
 2. Send `/start` again.
    - **Expect:** the picker again (idempotent).
 

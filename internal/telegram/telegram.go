@@ -238,15 +238,21 @@ func (c *client) SendRecordingAction(ctx context.Context, chatID int64) error {
 	return nil
 }
 
+// SendButtons is used only for the topic picker. Its text carries HTML links
+// (the picker intro), so it goes out with ParseMode HTML and link previews
+// suppressed — otherwise Telegram would stack a preview card above the
+// keyboard.
 func (c *client) SendButtons(ctx context.Context, chatID int64, text string, buttons []Button) error {
 	rows := make([][]models.InlineKeyboardButton, len(buttons))
 	for i, b := range buttons {
 		rows[i] = []models.InlineKeyboardButton{{Text: b.Label, CallbackData: b.Data}}
 	}
 	_, err := c.b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatID,
-		Text:        text,
-		ReplyMarkup: models.InlineKeyboardMarkup{InlineKeyboard: rows},
+		ChatID:             chatID,
+		Text:               text,
+		ParseMode:          models.ParseModeHTML,
+		LinkPreviewOptions: &models.LinkPreviewOptions{IsDisabled: bot.True()},
+		ReplyMarkup:        models.InlineKeyboardMarkup{InlineKeyboard: rows},
 	})
 	if err != nil {
 		return fmt.Errorf("telegram: sendMessage (buttons): %w", err)

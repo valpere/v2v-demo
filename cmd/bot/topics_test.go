@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/valpere/v2v-demo/internal/dialog"
@@ -237,6 +238,23 @@ func TestReadTopicManifestMalformedJSONIsAnError(t *testing.T) {
 	}
 	if _, err := readTopicManifest(path); err == nil {
 		t.Fatal("want an error for malformed JSON")
+	}
+}
+
+func TestPickerIntro(t *testing.T) {
+	// Sent with ParseMode HTML — a malformed tag makes Telegram reject the
+	// whole message with a 400, so keep the <a> tags balanced.
+	if o, c := strings.Count(pickerIntro, "<a "), strings.Count(pickerIntro, "</a>"); o != c {
+		t.Fatalf("unbalanced <a> tags: %d open, %d close", o, c)
+	}
+	if n := strings.Count(pickerIntro, `href="https://valpere.github.io/`); n != 8 {
+		t.Fatalf("want 8 valpere.github.io links, got %d", n)
+	}
+	if uk := strings.Count(pickerIntro, "github.io/uk/"); uk != 4 {
+		t.Fatalf("want 4 Ukrainian (/uk/) links, got %d", uk)
+	}
+	if !strings.HasSuffix(pickerIntro, "Оберіть тему розмови · Choose a topic:") {
+		t.Fatalf("picker intro must end with the bilingual prompt:\n%s", pickerIntro)
 	}
 }
 
