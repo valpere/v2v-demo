@@ -60,8 +60,8 @@
   },
   {
     "id": "realestate",
-    "title": "Агенція нерухомості «Ось ваші ключі»",
-    "title_en": "«Here Are Your Keys» real-estate agency",
+    "title": "Агенція нерухомості «Ваші Ключі»",
+    "title_en": "«Your Keys» real-estate agency",
     "kb": "topics/realestate/kb.md",
     "system_prompt": "topics/realestate/system.md",
     "greeting": "topics/realestate/greeting.md",

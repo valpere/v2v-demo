@@ -13,7 +13,7 @@ scenario sweep for each assistant lives in its own file under `docs/smoke/`:
 | Бюро перекладів (translation) | `docs/smoke/translation.md` | yes |
 | Стоматологія «Зуб даю» (dental) | `docs/smoke/dental.md` | yes |
 | Автосервіс «Подбай-Авто» (auto) | `docs/smoke/auto.md` | yes |
-| Агенція нерухомості «Ось ваші ключі» (realestate) | `docs/smoke/realestate.md` | yes |
+| Агенція нерухомості «Ваші Ключі» (realestate) | `docs/smoke/realestate.md` | yes |
 | Клінінг «Тримаємо чистоту» (cleaning) | `docs/smoke/cleaning.md` | yes |
 
 **How to read a scenario.** Each step says what to **send** and what to
