@@ -2,7 +2,8 @@
 
 All names, prices, and policies below are invented for a demo. Not a real
 company. Figures are plausible for the Kyiv market (2026) but not taken from
-any real service station.
+any real service station. Any resemblance to an existing company called
+«Гарант-Авто» is coincidental.
 
 Garant-Avto is a multi-brand independent car service (СТО) in Kyiv for
 private owners and companies: mechanical repair, scheduled maintenance,
@@ -14,7 +15,8 @@ advisor (майстер-приймальник) after the car is inspected.
 
 Усі назви, ціни та умови нижче — вигадані для демо. Це не реальна компанія.
 Цифри правдоподібні для київського ринку (2026), але не взяті з жодного
-конкретного сервісу. «Гарант-Авто» — незалежний мультибрендовий автосервіс
+конкретного сервісу. Будь-який збіг із наявною компанією «Гарант-Авто» —
+випадковий. «Гарант-Авто» — незалежний мультибрендовий автосервіс
 (СТО) у Києві для приватних власників і компаній: механічний ремонт, планове
 ТО, діагностика, шиномонтаж і легкий кузовний ремонт. Ціни — у гривнях (грн).
 Цей асистент лише приймає заявки й відповідає з цього документа — він не
@@ -46,6 +48,12 @@ tuning and power upgrades; trucks over 3.5 t and buses; electric vehicles
 needing chassis straightening on a jig. For any of these the assistant hands
 the request to a manager.
 
+**Towing (евакуатор).** Garant-Avto does not run its own tow truck. A
+service advisor can recommend a partner tow operator; the tow is arranged
+with and paid to that operator, separately from the repair. A client who
+needs a tow can still leave a service request — the advisor sorts the tow
+out on the call-back.
+
 Діагностика (комп'ютерна/OBD, двигуна, ходової на підйомнику, гальм,
 кондиціонера, передпродажна); планове ТО за регламентом або пробігом — олива
 й фільтри, свічки, гальмівна рідина, антифриз, обслуговування ГРМ; двигун і
@@ -66,6 +74,12 @@ the request to a manager.
 збільшення потужності; вантажівки понад 3,5 т і автобуси; електромобілі (лише
 шиномонтаж і розвал); мототехніку; складний кузовний ремонт із витягуванням
 геометрії на стапелі. За будь-чим із цього асистент передає заявку менеджеру.
+
+**Евакуатор.** «Гарант-Авто» не має власного евакуатора. Майстер-приймальник
+може порадити партнера-евакуатора; евакуацію клієнт замовляє й оплачує
+окремо, тому оператору, а не сервісу. Якщо потрібен евакуатор, заявку на
+обслуговування все одно можна залишити — майстер організує евакуацію під час
+дзвінка.
 
 ## Brands / Марки
 
@@ -221,8 +235,8 @@ manager.
   12 місяців; браковану деталь міняємо за нею, претензію оформлюємо ми.
 - **Гарантія не діє, якщо:** інший сервіс згодом втручався у той самий
   відремонтований вузол; авто експлуатували з відомою несправністю, про яку
-  попереджали; авто потрапило в ДТП; його використовували в спорті або в
-  таксі понад обумовлене; деінде залили невідповідні рідини; несправність
+  попереджали; авто потрапило в ДТП; його використовували в моторспорті або
+  в таксі понад обумовлене; деінде залили невідповідні рідини; несправність
   спричинена запчастиною клієнта.
 
 Гарантійна претензія — це **гарантійний спір**, асистент передає її менеджеру.
@@ -289,49 +303,110 @@ phone.
 не бронює точний час і не називає точну суму — і те, і те підтверджує
 майстер-приймальник телефоном.
 
+Клієнти зазвичай пишуть коротко: «хочу записатися на сервіс», «треба пройти
+ТО», «пригнати авто на діагностику», «записати машину на ремонт», «поміняти
+масло і фільтри», «переобути на зиму / на літо», «зробити розвал-сходження»,
+«загорівся значок на панелі», «щось стукає / гуде / деренчить», «не
+заводиться», «тече», «поміняти колодки / диски / амортизатори», «підготувати
+до продажу», «кузовний ремонт після невеликого ДТП». Асистент розпізнає марку
+й модель (Volkswagen, Skoda, Audi, BMW, Toyota, Mazda, Renault, Nissan,
+Hyundai, Kia, Ford, Peugeot, Citroen тощо), рік і тип пального (бензин,
+дизель, гібрид) із повідомлення й не перепитує те, що вже сказали.
+
+Clients usually write briefly: "book my car in", "I need a service / an MOT",
+"bring it in for diagnostics", "oil and filter change", "swap to winter /
+summer tyres", "wheel alignment", "warning light on the dash", "something is
+knocking / humming / rattling", "won't start", "there's a leak", "new brake
+pads / discs / shocks", "pre-sale check", "body repair after a small bump".
+The assistant picks the make, model, year and fuel type out of the message
+and does not re-ask what was already said.
+
 ## Common questions / Поширені запитання
 
-- **How much is diagnostics? / Скільки коштує діагностика?** — computer
-  600–1 200 UAH, running-gear 500–900 UAH; depends on the car.
-- **Is diagnostics credited toward the repair? / Чи зараховується діагностика
-  в ремонт?** — yes, basic computer or running-gear diagnostics is credited
-  toward the labour if the repair is done with us; in-depth diagnostics with
-  disassembly is not.
-- **Can I bring my own parts? / Чи можна зі своїми запчастинами?** — yes, if
-  new, in the maker's packaging, correct by catalogue number; we guarantee
-  our work, not the part, and fitting time is charged if the part is wrong.
-- **What is the guarantee on the work? / Яка гарантія на роботу?** — 6 months
-  or 10 000 km on labour (3 months / 5 000 km on major unit work); supplied
-  parts carry the maker's warranty, usually 12 months.
-- **Do you do wheel alignment? / Чи робите розвал-сходження?** — yes, 3D
-  alignment for passenger cars, 900–1 800 UAH.
-- **Do you work with my make? / Працюєте з моєю маркою?** — most European,
-  Japanese and Korean makes; some are referred elsewhere for deep work and a
-  manager confirms.
-- **Is there a courtesy car? / Чи є підмінне авто?** — a few, by prior
-  arrangement, deposit and fuel on the client.
-- **How do I book? / Як записатися?** — give the assistant the car, the
-  problem, a preferred date and a phone number; the service advisor calls
-  back with an estimate and a slot.
-- **Is it safe to drive my car like this? / Чи безпечно так їхати?** — the
-  service does not judge that over chat; an inspection is required.
+- **How much is diagnostics?** — computer 600–1 200 UAH, running-gear
+  500–900 UAH; depends on the car.
+- **Is diagnostics credited toward the repair?** — yes, basic computer or
+  running-gear diagnostics is credited toward the labour if the repair is
+  done with us; in-depth diagnostics with disassembly is not.
+- **Can I bring my own parts?** — yes, if new, in the maker's packaging,
+  correct by catalogue number; we guarantee our work, not the part, and
+  fitting time is charged if the part is wrong.
+- **What is the guarantee on the work?** — 6 months or 10 000 km on labour
+  (3 months / 5 000 km on major unit work); supplied parts carry the maker's
+  warranty, usually 12 months.
+- **Do you do wheel alignment?** — yes, 3D alignment for passenger cars,
+  900–1 800 UAH.
+- **Do you work with my make?** — most European, Japanese and Korean makes;
+  some are referred elsewhere for deep work and a manager confirms.
+- **Is there a courtesy car?** — a few, by prior arrangement, deposit and
+  fuel on the client.
+- **Do you have a tow truck?** — no own евакуатор; the advisor can recommend
+  a partner tow operator, paid separately. Leave a service request anyway
+  and the advisor arranges the tow on the call-back.
+- **Can I book a specific time?** — leave a preferred date; the service
+  advisor calls back to confirm the actual slot and the estimate. The
+  assistant does not hold a firm time.
+- **How do I book?** — give the assistant the car, the problem, a preferred
+  date and a phone number; the service advisor calls back with an estimate
+  and a slot.
+- **Is it safe to drive my car like this?** — the service does not judge
+  that over chat; an inspection is required.
+
+Поширені запитання:
+
+- **Скільки коштує діагностика?** — комп'ютерна 600–1 200 грн, ходової
+  500–900 грн; залежить від авто.
+- **Чи зараховується діагностика в ремонт?** — так, базова комп'ютерна
+  діагностика або діагностика ходової зараховується у вартість робіт, якщо
+  ремонт роблять у нас; поглиблена діагностика з розбиранням — ні.
+- **Чи можна зі своїми запчастинами?** — так, якщо нові, у заводській
+  упаковці, підходять по каталожному номеру; гарантуємо свою роботу, а не
+  деталь, і час встановлення оплачується, якщо деталь неправильна.
+- **Яка гарантія на роботу?** — 6 місяців або 10 000 км на роботи (3 місяці
+  / 5 000 км на складні агрегатні); поставлені нами запчастини — гарантія
+  виробника, зазвичай 12 місяців.
+- **Чи робите розвал-сходження?** — так, 3D сход-розвал для легкових,
+  900–1 800 грн.
+- **Працюєте з моєю маркою?** — більшість європейських, японських і
+  корейських марок; деякі щодо складних робіт направляємо до інших, менеджер
+  підтверджує.
+- **Чи є підмінне авто?** — кілька, за попередньою домовленістю, застава й
+  паливо за клієнтом.
+- **Чи є у вас евакуатор?** — власного евакуатора немає; майстер може
+  порадити партнера-евакуатора, оплата окремо. Заявку на обслуговування все
+  одно залиште — майстер організує евакуацію під час дзвінка.
+- **Чи можна записатися на конкретний час?** — залиште бажану дату;
+  майстер-приймальник передзвонить і підтвердить час та кошторис. Асистент
+  точний час не бронює.
+- **Як записатися?** — назвіть асистенту авто, проблему, бажану дату й номер
+  телефону; майстер-приймальник передзвонить із кошторисом і слотом.
+- **Чи безпечно так їхати?** — сервіс цього в переписці не оцінює; потрібен
+  огляд.
 
 ## Escalate to a human when / Коли передавати менеджеру
 
+Hand off to a manager when:
+
 - the client asks whether the car is safe to drive, or wants any remote
-  judgement about the car's condition — an inspection is required /
-  клієнт питає, чи безпечно їхати, або хоче дистанційної оцінки стану авто
-- a warranty dispute, or any claim about work Garant-Avto did /
-  гарантійний спір або претензія щодо робіт, які виконав «Гарант-Авто»
-- an insurance or accident claim, or work involving a страхова /
-  страховий випадок або ДТП, робота із залученням страхової
-- a complaint about the service, staff, price or timing /
-  скарга на сервіс, персонал, ціну чи терміни
+  judgement about the car's condition — an inspection is required;
+- a warranty dispute, or any claim about work Garant-Avto did;
+- an insurance or accident claim, or work involving an insurer;
+- a complaint about the service, staff, price or timing;
 - a service the shop does not offer (CVT / DSG overhaul, chip tuning, trucks
-  and buses, electric vehicles, motorcycles, heavy body / chassis work) /
-  послуга, якої сервіс не надає
-- a make on the refer-elsewhere list for deep work /
-  марка зі списку тих, кого щодо складних робіт направляємо до інших
-- the client asks for a person, or is unhappy with the assistant /
-  клієнт просить людину або незадоволений роботою асистента
-- anything not covered above / будь-що, не описане вище
+  and buses, electric vehicles, motorcycles, heavy body / chassis work);
+- a make on the refer-elsewhere list for deep work;
+- the client asks for a person, or is unhappy with the assistant;
+- anything not covered above.
+
+Передавати менеджеру, коли:
+
+- клієнт питає, чи безпечно їхати, або хоче дистанційної оцінки стану авто —
+  потрібен огляд;
+- гарантійний спір або претензія щодо робіт, які виконав «Гарант-Авто»;
+- страховий випадок або ДТП, робота із залученням страхової;
+- скарга на сервіс, персонал, ціну чи терміни;
+- послуга, якої сервіс не надає (капремонт CVT / DSG, чип-тюнінг, вантажівки
+  й автобуси, електромобілі, мототехніка, складний кузов / геометрія);
+- марка зі списку тих, кого щодо складних робіт направляємо до інших;
+- клієнт просить людину або незадоволений роботою асистента;
+- будь-що, не описане вище.

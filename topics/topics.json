@@ -32,5 +32,22 @@
       { "key": "preferred_time", "ask_uk": "на який день і час", "ask_en": "preferred day and time", "rule": "day + ранок/день/вечір, or a date" },
       { "key": "contact", "ask_uk": "ваш номер телефону", "ask_en": "a phone number", "rule": "phone for the callback" }
     ]
+  },
+  {
+    "id": "auto",
+    "title": "Автосервіс «Гарант-Авто»",
+    "kb": "topics/auto/kb.md",
+    "system_prompt": "topics/auto/system.md",
+    "greeting": "topics/auto/greeting.md",
+    "scope_uk": "Я приймаю заявки на обслуговування авто і відповідаю на питання про сервіс.",
+    "scope_en": "I take car-service requests and answer questions about the shop.",
+    "office": { "label": "Mon–Fri 09:00–20:00, Sat 09:00–17:00 (EET)", "weekday": [9, 20], "sat": [9, 17] },
+    "slots": [
+      { "key": "car", "ask_uk": "яке авто — марка, модель, рік", "ask_en": "the car — make, model, year", "rule": "make/model/year" },
+      { "key": "problem", "ask_uk": "що з автомобілем або що зробити", "ask_en": "the symptom or the job", "rule": "client's own words" },
+      { "key": "service_type", "ask_uk": "тип робіт", "ask_en": "type of service", "rule": "діагностика|ремонт|ТО|шиномонтаж|кузовний ремонт; usually inferable from the problem" },
+      { "key": "preferred_date", "ask_uk": "на яку дату пригнати авто", "ask_en": "preferred date to bring the car in", "rule": "a day" },
+      { "key": "contact", "ask_uk": "ваш номер телефону", "ask_en": "a phone number", "rule": "phone for the callback" }
+    ]
   }
 ]
