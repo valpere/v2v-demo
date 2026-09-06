@@ -48,9 +48,14 @@ is a direct implementation of that section.
 ```bash
 SLUG=$(basename "$(git rev-parse --show-toplevel)")
 WEEK="${1:-latest}"
-REPORTS_DIR=~/wrk/common/reports/minions/"$SLUG"
+REPORTS_DIR="$HOME/wrk/common/reports/minions/$SLUG"
 if [[ "$WEEK" == "latest" ]]; then
-  REPORT=$(ls -1t "$REPORTS_DIR"/2026-W*.md 2>/dev/null | head -1)
+  # Robust selector: handles spaces/specials in path and filename.
+  # Report names are ISO-week tags + .md (no spaces by construction),
+  # but find + mtime-sort keeps the intent explicit if naming changes.
+  REPORT=$(find "$REPORTS_DIR" -maxdepth 1 -type f -name '2026-W*.md' \
+           -printf '%T@ %p\n' 2>/dev/null \
+           | sort -rn | head -1 | cut -d' ' -f2-)
 else
   REPORT="$REPORTS_DIR/$WEEK.md"
 fi
@@ -93,6 +98,16 @@ For each candidate, in confidence order (high → medium → low, same as
 - **A "Possible duplicate" warning never auto-skips** — show it, let the
   human decide; `minions-curator`'s duplicate check is a cheap name-
   overlap heuristic, not a reliable one.
+- **Before recommending `apply` on any candidate — even one with no
+  "Possible duplicate" warning** — read the current `minions/TOOLS.md`
+  and skim what each existing entry actually does, not just its name.
+  The heuristic only catches name overlap (`dump_users.py` vs
+  `dump-users.py`); it has no way to notice that `tmp/cdp-eval.py` (a
+  stdlib-only fallback for a missing `websockets` module) already
+  duplicates `minions/cdp`'s `eval` mode under a completely different
+  name. A semantic duplicate the heuristic missed is exactly the kind
+  of judgment call this skill exists for — don't let the absence of a
+  flag stand in for having actually checked.
 
 ### 4. On `apply`
 
@@ -127,14 +142,41 @@ For each candidate, in confidence order (high → medium → low, same as
 
 ### 5. On `skip`
 
-Leave the file in `tmp/` untouched. No annotation mechanism exists yet
-in the report file itself (unlike `apply-dreaming`'s report annotations)
-— a skipped candidate simply won't show new evidence next week unless
-it's actually run again, which naturally de-prioritizes it. If this
-turns out to be noisy in practice (the same skipped candidate
-re-appearing every week at the same confidence), that's a signal to add
-report annotation support to `minions-curator` itself later — not a
-reason to invent an ad hoc annotation scheme inside this skill.
+Leave the file in `tmp/` untouched. Record the skip in
+`tmp/.curator-skip.json` (git-ignored, same convention as
+`tmp/.exec_log`) so next week's triage doesn't re-litigate a decision
+already made for the same reason:
+
+```jsonc
+// tmp/.curator-skip.json — one entry per skipped candidate, keyed by path
+{
+  "cdp-eval.py": {
+    "skipped_at": "2026-09-01",
+    "reason": "duplicate of minions/cdp's eval mode"
+  }
+}
+```
+
+Before showing a candidate in Step 3's walk, check this file: if an
+entry exists **and** the file's `mtime` hasn't changed since
+`skipped_at` (i.e. it wasn't edited to become genuinely different),
+list it in the summary as already-triaged rather than re-asking —
+`"tmp/cdp-eval.py — skipped 2026-09-01 (duplicate of minions/cdp);
+re-flag with 'e' to reconsider"`. Give the human an escape hatch (an
+`e` option in that line) to force it back into the normal walk — this
+is a memory aid against re-litigating, not a hard suppression. If the
+file's `mtime` is newer than `skipped_at`, treat it as a fresh
+candidate again (something changed) and drop the stale entry.
+
+This is a lightweight file-marker, not `minions-curator` report
+annotation — the scan tool itself stays free of any per-skip state (it
+would need to read this file on every run just to skip re-flagging,
+adding a second reason its scoring output can vary run to run). If
+this marker file itself turns out to be worth surfacing in the report
+(e.g. so `scan --project .` can silently exclude an already-skipped,
+unchanged candidate instead of the skill filtering it post-hoc), that's
+a `minions-curator` binary change to consider later — not a reason to
+block this skill-level fix now.
 
 ## Hard constraints
 
