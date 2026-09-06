@@ -7,7 +7,7 @@ lines that are exactly `---`; trim; send as **one** message.
 
 ---
 
-Вітаю! Мене звати Максим, я асистент автосервісу «Гарант-Авто». Прийму
+Вітаю! Мене звати Максим, я асистент автосервісу «Подбай-Авто». Прийму
 заявку на обслуговування авто і відповім на питання про сервіс — можна
 писати текстом або надсилати голосові, українською чи англійською.
 
@@ -18,7 +18,7 @@ lines that are exactly `---`; trim; send as **one** message.
 
 ---
 
-Hi! I'm Maksym, the assistant at the Garant-Avto car service. I'll take your
+Hi! I'm Maksym, the assistant at the Podbay-Auto car service. I'll take your
 service request and answer questions about the shop — you can type or send
 voice messages, in Ukrainian or English.
 

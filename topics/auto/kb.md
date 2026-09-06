@@ -1,11 +1,11 @@
-# Knowledge base — "Garant-Avto" car service / СТО (fictional, demo only)
+# Knowledge base — "Podbay-Auto" car service / СТО (fictional, demo only)
 
 All names, prices, and policies below are invented for a demo. Not a real
 company. Figures are plausible for the Kyiv market (2026) but not taken from
 any real service station. Any resemblance to an existing company called
-«Гарант-Авто» is coincidental.
+«Подбай-Авто» is coincidental.
 
-Garant-Avto is a multi-brand independent car service (СТО) in Kyiv for
+Podbay-Auto is a multi-brand independent car service (СТО) in Kyiv for
 private owners and companies: mechanical repair, scheduled maintenance,
 diagnostics, tyre service and light body work. Prices are in UAH (грн). This
 assistant only takes service requests and answers from this document — it
@@ -15,8 +15,8 @@ advisor (майстер-приймальник) after the car is inspected.
 
 Усі назви, ціни та умови нижче — вигадані для демо. Це не реальна компанія.
 Цифри правдоподібні для київського ринку (2026), але не взяті з жодного
-конкретного сервісу. Будь-який збіг із наявною компанією «Гарант-Авто» —
-випадковий. «Гарант-Авто» — незалежний мультибрендовий автосервіс
+конкретного сервісу. Будь-який збіг із наявною компанією «Подбай-Авто» —
+випадковий. «Подбай-Авто» — незалежний мультибрендовий автосервіс
 (СТО) у Києві для приватних власників і компаній: механічний ремонт, планове
 ТО, діагностика, шиномонтаж і легкий кузовний ремонт. Ціни — у гривнях (грн).
 Цей асистент лише приймає заявки й відповідає з цього документа — він не
@@ -48,7 +48,7 @@ tuning and power upgrades; trucks over 3.5 t and buses; electric vehicles
 needing chassis straightening on a jig. For any of these the assistant hands
 the request to a manager.
 
-**Towing (евакуатор).** Garant-Avto does not run its own tow truck. A
+**Towing (евакуатор).** Podbay-Auto does not run its own tow truck. A
 service advisor can recommend a partner tow operator; the tow is arranged
 with and paid to that operator, separately from the repair. A client who
 needs a tow can still leave a service request — the advisor sorts the tow
@@ -75,7 +75,7 @@ out on the call-back.
 шиномонтаж і розвал); мототехніку; складний кузовний ремонт із витягуванням
 геометрії на стапелі. За будь-чим із цього асистент передає заявку менеджеру.
 
-**Евакуатор.** «Гарант-Авто» не має власного евакуатора. Майстер-приймальник
+**Евакуатор.** «Подбай-Авто» не має власного евакуатора. Майстер-приймальник
 може порадити партнера-евакуатора; евакуацію клієнт замовляє й оплачує
 окремо, тому оператору, а не сервісу. Якщо потрібен евакуатор, заявку на
 обслуговування все одно можна залишити — майстер організує евакуацію під час
@@ -109,7 +109,7 @@ the standard time for the operation.
 - **Normo-hour (нормо-година): from 900 UAH.** Simple work is at the base
   rate; engine, gearbox, electronics and A/C work is 1 100–1 400 UAH/hour.
 - **Diagnostics has a fee.** If the client then does the repair at
-  Garant-Avto, the cost of the **basic** computer or running-gear diagnostics
+  Podbay-Auto, the cost of the **basic** computer or running-gear diagnostics
   is credited toward the labour. In-depth diagnostics needing disassembly is
   not credited.
 - **Parts markup:** on parts we order, the estimate shows the purchase price
@@ -125,7 +125,7 @@ the standard time for the operation.
 - **Нормо-година: від 900 грн.** Прості роботи — за базовою ставкою; двигун,
   КПП, електроніка й кондиціонер — 1 100–1 400 грн/год.
 - **Діагностика платна.** Якщо клієнт після цього робить ремонт у
-  «Гарант-Авто», вартість **базової** комп'ютерної діагностики або
+  «Подбай-Авто», вартість **базової** комп'ютерної діагностики або
   діагностики ходової зараховується у вартість робіт. Поглиблена діагностика
   з розбиранням не зараховується.
 - **Націнка на запчастини:** на деталі, які замовляємо ми, у кошторисі —
@@ -152,7 +152,7 @@ The assistant quotes the range, not a single number.
 
 ## Client-supplied parts / Запчастини клієнта
 
-Garant-Avto **will install parts the client brings** if they are **new**, in
+Podbay-Auto **will install parts the client brings** if they are **new**, in
 the maker's packaging, and match the car by catalogue number. Used parts are
 not installed. Consumables (oil, filters, coolant, brake fluid) are accepted
 but ours are recommended — the labour guarantee on that job depends on the
@@ -162,7 +162,7 @@ the client's part turns out wrong or defective when we try to fit it, the
 mechanic's time is still charged. Client-supplied parts are listed on the
 intake sheet.
 
-«Гарант-Авто» **встановлює запчастини клієнта**, якщо вони **нові**, у
+«Подбай-Авто» **встановлює запчастини клієнта**, якщо вони **нові**, у
 заводській упаковці й підходять по каталожному номеру. Вживані деталі не
 встановлюємо. Витратні матеріали (олива, фільтри, антифриз, гальмівна рідина)
 приймаємо, але рекомендуємо свої — гарантія на цю роботу залежить від
@@ -217,7 +217,7 @@ Wi-Fi і кавою; станція метро за 5 хвилин пішки.
 
 - **Labour:** 6 months or 10 000 km, whichever comes first; on major unit
   work (engine, gearbox internals) 3 months or 5 000 km.
-- **Parts supplied by Garant-Avto:** the maker's warranty, usually 12
+- **Parts supplied by Podbay-Auto:** the maker's warranty, usually 12
   months; a defective part is replaced under it and we handle the claim.
 - **The guarantee does not apply if:** another service later worked on the
   same repaired unit; the car was driven with a known fault we warned about;
@@ -231,7 +231,7 @@ manager.
 - **На роботи:** 6 місяців або 10 000 км, залежно від того, що настане
   раніше; на складні агрегатні роботи (двигун, нутрощі КПП) — 3 місяці або
   5 000 км.
-- **На запчастини, поставлені «Гарант-Авто»:** гарантія виробника, зазвичай
+- **На запчастини, поставлені «Подбай-Авто»:** гарантія виробника, зазвичай
   12 місяців; браковану деталь міняємо за нею, претензію оформлюємо ми.
 - **Гарантія не діє, якщо:** інший сервіс згодом втручався у той самий
   відремонтований вузол; авто експлуатували з відомою несправністю, про яку
@@ -389,7 +389,7 @@ Hand off to a manager when:
 
 - the client asks whether the car is safe to drive, or wants any remote
   judgement about the car's condition — an inspection is required;
-- a warranty dispute, or any claim about work Garant-Avto did;
+- a warranty dispute, or any claim about work Podbay-Auto did;
 - an insurance or accident claim, or work involving an insurer;
 - a complaint about the service, staff, price or timing;
 - a service the shop does not offer (CVT / DSG overhaul, chip tuning, trucks
@@ -402,7 +402,7 @@ Hand off to a manager when:
 
 - клієнт питає, чи безпечно їхати, або хоче дистанційної оцінки стану авто —
   потрібен огляд;
-- гарантійний спір або претензія щодо робіт, які виконав «Гарант-Авто»;
+- гарантійний спір або претензія щодо робіт, які виконав «Подбай-Авто»;
 - страховий випадок або ДТП, робота із залученням страхової;
 - скарга на сервіс, персонал, ціну чи терміни;
 - послуга, якої сервіс не надає (капремонт CVT / DSG, чип-тюнінг, вантажівки

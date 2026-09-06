@@ -1,11 +1,11 @@
-# Smoke test — car service (Автосервіс «Гарант-Авто» / Максим)
+# Smoke test — car service (Автосервіс «Подбай-Авто» / Максим)
 
 The per-topic scenario sweep for the **auto** assistant. The shared Setup,
 the multi-topic picker checks, and the cross-topic robustness / clock /
 logging sections are in **`docs/smoke-test.md`** — read that first.
 
 **Pick the topic first.** The shipped `topics/topics.json` has several
-entries, so `/start` shows a picker — tap **«Автосервіс «Гарант-Авто»»**
+entries, so `/start` shows a picker — tap **«Автосервіс «Подбай-Авто»»**
 before any scenario below.
 
 **Channel:** send `code font` as a typed / pasted text message, verbatim.
@@ -22,7 +22,7 @@ Slots: **`car`**, **`problem`**, **`service_type`**, **`preferred_date`**,
 
 ## 1. Greeting
 
-1. `/reset`, `/start`, tap **«Автосервіс «Гарант-Авто»»**.
+1. `/reset`, `/start`, tap **«Автосервіс «Подбай-Авто»»**.
    - **Expect:** the bilingual greeting (UK "Вітаю! Мене звати Максим…" then
      EN "Hi! I'm Maksym…"). Nothing else. No turn record.
 2. `Доброго дня` → a warm one-liner moving to "що з автомобілем?", **not** a

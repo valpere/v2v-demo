@@ -12,7 +12,7 @@ scenario sweep for each assistant lives in its own file under `docs/smoke/`:
 | -- | -- | -- |
 | Бюро перекладів (translation) | `docs/smoke/translation.md` | yes |
 | Стоматологія «Перлина» (dental) | `docs/smoke/dental.md` | yes |
-| Автосервіс «Гарант-Авто» (auto) | `docs/smoke/auto.md` | yes |
+| Автосервіс «Подбай-Авто» (auto) | `docs/smoke/auto.md` | yes |
 | Агенція нерухомості «Ключ» (realestate) | `docs/smoke/realestate.md` | yes |
 | Клінінг «Свіжо» (cleaning) | `docs/smoke/cleaning.md` | yes |
 

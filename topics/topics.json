@@ -1,8 +1,8 @@
 [
   {
     "id": "translation",
-    "title": "Бюро перекладів",
-    "title_en": "Translation bureau",
+    "title": "Бюро перекладів «FromToBridge»",
+    "title_en": "«FromToBridge» translation bureau",
     "kb": "topics/translation/kb.md",
     "system_prompt": "topics/translation/system.md",
     "greeting": "topics/translation/greeting.md",
@@ -21,7 +21,7 @@
   {
     "id": "dental",
     "title": "Стоматологія «Перлина»",
-    "title_en": "Dental clinic",
+    "title_en": "«Perlyna» dental clinic",
     "kb": "topics/dental/kb.md",
     "system_prompt": "topics/dental/system.md",
     "greeting": "topics/dental/greeting.md",
@@ -42,8 +42,8 @@
   },
   {
     "id": "auto",
-    "title": "Автосервіс «Гарант-Авто»",
-    "title_en": "Car service",
+    "title": "Автосервіс «Подбай-Авто»",
+    "title_en": "«Podbay-Auto» car service",
     "kb": "topics/auto/kb.md",
     "system_prompt": "topics/auto/system.md",
     "greeting": "topics/auto/greeting.md",
@@ -61,7 +61,7 @@
   {
     "id": "realestate",
     "title": "Агенція нерухомості «Ключ»",
-    "title_en": "Real-estate agency",
+    "title_en": "«Klyuch» real-estate agency",
     "kb": "topics/realestate/kb.md",
     "system_prompt": "topics/realestate/system.md",
     "greeting": "topics/realestate/greeting.md",
@@ -81,7 +81,7 @@
   {
     "id": "cleaning",
     "title": "Клінінг «Свіжо»",
-    "title_en": "Cleaning company",
+    "title_en": "«Svizho» cleaning company",
     "kb": "topics/cleaning/kb.md",
     "system_prompt": "topics/cleaning/system.md",
     "greeting": "topics/cleaning/greeting.md",
