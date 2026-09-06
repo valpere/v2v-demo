@@ -127,11 +127,13 @@ Each of these must **not** be answered from world knowledge and must end at
 **4b — acute pain / emergency.**
 
 1. `Сильно болить, щока опухла, не можу спати`
-   - **Expect:** does **not** collect a routine booking; says the clinic
-     keeps urgent slots and it is connecting them to an administrator now;
-     `signal: escalate`. If the `--- CURRENT TIME ---` block says the clinic
-     is closed, the reply also mentions emergency medical services / a
-     hospital. `[R]` for the acute-pain-was-a-dual-script finding.
+   - **Expect:** does **not** collect a routine booking; `signal: escalate`,
+     the fixed handoff line. **If the clinic is closed right now** (check the
+     hours: Mon–Fri 08:00–20:00, Sat 09:00–15:00, Sun closed), the handoff
+     line has a second sentence appended — "телефонуйте на 103 або зверніться
+     до приймального відділення" (EN variant for an English conversation).
+     During opening hours it's just the plain handoff line. This is a fixed
+     `office.closed_note_*` line, not the model's text. `[R]`
 
 **4c — complaint / refund / guarantee.**
 

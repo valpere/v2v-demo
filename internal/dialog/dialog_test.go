@@ -341,6 +341,51 @@ func TestHandleInjectsCurrentTime(t *testing.T) {
 	}
 }
 
+func TestEscalateReplyAfterHoursNote(t *testing.T) {
+	// dental-like hours (M–F 08–20, Sat 09–15) + an after-hours note.
+	withNote := testTopic()
+	withNote.Office = OfficeHours{
+		Weekday:      [2]int{8, 20},
+		Sat:          [2]int{9, 15},
+		ClosedNoteUK: "Якщо стан невідкладний — телефонуйте 103.",
+		ClosedNoteEN: "If this is urgent, call emergency services.",
+	}
+	// a plain "connect me to a person" -> the hardEscalate path (no model call).
+	// The trigger phrase's own language sets sess.Lang, so pick it per case.
+	run := func(topic TopicSpec, trigger string, when time.Time) string {
+		gen := &fakeGen{} // must not be called
+		r, _ := Handle(context.Background(), &Session{}, topic, gen, trigger, when)
+		if r.Signal != SignalEscalate {
+			t.Fatalf("signal = %s, want escalate", r.Signal)
+		}
+		if gen.calls != 0 {
+			t.Fatalf("hardEscalate should not call the model")
+		}
+		return r.Text
+	}
+	const uk, en = "з'єднайте з менеджером", "connect me with a human please"
+
+	closedWed := time.Date(2026, 9, 9, 22, 0, 0, 0, time.UTC) // Wed 22:00 -> closed
+	openWed := time.Date(2026, 9, 9, 14, 0, 0, 0, time.UTC)   // Wed 14:00 -> open
+
+	if got := run(withNote, uk, closedWed); !strings.Contains(got, handoffUK) || !strings.Contains(got, "телефонуйте 103") {
+		t.Fatalf("closed-hours escalate should carry the handoff line AND the UK note:\n%s", got)
+	}
+	if got := run(withNote, en, closedWed); !strings.Contains(got, "call emergency services") {
+		t.Fatalf("closed-hours EN escalate missing the EN note:\n%s", got)
+	}
+	if got := run(withNote, uk, openWed); got != handoffUK {
+		t.Fatalf("open-hours escalate should be the plain handoff line:\n%s", got)
+	}
+	if got := run(withNote, uk, time.Time{}); got != handoffUK {
+		t.Fatalf("zero-now escalate should be the plain handoff line:\n%s", got)
+	}
+	// a topic without a ClosedNote -> plain handoff line even when closed
+	if got := run(testTopic(), uk, time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC)); got != handoffUK {
+		t.Fatalf("no-ClosedNote topic should give the plain handoff line:\n%s", got)
+	}
+}
+
 func TestHandleHistoryTrimKeepsSlots(t *testing.T) {
 	// Slot state lives in sess.Slots, not sess.History — a long conversation
 	// that trims history past HistoryLimit must not lose an early slot value

@@ -67,6 +67,24 @@ func line(lang, uk, en string) string {
 func handoffLine(lang string) string { return line(lang, handoffUK, handoffEN) }
 func apologyLine(lang string) string { return line(lang, apologyUK, apologyEN) }
 
+// escalateReply is the text spoken on a `signal: escalate` — the fixed
+// handoff line, plus the topic's after-hours note when the office is closed
+// right now (a zero `now` — tests / library callers — counts as "can't tell
+// the time", so no note). The model's own reply is deliberately not spoken
+// on escalate (see the "A3" note below): the note is the one deterministic,
+// leak-free way to still tell a client who needs help now what to do while
+// no human is available.
+func escalateReply(sess *Session, topic TopicSpec, now time.Time) string {
+	lang := sessLang(sess)
+	s := handoffLine(lang)
+	if !now.IsZero() && !topic.Office.openAt(now) {
+		if n := topic.Office.closedNote(lang); n != "" {
+			s += "\n\n" + n
+		}
+	}
+	return s
+}
+
 // officeStatus is the "--- CURRENT TIME ---" prompt block. The bot has no
 // clock of its own, so the current local time is injected every turn and the
 // office-open decision is made here (in Go, not by the model — LLMs are
@@ -237,7 +255,7 @@ func Handle(
 ) (Reply, error) {
 	esc := func() (Reply, error) {
 		sess.Escalated = true
-		return Reply{Text: handoffLine(sessLang(sess)), Signal: SignalEscalate}, nil
+		return Reply{Text: escalateReply(sess, topic, now), Signal: SignalEscalate}, nil
 	}
 
 	// 0 — track the conversation language (lingua: uk/en, ru→uk). Updates
@@ -365,9 +383,9 @@ func Handle(
 		sess.LeadDone = true
 		sess.LeadSlots = compactSlots(sess.Slots)
 	}
-	if signal == SignalEscalate { // A3: escalate always speaks the fixed line
+	if signal == SignalEscalate { // A3: escalate always speaks the fixed line (+ the after-hours note)
 		sess.Escalated = true
-		spoken = handoffLine(sessLang(sess))
+		spoken = escalateReply(sess, topic, now)
 	}
 
 	// 12, 13, 14

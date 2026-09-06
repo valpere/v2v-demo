@@ -69,8 +69,10 @@ repo is public).
   label:   String @constraint(rule: "English hours string shown in the --- CURRENT TIME --- block, e.g. 'Mon–Fri 09:00–18:00 (EET)'; empty -> 'Mon–Fri 09:00–18:00'"),
   weekday: [Int, Int] @constraint(rule: "[open, close] hour (24h) Mon–Fri; the zero [0,0] means [9,18]"),
   sat:     [Int, Int] @constraint(rule: "[open, close] hour Saturday; [0,0] or absent = closed"),
-  sun:     [Int, Int] @constraint(rule: "[open, close] hour Sunday; [0,0] or absent = closed")
-  @constraint(rule: "optional per-topic field in topics.json ('office'); the zero value == Mon–Fri 09:00–18:00 (translation bureau). dialog.OfficeHours.openAt(now) decides open/closed in Go against bot_timezone — not the model — and feeds officeStatus")
+  sun:     [Int, Int] @constraint(rule: "[open, close] hour Sunday; [0,0] or absent = closed"),
+  closed_note_uk: String @constraint(rule: "optional; appended to the fixed handoff line on signal:escalate WHILE the office is closed (openAt(now)==false, now non-zero). For the one thing a client who needs help now must be told when no human is available — e.g. a clinic pointing at 103"),
+  closed_note_en: String @constraint(rule: "English variant; picked by the conversation language. If only one of the two is set it is used for both")
+  @constraint(rule: "optional per-topic field in topics.json ('office'); the zero value == Mon–Fri 09:00–18:00 (translation bureau). dialog.OfficeHours.openAt(now) decides open/closed in Go against bot_timezone — not the model — and feeds officeStatus + the escalate closed-note")
 }
 
 @schema ModelReply {
@@ -346,8 +348,12 @@ named constants are `@schema GateParams` in §1.
     **no `continue`->`lead_ready` upgrade** — the model owns the positive case
     and the system prompt ties it to the read-back summary (REQ-DLG-04). Any
     `escalate` (model signal, `hardEscalate`, gate, or parse failure) sets
-    `Session.Escalated` and replaces the spoken text with the handoff line.
-    -> [LOG-DLG-16] dialog.Handle steps 1, 4, 9, 11 — every escalate path substitutes handoffLine(sessLang(sess)); step 11 has the lead_ready-vs-Complete and lead_ready-vs-LeadDone guards
+    `Session.Escalated` and replaces the spoken text with the handoff line —
+    the model's own `reply` is never spoken on escalate. The one addition:
+    while the topic's office is closed (`OfficeHours.openAt(now)==false`,
+    `now` non-zero) the topic's `closed_note_uk`/`_en` is appended to that
+    handoff line (`dialog.escalateReply`).
+    -> [LOG-DLG-16] dialog.Handle steps 1, 4, 9, 11 — every escalate path substitutes dialog.escalateReply(sess, topic, now) = handoffLine(sessLang(sess)) [+ the after-hours closed-note]; step 11 has the lead_ready-vs-Complete and lead_ready-vs-LeadDone guards
 
 22. [REQ-DLG-17] Any `Generator.Generate` error must be caught inside
     `dialog.Handle` and turned into a `Reply{Signal: escalate}` with a fixed

@@ -46,6 +46,30 @@ type OfficeHours struct {
 	Weekday [2]int `json:"weekday"` // [open, close] hour Mon–Fri; the zero [0,0] means [9,18]
 	Sat     [2]int `json:"sat"`     // [open, close] hour Saturday; [0,0] = closed
 	Sun     [2]int `json:"sun"`     // [open, close] hour Sunday; [0,0] = closed
+
+	// ClosedNoteUK / ClosedNoteEN are appended to the fixed handoff line on an
+	// `escalate` **only while the office is closed** — the one thing a client
+	// who needs help right now must be told when no human will reach them for
+	// hours (e.g. a dental clinic pointing at emergency services). Picked by
+	// the conversation language; both empty (the default) = nothing appended.
+	// If only one is set it is used for both languages.
+	ClosedNoteUK string `json:"closed_note_uk"`
+	ClosedNoteEN string `json:"closed_note_en"`
+}
+
+// closedNote returns the after-hours note for lang, or "" if none is set.
+func (o OfficeHours) closedNote(lang string) string {
+	uk, en := o.ClosedNoteUK, o.ClosedNoteEN
+	if lang == "uk" {
+		if uk != "" {
+			return uk
+		}
+		return en
+	}
+	if en != "" {
+		return en
+	}
+	return uk
 }
 
 // openAt reports whether the office is open at now (already in the topic's

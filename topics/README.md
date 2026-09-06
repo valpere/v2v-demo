@@ -53,6 +53,12 @@ are two or more).
   closed that day. **Omitting `office` entirely** means Mon–Fri
   09:00–18:00 (the translation bureau's hours). The open/closed decision is
   made in Go against `BOT_TIMEZONE`, not by the model.
+  `closed_note_uk` / `closed_note_en` (optional) — a sentence appended to
+  the fixed handoff line **on an `escalate` while the office is closed**,
+  for the one thing a client who needs help now must be told when no human
+  is available (e.g. a clinic pointing at emergency services). Picked by the
+  conversation language; the model's own reply is never spoken on escalate,
+  so this is the only way to add such a line.
 - `slots` — an **ordered** list of what the assistant collects. `key` is
   the JSON key the model returns it under (and the key in the lead record);
   `ask_uk` / `ask_en` are the plain-words phrasings the clarify line uses

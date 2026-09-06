@@ -25,7 +25,12 @@
     "greeting": "topics/dental/greeting.md",
     "scope_uk": "Я допомагаю записатися на прийом і відповідаю на питання про клініку.",
     "scope_en": "I help you book an appointment and answer questions about the clinic.",
-    "office": { "label": "Mon–Fri 08:00–20:00, Sat 09:00–15:00 (EET)", "weekday": [8, 20], "sat": [9, 15] },
+    "office": {
+      "label": "Mon–Fri 08:00–20:00, Sat 09:00–15:00 (EET)",
+      "weekday": [8, 20], "sat": [9, 15],
+      "closed_note_uk": "Якщо стан невідкладний, а клініка зараз зачинена — телефонуйте на 103 або зверніться до приймального відділення найближчої лікарні.",
+      "closed_note_en": "If this is urgent and the clinic is closed right now, call emergency services (103) or go to the nearest hospital emergency department."
+    },
     "slots": [
       { "key": "service", "ask_uk": "яка послуга потрібна", "ask_en": "what the visit is for", "rule": "консультація|чистка|карієс|видалення|протезування|імплантація|брекети|дитячий прийом|відбілювання" },
       { "key": "first_visit", "ask_uk": "чи ви вже лікувалися в клініці", "ask_en": "first visit here or a returning patient", "rule": "так|ні" },
