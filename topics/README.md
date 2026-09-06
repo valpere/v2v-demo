@@ -44,6 +44,15 @@ are two or more).
   `KB_PATH` / `SYSTEM_PROMPT_PATH` / `GREETING_PATH`.
 - `scope_uk` / `scope_en` — the one sentence the clarify line uses to say
   what this assistant is for ("Я допомагаю лише з …"). Required.
+- `office` — this assistant's business hours, injected into the
+  `--- CURRENT TIME ---` prompt block so the model promises "within about
+  15 minutes" while open and "the next business morning" while closed.
+  `label` is the English string shown in that block (e.g.
+  `"Mon–Fri 09:00–18:00 (EET)"`); `weekday` / `sat` / `sun` are
+  `[open, close]` hours (24h) for those days, `[0, 0]` or omitted meaning
+  closed that day. **Omitting `office` entirely** means Mon–Fri
+  09:00–18:00 (the translation bureau's hours). The open/closed decision is
+  made in Go against `BOT_TIMEZONE`, not by the model.
 - `slots` — an **ordered** list of what the assistant collects. `key` is
   the JSON key the model returns it under (and the key in the lead record);
   `ask_uk` / `ask_en` are the plain-words phrasings the clarify line uses

@@ -43,10 +43,10 @@ repo is public).
   system_prompt_path: String @constraint(default: "topics/translation/system.md"),
   greeting_path:    String @constraint(default: "topics/translation/greeting.md"),
   data_dir:         String @constraint(default: "./data"),
-  bot_timezone:     String @constraint(default: "Europe/Kyiv", rule: "IANA name; the office-hours block in the runtime prompt (Mon–Fri 09:00–18:00) is computed in this zone, not the server's — the host may be UTC. Validated with time.LoadLocation"),
+  bot_timezone:     String @constraint(default: "Europe/Kyiv", rule: "IANA name; the office-hours block in the runtime prompt is computed in this zone, not the server's — the host may be UTC. Validated with time.LoadLocation"),
   session_store:    Enum["memory","sqlite"] @constraint(default: "memory", rule: "memory = today's map[chatID]*Session, lost on restart. sqlite persists Session (modernc.org/sqlite, no cgo) — a bot restart mid-conversation resumes slots/topic/voice instead of starting over"),
   session_db_path:  String @constraint(default: "./data/sessions.db", rule: "used only when session_store=sqlite; parent dir is created if missing"),
-  topics_path:      String @constraint(default: "topics/topics.json", rule: "a JSON array of {id,title,kb,system_prompt,greeting,scope_uk,scope_en,slots:[SlotSpec]}; the repo ships one with a single topic (translation) so no picker appears by default. 2+ entries -> the picker. A missing file or an empty array falls back to a synthetic topic from kb_path/system_prompt_path/greeting_path + the translation slot schema. See topics/README.md")
+  topics_path:      String @constraint(default: "topics/topics.json", rule: "a JSON array of {id,title,kb,system_prompt,greeting,scope_uk,scope_en,slots:[SlotSpec],office?:OfficeHours}; the repo ships one with a single topic (translation) so no picker appears by default. 2+ entries -> the picker. A missing file or an empty array falls back to a synthetic topic from kb_path/system_prompt_path/greeting_path + the translation slot schema. See topics/README.md")
 }
 
 @schema GateParams {
@@ -63,6 +63,14 @@ repo is public).
   ask_en: String,
   rule:   String @constraint(rule: "optional one-line constraint hint injected into the --- RESPONSE FORMAT --- block, e.g. 'e.g. uk->de'")
   @constraint(rule: "each topic in topics.json declares an ordered []SlotSpec; the translation topic's is language_pair/doc_type/volume/deadline/certification/delivery. Session.slots and lead Fields are map[string]string keyed by SlotSpec.key. Complete = every declared key has a non-empty value; drives lead_ready. cmd/bot.validateSlots: >=1 slot, non-empty key + ask_uk + ask_en, unique keys")
+}
+
+@schema OfficeHours {
+  label:   String @constraint(rule: "English hours string shown in the --- CURRENT TIME --- block, e.g. 'Mon–Fri 09:00–18:00 (EET)'; empty -> 'Mon–Fri 09:00–18:00'"),
+  weekday: [Int, Int] @constraint(rule: "[open, close] hour (24h) Mon–Fri; the zero [0,0] means [9,18]"),
+  sat:     [Int, Int] @constraint(rule: "[open, close] hour Saturday; [0,0] or absent = closed"),
+  sun:     [Int, Int] @constraint(rule: "[open, close] hour Sunday; [0,0] or absent = closed")
+  @constraint(rule: "optional per-topic field in topics.json ('office'); the zero value == Mon–Fri 09:00–18:00 (translation bureau). dialog.OfficeHours.openAt(now) decides open/closed in Go against bot_timezone — not the model — and feeds officeStatus")
 }
 
 @schema ModelReply {
@@ -303,9 +311,12 @@ named constants are `@schema GateParams` in §1.
 19a. [REQ-DLG-17] The bot has no clock of its own. `cmd/bot` passes the
     current time (in `bot_timezone`) into `Handle` every turn; the prompt's
     `--- CURRENT TIME ---` block states the local time and whether the office
-    is open (Mon–Fri 09:00–18:00, decided in Go — `dialog.officeStatus`, not
-    by the model). This drives the "within ~15 minutes vs next business
-    morning" promise. A zero `now` omits the block (tests / library callers).
+    is open. Open/closed is decided in Go (`dialog.officeStatus` ->
+    `OfficeHours.openAt`), not by the model, against the **topic's** hours
+    (`topics.json` `office`; @schema OfficeHours) — the zero value is
+    Mon–Fri 09:00–18:00. This drives the "within ~15 minutes vs next
+    business morning" promise. A zero `now` omits the block (tests /
+    library callers).
 
 20. [REQ-DLG-15] The model contract is **one JSON object**
     `{"reply","slots","signal"}`. `parseResponse` strips an optional ```json /

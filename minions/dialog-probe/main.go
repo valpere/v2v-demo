@@ -35,12 +35,13 @@ import (
 
 // topicEntry is the subset of a topics.json row this probe needs.
 type topicEntry struct {
-	ID           string            `json:"id"`
-	KB           string            `json:"kb"`
-	SystemPrompt string            `json:"system_prompt"`
-	ScopeUK      string            `json:"scope_uk"`
-	ScopeEN      string            `json:"scope_en"`
-	Slots        []dialog.SlotSpec `json:"slots"`
+	ID           string             `json:"id"`
+	KB           string             `json:"kb"`
+	SystemPrompt string             `json:"system_prompt"`
+	ScopeUK      string             `json:"scope_uk"`
+	ScopeEN      string             `json:"scope_en"`
+	Slots        []dialog.SlotSpec  `json:"slots"`
+	Office       dialog.OfficeHours `json:"office"`
 }
 
 func main() {
@@ -72,6 +73,7 @@ func main() {
 		Slots:   topic.Slots,
 		ScopeUK: topic.ScopeUK,
 		ScopeEN: topic.ScopeEN,
+		Office:  topic.Office,
 	}
 
 	in := os.Stdin

@@ -4,7 +4,11 @@
 // dialog.go implement it verbatim.
 package dialog
 
-import "github.com/valpere/v2v-demo/internal/kb"
+import (
+	"time"
+
+	"github.com/valpere/v2v-demo/internal/kb"
+)
 
 // SlotSpec declares one thing a topic collects from the client. Key is the
 // JSON key the model returns it under (and the map key in Session.Slots);
@@ -29,6 +33,48 @@ type TopicSpec struct {
 	Slots   []SlotSpec
 	ScopeUK string
 	ScopeEN string
+	Office  OfficeHours
+}
+
+// OfficeHours is a topic's business hours, injected into the "--- CURRENT
+// TIME ---" prompt block so the model promises "within about 15 minutes"
+// while the office is open and "the next business morning" while it's closed.
+// The zero value means Mon–Fri 09:00–18:00 (the translation bureau's hours,
+// the original hardcoded default), so a topic that omits it keeps that.
+type OfficeHours struct {
+	Label   string `json:"label"`   // English, shown in the prompt block, e.g. "Mon–Fri 09:00–18:00"
+	Weekday [2]int `json:"weekday"` // [open, close] hour Mon–Fri; the zero [0,0] means [9,18]
+	Sat     [2]int `json:"sat"`     // [open, close] hour Saturday; [0,0] = closed
+	Sun     [2]int `json:"sun"`     // [open, close] hour Sunday; [0,0] = closed
+}
+
+// openAt reports whether the office is open at now (already in the topic's
+// timezone). A day whose [open, close] is [0,0] is closed; on a weekday the
+// zero value falls back to 09:00–18:00.
+func (o OfficeHours) openAt(now time.Time) bool {
+	lo, hi := o.Weekday[0], o.Weekday[1]
+	switch now.Weekday() {
+	case time.Saturday:
+		lo, hi = o.Sat[0], o.Sat[1]
+	case time.Sunday:
+		lo, hi = o.Sun[0], o.Sun[1]
+	default:
+		if lo == 0 && hi == 0 {
+			lo, hi = 9, 18
+		}
+	}
+	if lo == 0 && hi == 0 {
+		return false
+	}
+	return now.Hour() >= lo && now.Hour() < hi
+}
+
+// hoursLabel is the human string for the prompt block.
+func (o OfficeHours) hoursLabel() string {
+	if o.Label != "" {
+		return o.Label
+	}
+	return "Mon–Fri 09:00–18:00"
 }
 
 // Complete reports whether every slot the topic declares has a non-empty

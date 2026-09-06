@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/valpere/v2v-demo/internal/dialog"
 )
 
 // writeTopicFixture writes a minimal valid KB/system-prompt/greeting trio
@@ -97,6 +99,44 @@ func TestLoadTopicsSingleEntryLoadsFromManifestNotConfigDefaults(t *testing.T) {
 	}
 	if got := topics["notary"].Greeting; got != "GREETING-notary" {
 		t.Fatalf("greeting = %q, want the manifest entry's own file content, not cfg.GreetingPath", got)
+	}
+}
+
+func TestLoadTopicsOfficeHours(t *testing.T) {
+	dir := t.TempDir()
+	cfg := baseCfg(t, dir)
+	kbPath, sysPath, greetPath := writeTopicFixture(t, dir, "clinic")
+	// entryJSON's slots array is the last field; splice `office` in before it.
+	entry := fmt.Sprintf(`{"id":"clinic","title":"Клініка","kb":%q,"system_prompt":%q,"greeting":%q,`+
+		`"office":{"label":"Mon–Fri 08:00–20:00, Sat 09:00–15:00","weekday":[8,20],"sat":[9,15]},%s}`,
+		kbPath, sysPath, greetPath, validSlots)
+	if err := os.WriteFile(cfg.TopicsPath, []byte("["+entry+"]"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	topics, _, err := loadTopics(cfg)
+	if err != nil {
+		t.Fatalf("loadTopics: %v", err)
+	}
+	oh := topics["clinic"].Spec.Office
+	if oh.Weekday != [2]int{8, 20} || oh.Sat != [2]int{9, 15} {
+		t.Fatalf("office hours not parsed: %+v", oh)
+	}
+	if oh.Label == "" {
+		t.Fatal("office label not parsed")
+	}
+
+	// a topic that omits `office` keeps the zero value (== Mon–Fri 09:00–18:00)
+	manifest := "[" + entryJSON("plain", "Plain", kbPath, sysPath, greetPath) + "]"
+	if err := os.WriteFile(cfg.TopicsPath, []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	topics, _, err = loadTopics(cfg)
+	if err != nil {
+		t.Fatalf("loadTopics: %v", err)
+	}
+	if got := topics["plain"].Spec.Office; got != (dialog.OfficeHours{}) {
+		t.Fatalf("omitted office should be the zero value, got %+v", got)
 	}
 }
 

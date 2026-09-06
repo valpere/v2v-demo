@@ -266,20 +266,36 @@ func TestHandleNilTrailerEscalates(t *testing.T) {
 }
 
 func TestOfficeStatus(t *testing.T) {
+	// dental-like: Mon–Fri 08:00–20:00, Sat 09:00–15:00, Sun closed.
+	dental := OfficeHours{Label: "Mon–Fri 08:00–20:00, Sat 09:00–15:00", Weekday: [2]int{8, 20}, Sat: [2]int{9, 15}}
+	// cleaning-like: Mon–Sun 08:00–20:00.
+	sevenDay := OfficeHours{Label: "Mon–Sun 08:00–20:00", Weekday: [2]int{8, 20}, Sat: [2]int{8, 20}, Sun: [2]int{8, 20}}
+
 	tests := []struct {
 		name string
+		oh   OfficeHours
 		when time.Time
 		open bool
 	}{
-		{"wed midday", time.Date(2026, 9, 9, 14, 30, 0, 0, time.UTC), true},
-		{"wed after 18:00", time.Date(2026, 9, 9, 19, 40, 0, 0, time.UTC), false},
-		{"wed before 09:00", time.Date(2026, 9, 9, 8, 0, 0, 0, time.UTC), false},
-		{"saturday", time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC), false},
-		{"sunday", time.Date(2026, 9, 13, 11, 0, 0, 0, time.UTC), false},
+		// zero value == translation bureau's Mon–Fri 09:00–18:00
+		{"default wed midday", OfficeHours{}, time.Date(2026, 9, 9, 14, 30, 0, 0, time.UTC), true},
+		{"default wed after 18:00", OfficeHours{}, time.Date(2026, 9, 9, 19, 40, 0, 0, time.UTC), false},
+		{"default wed before 09:00", OfficeHours{}, time.Date(2026, 9, 9, 8, 0, 0, 0, time.UTC), false},
+		{"default saturday", OfficeHours{}, time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC), false},
+		{"default sunday", OfficeHours{}, time.Date(2026, 9, 13, 11, 0, 0, 0, time.UTC), false},
+		// dental hours
+		{"dental wed 19:00", dental, time.Date(2026, 9, 9, 19, 0, 0, 0, time.UTC), true},
+		{"dental wed 07:30", dental, time.Date(2026, 9, 9, 7, 30, 0, 0, time.UTC), false},
+		{"dental sat 11:00", dental, time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC), true},
+		{"dental sat 16:00", dental, time.Date(2026, 9, 12, 16, 0, 0, 0, time.UTC), false},
+		{"dental sunday", dental, time.Date(2026, 9, 13, 11, 0, 0, 0, time.UTC), false},
+		// seven-day hours
+		{"7day sunday midday", sevenDay, time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC), true},
+		{"7day sunday 21:00", sevenDay, time.Date(2026, 9, 13, 21, 0, 0, 0, time.UTC), false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := officeStatus(tc.when)
+			got := officeStatus(tc.when, tc.oh)
 			isOpen := strings.Contains(got, "OPEN right now")
 			isClosed := strings.Contains(got, "CLOSED right now")
 			if isOpen == isClosed {
@@ -287,6 +303,9 @@ func TestOfficeStatus(t *testing.T) {
 			}
 			if isOpen != tc.open {
 				t.Fatalf("open = %v, want %v (%q)", isOpen, tc.open, got)
+			}
+			if want := tc.oh.hoursLabel(); !strings.Contains(got, want) {
+				t.Fatalf("block %q missing hours label %q", got, want)
 			}
 		})
 	}

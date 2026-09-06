@@ -70,17 +70,16 @@ func apologyLine(lang string) string { return line(lang, apologyUK, apologyEN) }
 // officeStatus is the "--- CURRENT TIME ---" prompt block. The bot has no
 // clock of its own, so the current local time is injected every turn and the
 // office-open decision is made here (in Go, not by the model — LLMs are
-// unreliable at "is 19:40 on Friday within Mon–Fri 09:00–18:00").
-// `now` is already in the configured zone (BOT_TIMEZONE).
-func officeStatus(now time.Time) string {
-	wd := now.Weekday()
-	open := wd >= time.Monday && wd <= time.Friday && now.Hour() >= 9 && now.Hour() < 18
+// unreliable at "is 19:40 on Friday within these hours"). `now` is already in
+// the configured zone (BOT_TIMEZONE); `oh` is the topic's hours (zero value
+// = Mon–Fri 09:00–18:00).
+func officeStatus(now time.Time, oh OfficeHours) string {
 	state := "CLOSED right now — promise a manager reply the next business morning, NOT within 15 minutes"
-	if open {
+	if oh.openAt(now) {
 		state = "OPEN right now — a manager can reply within about 15 minutes"
 	}
-	return fmt.Sprintf("It is %s, %02d:%02d %s. Office hours are Mon–Fri 09:00–18:00. The office is %s.",
-		now.Format("Monday, 2 January 2006"), now.Hour(), now.Minute(), now.Format("MST"), state)
+	return fmt.Sprintf("It is %s, %02d:%02d %s. Office hours are %s. The office is %s.",
+		now.Format("Monday, 2 January 2006"), now.Hour(), now.Minute(), now.Format("MST"), oh.hoursLabel(), state)
 }
 
 // clarifyLine is the gate's first, non-escalating response. It states what
@@ -315,7 +314,7 @@ func Handle(
 	}
 	if !now.IsZero() {
 		b.WriteString("\n\n--- CURRENT TIME ---\n")
-		b.WriteString(officeStatus(now))
+		b.WriteString(officeStatus(now, topic.Office))
 	}
 	sysPrompt := b.String()
 

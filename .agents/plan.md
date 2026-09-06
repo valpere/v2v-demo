@@ -161,6 +161,7 @@ type TopicSpec struct {
 	System          string
 	Slots           []SlotSpec
 	ScopeUK, ScopeEN string // "Я допомагаю лише з …" — the clarify line's scope sentence
+	Office          OfficeHours // business hours for the CURRENT TIME block; zero = Mon–Fri 09:00–18:00
 }
 
 func Complete(slots map[string]string, spec []SlotSpec) bool // every spec key has a non-empty value

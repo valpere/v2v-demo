@@ -7,6 +7,7 @@
     "greeting": "topics/translation/greeting.md",
     "scope_uk": "Я допомагаю лише з перекладами документів.",
     "scope_en": "I only help with document translations.",
+    "office": { "label": "Mon–Fri 09:00–18:00 (EET)", "weekday": [9, 18] },
     "slots": [
       { "key": "language_pair", "ask_uk": "з якої мови на яку", "ask_en": "which languages", "rule": "e.g. uk->de" },
       { "key": "doc_type", "ask_uk": "який це документ", "ask_en": "what kind of document", "rule": "" },

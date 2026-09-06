@@ -12,14 +12,15 @@ import (
 
 // topicManifestEntry is one row of TOPICS_PATH's JSON array.
 type topicManifestEntry struct {
-	ID           string            `json:"id"`
-	Title        string            `json:"title"`
-	KB           string            `json:"kb"`
-	SystemPrompt string            `json:"system_prompt"`
-	Greeting     string            `json:"greeting"`
-	ScopeUK      string            `json:"scope_uk"` // "Я допомагаю лише з …" — the clarify line's scope sentence
-	ScopeEN      string            `json:"scope_en"`
-	Slots        []dialog.SlotSpec `json:"slots"` // what this assistant collects, in ask order
+	ID           string             `json:"id"`
+	Title        string             `json:"title"`
+	KB           string             `json:"kb"`
+	SystemPrompt string             `json:"system_prompt"`
+	Greeting     string             `json:"greeting"`
+	ScopeUK      string             `json:"scope_uk"` // "Я допомагаю лише з …" — the clarify line's scope sentence
+	ScopeEN      string             `json:"scope_en"`
+	Slots        []dialog.SlotSpec  `json:"slots"`  // what this assistant collects, in ask order
+	Office       dialog.OfficeHours `json:"office"` // business hours for the CURRENT TIME block; zero = Mon–Fri 09:00–18:00
 }
 
 // topicBundle is a fully loaded topic: its own KB, persona, greeting and slot
@@ -111,6 +112,7 @@ func loadTopics(cfg Config) (topics map[string]topicBundle, ids []string, err er
 				Slots:   e.Slots,
 				ScopeUK: e.ScopeUK,
 				ScopeEN: e.ScopeEN,
+				Office:  e.Office,
 			},
 		}
 		ids = append(ids, e.ID)

@@ -92,8 +92,9 @@ All HTTP is stdlib.
       + the topic's slot keys, generated from its SlotSpec list) + `---
       CONVERSATION LANGUAGE ---` + `--- CURRENT
       TIME ---` (local time in `BOT_TIMEZONE` + an office-open flag computed in
-      Go — the bot has no clock, so this is injected every turn and drives the
-      "~15 min vs next business morning" promise); messages = the last 20 Msg
+      Go from the **topic's** hours — `topics.json` `office`, zero = Mon–Fri
+      09:00–18:00; the bot has no clock, so this is injected every turn and
+      drives the "~15 min vs next business morning" promise); messages = the last 20 Msg
       entries (≈10 turns) + this one. Temperature 0.2–0.3.
    d. **Parse** the response — one JSON object `{"reply","slots","signal"}`,
       `signal ∈ {continue, lead_ready, escalate}`. Only `reply` is spoken. Each
