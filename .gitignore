@@ -34,6 +34,13 @@
 .claude/session-log.md
 .claude/sessions.db
 
+# Weekly dreaming reports — tracked so the [applied YYYY-MM-DD] annotation
+# history survives across machines. Same convention as ~/wrk/common.
+#.claude/dreaming/reports/   ← intentionally NOT ignored
+# Run log only (per-machine scratch, not part of the report) — already
+# caught by the blanket *.log rule above, listed here for clarity.
+.claude/dreaming/reports/.dreaming.log
+
 # throwaway scratch (dev helpers live in minions/, which IS tracked)
 tmp/
 
