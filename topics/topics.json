@@ -16,5 +16,21 @@
       { "key": "certification", "ask_uk": "для кого переклад", "ask_en": "who it's for", "rule": "none|certified|notarized|sworn|manager to confirm" },
       { "key": "delivery", "ask_uk": "як доставити", "ask_en": "how to deliver it", "rule": "" }
     ]
+  },
+  {
+    "id": "dental",
+    "title": "Стоматологія «Перлина»",
+    "kb": "topics/dental/kb.md",
+    "system_prompt": "topics/dental/system.md",
+    "greeting": "topics/dental/greeting.md",
+    "scope_uk": "Я допомагаю записатися на прийом і відповідаю на питання про клініку.",
+    "scope_en": "I help you book an appointment and answer questions about the clinic.",
+    "office": { "label": "Mon–Fri 08:00–20:00, Sat 09:00–15:00 (EET)", "weekday": [8, 20], "sat": [9, 15] },
+    "slots": [
+      { "key": "service", "ask_uk": "яка послуга потрібна", "ask_en": "what the visit is for", "rule": "консультація|чистка|карієс|видалення|протезування|імплантація|брекети|дитячий прийом|відбілювання" },
+      { "key": "first_visit", "ask_uk": "чи ви вже лікувалися в клініці", "ask_en": "first visit here or a returning patient", "rule": "так|ні" },
+      { "key": "preferred_time", "ask_uk": "на який день і час", "ask_en": "preferred day and time", "rule": "day + ранок/день/вечір, or a date" },
+      { "key": "contact", "ask_uk": "ваш номер телефону", "ask_en": "a phone number", "rule": "phone for the callback" }
+    ]
   }
 ]

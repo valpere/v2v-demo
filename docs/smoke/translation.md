@@ -4,10 +4,10 @@ The per-topic scenario sweep for the **translation** assistant. The shared
 Setup, the multi-topic picker checks, and the cross-topic robustness / clock
 / logging sections are in **`docs/smoke-test.md`** — read that first.
 
-**Pick the topic first.** If `topics/topics.json` has 2+ entries, send
-`/start` and tap **«Бюро перекладів»** before any scenario below. With the
-shipped single-entry manifest there is no picker — the bot is the
-translation assistant from the first message.
+**Pick the topic first.** The shipped `topics/topics.json` has 2+ entries, so
+send `/start` and tap **«Бюро перекладів»** before any scenario below. (Point
+`TOPICS_PATH` at a single-entry file and there is no picker — the bot is the
+translation assistant from the first message.)
 
 **Channel — text or voice?** Unless a step says otherwise, **send `code
 font` as a typed / pasted text message, verbatim** (text is faster and

@@ -11,7 +11,8 @@ scenario sweep for each assistant lives in its own file under `docs/smoke/`:
 | Topic | File | In the shipped manifest? |
 | -- | -- | -- |
 | Бюро перекладів (translation) | `docs/smoke/translation.md` | yes |
-| _(dental / auto / realestate / cleaning — added per topic as they land)_ | `docs/smoke/<id>.md` | — |
+| Стоматологія «Перлина» (dental) | `docs/smoke/dental.md` | yes |
+| _(auto / realestate / cleaning — added per topic as they land)_ | `docs/smoke/<id>.md` | — |
 
 **How to read a scenario.** Each step says what to **send** and what to
 **expect** — compare against that. `[R]` = a regression case for a bug
@@ -46,10 +47,11 @@ make run            # starts the bot (Ctrl-C to stop)
     (`.env`) to have a restart resume mid-conversation instead — that
     changes the "restart" vs "`/reset`" distinction wherever a scenario
     relies on a restart.
-  - **`TOPICS_PATH`** — the repo ships `topics/topics.json` with one topic
-    (translation), so **no picker appears by default**. Add entries (or
-    point `TOPICS_PATH` at a multi-entry file) to turn the picker on; §0
-    below covers the picker checks and assumes 2+ topics.
+  - **`TOPICS_PATH`** — the repo ships `topics/topics.json` with **two
+    topics** (translation + dental), so `/start` **shows the picker by
+    default**. Point `TOPICS_PATH` at a single-entry file to get the plain
+    no-picker greeting; §0 below covers the picker checks and assumes 2+
+    topics.
 - The **first voice message ever** downloads the Whisper model (~1.5 GB) —
   that one turn takes minutes. After that ≈ 12 s STT + ~40 s LLM per voice
   turn on the dev backends (the client config is faster — see below).
@@ -72,10 +74,10 @@ make run            # starts the bot (Ctrl-C to stop)
 
 ## 0. Multi-topic mechanics
 
-*Channel: **text**. Needs `topics/topics.json` (or `TOPICS_PATH`) with **2+
-topics** — the picker only exists then. With the shipped single-topic
-manifest, skip this section; `/start` sends the plain greeting and the bot
-is that one topic from the first message.*
+*Channel: **text**. The shipped `topics/topics.json` has 2+ topics, so the
+picker is on by default. Point `TOPICS_PATH` at a single-entry file to
+disable it — then `/start` sends the plain greeting and the bot is that one
+topic from the first message, and this section is skipped.*
 
 **0a — the picker on first contact.**
 

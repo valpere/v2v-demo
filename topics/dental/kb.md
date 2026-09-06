@@ -2,7 +2,8 @@
 
 All names, prices, and policies below are invented for a demo. Not a real
 clinic. Figures are plausible for the Kyiv market (2026) but not taken from
-any real dental practice.
+any real dental practice. Any resemblance to an existing clinic called
+«Перлина» is coincidental.
 
 "Perlyna" (Стоматологія «Перлина») is a mid-market private dental clinic in
 Kyiv for adults and children. Prices are in Ukrainian hryvnia (грн) and are
@@ -21,7 +22,8 @@ or move appointments — an administrator does that by phone.
 
 Усі назви, ціни та умови нижче — вигадані для демо. Це не реальна клініка.
 Цифри правдоподібні для київського ринку (2026), але не взяті з жодної
-конкретної практики. «Перлина» — приватна стоматологічна клініка середнього
+конкретної практики. Будь-який збіг із наявною клінікою «Перлина» —
+випадковий. «Перлина» — приватна стоматологічна клініка середнього
 цінового сегмента в Києві для дорослих і дітей. Ціни — у гривнях (грн) і є
 **орієнтовними**: точну суму називають лише після огляду в клініці та, за
 потреби, рентгена чи КТ. Цей асистент лише оформлює заявки на запис; він не
@@ -170,12 +172,11 @@ document, any recent dental X-rays or CT you have, and a list of medicines
 you take regularly. For a child, a parent or legal guardian must be present.
 Arrive **10–15 minutes early** for the health questionnaire.
 
-If you take blood thinners, have diabetes, heart disease, epilepsy, an
-allergy to anaesthetics or antibiotics, are pregnant or breastfeeding, or
-have another chronic condition — tell the doctor at the visit. The clinic
-asks these questions in person and adjusts the plan; the assistant does not
-collect medical details over chat and does not advise whether a procedure
-is safe for you.
+Tell the doctor at the visit about any chronic condition, a pregnancy, an
+allergy (especially to anaesthetics or antibiotics), and medicines you take
+regularly such as blood thinners — the clinic asks these questions in person
+and adjusts the plan. The assistant does not collect medical details over
+chat and does not advise whether a procedure is safe for you.
 
 Перший візит триває **30–45 хвилин**: розмова про скаргу та історію хвороб,
 огляд усіх зубів, ясен і прикусу, рентген або КТ за потреби (оплачується
@@ -185,21 +186,22 @@ is safe for you.
 Для дитини обов'язкова присутність одного з батьків або опікуна. Приходьте
 на **10–15 хвилин раніше** для анкети здоров'я.
 
-Якщо ви приймаєте препарати, що розріджують кров, маєте діабет, хвороби
-серця, епілепсію, алергію на анестетики чи антибіотики, вагітні або годуєте
-груддю, чи маєте інше хронічне захворювання — скажіть про це лікарю на
-прийомі. Клініка з'ясовує це особисто й коригує план; асистент не збирає
-медичні дані в чаті й не радить, чи безпечна для вас процедура.
+Скажіть лікарю на прийомі про будь-яке хронічне захворювання, вагітність,
+алергію (особливо на анестетики чи антибіотики) та ліки, які постійно
+приймаєте, зокрема ті, що розріджують кров, — клініка з'ясовує це особисто
+й коригує план. Асистент не збирає медичні дані в чаті й не радить, чи
+безпечна для вас процедура.
 
 ## How appointments work and turnaround / Як працює запис і терміни
 
 - **Same-week booking** is usually possible for consultations, cleaning and
   caries treatment.
-- **Urgent slots for acute pain** are kept every working day. With severe
-  pain, swelling, bleeding or a trauma, the assistant marks the request
-  urgent and an administrator calls back as a priority during clinic hours.
-  Outside clinic hours, call emergency medical services or go to a hospital
-  emergency department.
+- **Acute pain is a priority, not a routine booking.** The clinic keeps
+  urgent slots every working day. If a patient reports severe pain, swelling,
+  bleeding or a trauma, the assistant does not collect a normal request — it
+  hands off to an administrator straight away so the patient is called back
+  first. Outside clinic hours, it advises calling emergency medical services
+  or going to a hospital emergency department.
 - **Planned complex work** — prosthetics, implants, orthodontics — usually
   starts 1–2 weeks after the first consultation; braces and aligners are
   typically fitted 2–4 weeks after the initial records.
@@ -211,11 +213,12 @@ is safe for you.
 
 - **Запис на цей тиждень** зазвичай можливий на консультацію, чистку та
   лікування карієсу.
-- **Термінові слоти для гострого болю** тримають щодня в робочі дні. При
-  сильному болю, набряку, кровотечі чи травмі асистент позначає заявку
-  терміновою, і адміністратор передзвонює першочергово в робочі години.
-  Поза робочими годинами телефонуйте на екстрену медичну допомогу або
-  зверніться до приймального відділення лікарні.
+- **Гострий біль — це пріоритет, а не звичайний запис.** Клініка тримає
+  термінові слоти щодня в робочі дні. Якщо пацієнт повідомляє про сильний
+  біль, набряк, кровотечу чи травму, асистент не оформлює звичайну заявку —
+  одразу передає адміністратору, щоб пацієнту передзвонили першочергово.
+  Поза робочими годинами радить телефонувати на екстрену медичну допомогу
+  або звернутися до приймального відділення лікарні.
 - **Планові складні роботи** — протезування, імпланти, ортодонтія —
   зазвичай починаються за 1–2 тижні після першої консультації; брекети та
   елайнери зазвичай встановлюють через 2–4 тижні після зняття первинних
@@ -346,8 +349,11 @@ for requests left overnight or on Sunday.
   most patients feel pressure, not pain. Tell the doctor about anaesthetic
   allergies. The assistant cannot assess your case.
 - **"Can I come without an appointment?"** — the clinic works by
-  appointment; for acute pain an urgent same-day slot is usually found —
-  leave a request and say the pain is severe.
+  appointment; for acute pain say so and the assistant connects you to an
+  administrator, who finds an urgent slot.
+- **"Where are you? How do I get there?"** — the clinic is in Kyiv; the
+  administrator gives the exact address, the entrance, and parking details
+  when confirming your visit.
 - **"Do you offer instalments?"** — yes: an interest-free split into 2–3
   payments from the clinic for larger plans, and a longer instalment
   through a partner bank subject to approval.
@@ -361,11 +367,11 @@ for requests left overnight or on Sunday.
 - **"How do I book?"** — tell the assistant the service you need, whether
   it is your first visit here, a preferred day and time, and a phone
   number; an administrator calls back to confirm.
-- **"What do I do if I have acute pain?"** — leave a request and say the
-  pain is severe; an administrator calls back as a priority during clinic
-  hours. Outside clinic hours, or with heavy bleeding, a spreading
-  swelling, difficulty breathing or swallowing, or a facial trauma — call
-  emergency medical services or go to a hospital now.
+- **"What do I do if I have acute pain?"** — tell the assistant the pain is
+  severe; it connects you to an administrator as a priority and the clinic
+  keeps urgent slots every working day. Outside clinic hours, or with heavy
+  bleeding, a spreading swelling, difficulty breathing or swallowing, or a
+  facial trauma — call emergency medical services or go to a hospital now.
 
 Поширені запитання:
 
@@ -376,8 +382,10 @@ for requests left overnight or on Sunday.
   більшість пацієнтів відчуває тиск, а не біль. Про алергію на анестетики
   скажіть лікарю. Асистент не може оцінити ваш випадок.
 - **«Чи можна без запису?»** — клініка працює за записом; при гострому болю
-  зазвичай знаходять терміновий слот того ж дня — залиште заявку й скажіть,
-  що біль сильний.
+  скажіть про це, і асистент з'єднає вас з адміністратором, який знайде
+  терміновий слот.
+- **«Де ви розташовані? Як дістатися?»** — клініка в Києві; точну адресу,
+  вхід і паркування адміністратор повідомляє під час підтвердження візиту.
 - **«Чи робите розстрочку?»** — так: безвідсотковий поділ на 2–3 платежі
   від клініки для більших планів і довша розстрочка через банк-партнер за
   погодженням.
@@ -391,11 +399,12 @@ for requests left overnight or on Sunday.
 - **«Як записатися?»** — назвіть асистенту потрібну послугу, чи це ваш
   перший візит сюди, бажаний день і час та номер телефону; адміністратор
   передзвонить для підтвердження.
-- **«Що робити, якщо гострий біль?»** — залиште заявку й скажіть, що біль
-  сильний; адміністратор передзвонить першочергово в робочі години. Поза
-  робочими годинами, або якщо є сильна кровотеча, набряк, що поширюється,
-  утруднене дихання чи ковтання, або травма обличчя — телефонуйте на
-  екстрену медичну допомогу або їдьте до лікарні негайно.
+- **«Що робити, якщо гострий біль?»** — скажіть асистенту, що біль сильний;
+  він з'єднає вас з адміністратором першочергово, а клініка тримає термінові
+  слоти щодня в робочі дні. Поза робочими годинами, або якщо є сильна
+  кровотеча, набряк, що поширюється, утруднене дихання чи ковтання, або
+  травма обличчя — телефонуйте на екстрену медичну допомогу або їдьте до
+  лікарні негайно.
 
 ## Escalate to a human when / Коли передавати адміністратору або лікарю
 
@@ -405,8 +414,8 @@ Hand off to a clinic administrator or doctor when:
   небезпечно?", "чи можна терпіти?", "що це може бути?", "які ліки пити?",
   "чи треба видаляти?" — the assistant does not answer these
 - there is **acute pain or a dental emergency** (кровотеча, травма зуба чи
-  щелепи, набряк, флюс, абсцес) — mark the request urgent and connect the
-  patient to the clinic as a priority; outside clinic hours advise
+  щелепи, набряк, флюс, абсцес) — hand off to an administrator as a priority
+  instead of collecting a routine request; outside clinic hours advise
   emergency medical services
 - the patient has a **complaint about treatment the clinic performed**, or
   wants a refund or a guarantee claim
@@ -426,8 +435,8 @@ Hand off to a clinic administrator or doctor when:
   можна терпіти?», «що це може бути?», «які ліки пити?», «чи треба
   видаляти?» — асистент на такі питання не відповідає
 - є **гострий біль чи невідкладний стан** (кровотеча, травма зуба чи
-  щелепи, набряк, флюс, абсцес) — позначити заявку терміновою й з'єднати
-  пацієнта з клінікою першочергово; поза робочими годинами радити екстрену
+  щелепи, набряк, флюс, абсцес) — передати адміністратору першочергово,
+  а не оформлювати звичайну заявку; поза робочими годинами радити екстрену
   медичну допомогу
 - пацієнт має **скаргу на лікування, виконане клінікою**, або хоче
   повернення коштів чи звернення за гарантією
