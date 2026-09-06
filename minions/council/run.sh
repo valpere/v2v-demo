@@ -8,9 +8,12 @@
 # check `git status` after a run.
 #
 # Usage:
-#   minions/council/run.sh [-r RANGE] [-o OUTDIR] [-a agent1,agent2,...] [-t SECS] [-b BRIEF_FILE]
+#   minions/council/run.sh [-r RANGE] [-p PATHSPEC] [-o OUTDIR] [-a agent1,...] [-t SECS] [-b BRIEF_FILE]
 #
 #   -r RANGE       git range to review, e.g. 31f3e75..HEAD (default: HEAD~3..HEAD)
+#   -p PATHSPEC    scope the log+diff to these paths (space-separated, quoted);
+#                  passed to git as `-- $PATHSPEC`. Use it to review one
+#                  directory's content, e.g. -p 'topics/' -r 2d5f055~1..HEAD.
 #   -o OUTDIR      where reports go (default: tmp/council/<UTC timestamp>)
 #   -a AGENTS      comma-separated subset of the agents below (default: all configured)
 #   -t SECS        per-agent timeout (default: 900)
@@ -35,35 +38,43 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 RANGE="HEAD~3..HEAD"
+PATHSPEC=""
 OUTDIR=""
 AGENTS="opencode,cursor-agent,kiro-cli,kilo"
 TIMEOUT=900
 BRIEF_FILE=""
 
-while getopts "r:o:a:t:b:h" opt; do
+while getopts "r:p:o:a:t:b:h" opt; do
 	case "$opt" in
 	r) RANGE="$OPTARG" ;;
+	p) PATHSPEC="$OPTARG" ;;
 	o) OUTDIR="$OPTARG" ;;
 	a) AGENTS="$OPTARG" ;;
 	t) TIMEOUT="$OPTARG" ;;
 	b) BRIEF_FILE="$OPTARG" ;;
 	h)
-		sed -n '2,30p' "$0"
+		sed -n '2,33p' "$0"
 		exit 0
 		;;
 	*)
-		echo "usage: $0 [-r RANGE] [-o OUTDIR] [-a AGENTS] [-t SECS] [-b BRIEF_FILE]" >&2
+		echo "usage: $0 [-r RANGE] [-p PATHSPEC] [-o OUTDIR] [-a AGENTS] [-t SECS] [-b BRIEF_FILE]" >&2
 		exit 2
 		;;
 	esac
 done
 
+# git pathspec args (word-split on purpose)
+# shellcheck disable=SC2206
+PATHARGS=()
+[ -n "$PATHSPEC" ] && PATHARGS=(-- $PATHSPEC)
+
 [ -z "$OUTDIR" ] && OUTDIR="tmp/council/$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$OUTDIR"
 
-# The diff is embedded directly rather than left for each agent to fetch via
-# `git diff` — some of these CLIs are run with no shell/exec tool trusted
-# (kiro-cli --trust-tools=fs_read), so they'd have no way to get it themselves.
+# The whole prompt (instructions + commit log + diff) is written to a file
+# and each agent is told to *read* it — the diff can be hundreds of KB, well
+# past ARG_MAX if passed as a command-line argument, and some of these CLIs
+# have no shell to run `git diff` themselves (kiro-cli --trust-tools=fs_read).
 PROMPT_FILE="$OUTDIR/prompt.md"
 {
 	echo "You are an independent code reviewer. Below is a git commit log and"
@@ -89,22 +100,26 @@ PROMPT_FILE="$OUTDIR/prompt.md"
 	echo
 	echo '```'
 	echo "commit log:"
-	git log --oneline "$RANGE"
+	git log --oneline "$RANGE" "${PATHARGS[@]}"
 	echo
 	echo "diff:"
-	git diff "$RANGE"
+	git diff "$RANGE" "${PATHARGS[@]}"
 	echo '```'
 } >"$PROMPT_FILE"
+PROMPT_FILE="$(realpath "$PROMPT_FILE")"
 
-agent_opencode() { opencode run --agent reviewer --model opencode/nemotron-3-ultra-free "$(cat "$PROMPT_FILE")"; }
-agent_kilo() { kilo run --agent plan --model kilo/kilo-auto/free "$(cat "$PROMPT_FILE")"; }
-agent_cursor_agent() { cursor-agent --print --mode plan --model auto "$(cat "$PROMPT_FILE")"; }
-agent_kiro_cli() { kiro-cli chat --no-interactive --trust-tools=fs_read "$(cat "$PROMPT_FILE")"; }
-agent_codex() { codex --dangerously-bypass-approvals-and-sandbox exec "$(cat "$PROMPT_FILE")"; }
-agent_omp() { omp --print --model auto "$(cat "$PROMPT_FILE")"; }
+# GO is the short instruction handed to each CLI; the substance is in PROMPT_FILE.
+GO="Read the file $PROMPT_FILE IN FULL — it is your complete instructions plus a git commit log and unified diff. Then produce the markdown review report it asks for. Your final chat message IS the report."
 
-export PROMPT_FILE
-echo "council: range=$RANGE agents=$AGENTS timeout=${TIMEOUT}s out=$OUTDIR"
+agent_opencode() { opencode run --agent reviewer --model opencode/nemotron-3-ultra-free "$GO"; }
+agent_kilo() { kilo run --agent plan --model kilo/kilo-auto/free "$GO"; }
+agent_cursor_agent() { cursor-agent --print --mode plan --model auto "$GO"; }
+agent_kiro_cli() { kiro-cli chat --no-interactive --trust-tools=fs_read "$GO"; }
+agent_codex() { codex --dangerously-bypass-approvals-and-sandbox exec "$GO"; }
+agent_omp() { omp --print --model auto "$GO"; }
+
+export PROMPT_FILE GO
+echo "council: range=$RANGE pathspec='${PATHSPEC:-<all>}' agents=$AGENTS timeout=${TIMEOUT}s out=$OUTDIR"
 
 IFS=',' read -ra LIST <<<"$AGENTS"
 pids=()
