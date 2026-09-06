@@ -57,13 +57,13 @@ round and the I-10 recording are what's left).
 | Live smoke round | **done** (2026-08-31) — CDP-driven `web.telegram.org/a/` (`minions/tgdrive/`, burner acct). Greeting, quote→lead_ready (clean LeadRecord), voice-out, gate/hardEscalate/small-talk, uk↔en switch, ru→uk, `/voice`. Fixed a real gate bug: normal Ukrainian was escalating (`isSlotAnswer` trailing-`?` too strict; `kbOverlap` missed inflection) → `contains "?"` + prefix/stem match (commit `055544f`). Voice-IN untested (web uploads `.ogg` as a file). |
 | Post-build tidy (2026-09-01) | `validate()` requires the TTS voice ids; `system.md` nudges post-lead brevity; `minions/tgdrive/` promoted + `minions/TOOLS.md`; `docs/smoke-test.md` broadened to 18 sections (external-agent council). |
 | Demo-readiness review (2026-09-01) | **D-20** — dialogue LLM dual-mode: dev `gemma4:cloud`, client artefact `gpt-4o-mini` (Ollama free tier is 13–86 s/turn). New **`.env.client`** (3 backend flips together). `openai_compat.go` retries once on a transient. |
-| Left | full `docs/smoke-test.md` sweep on `.env.client` (only ~10 categories run, all on dev backends) · prepay OpenAI + ElevenLabs Starter · the I-10 recording (§8) |
+| Left | full `docs/smoke/translation.md` sweep on `.env.client` · prepay OpenAI + ElevenLabs Starter · the I-10 recording |
 | `make check` (gofmt + vet + `go test -race`) | clean, 128 tests |
 | minions-curator | wired (`.claude/settings.local.json` + `.claude/skills/curate-minions/`), active. First `scan` → 0 candidates (Go files not scanned; `turn.sh` too thin) — `tgdrive` promoted by hand. |
 | Deps | `github.com/go-telegram/bot` v1.24.0; `github.com/pemistahl/lingua-go` v1.4.0 (language detection — D-19; +~126 MB binary, accepted) |
 
 **Your task:** the build order and a live smoke round are done. What's left
-is the I-10 client recording (§8) once OpenAI/ElevenLabs are funded, and a
+is the I-10 client recording once OpenAI/ElevenLabs are funded, and a
 re-check of the openai/gemini/azure backends against real balances.
 After each step: `make check` (`make help` lists all targets). Build-time
 notes / deviations live in `.agents/changes.md` (gitignored).
@@ -236,7 +236,7 @@ for a given step. The plan is precise enough for either path.
   `DIALOG_BACKEND=openai` `gpt-4o-mini` (**D-20** — `gemma4:cloud` on the
   Ollama free tier is 13–86 s/turn), and the ElevenLabs **Starter** UA
   library voices. Needs a prepaid OpenAI key ($5, covers both) + ElevenLabs
-  Starter ($6). Then run `docs/smoke-test.md` §2/§6/§7/§13 on that config,
+  Starter ($6). Then run `docs/smoke/translation.md` §2/§6/§7/§13 on that config,
   record 2–3 min, attach to the client thread.
 - **Gemini** (only if that backend is wanted for the demo): fund the AI
   Studio project ($25) and re-enable `GEMINI_API_KEY` (`.env` + `~/.bashrc`).

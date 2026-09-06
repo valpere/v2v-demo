@@ -379,7 +379,7 @@ named constants are `@schema GateParams` in §1.
     field, or a ```` ``` ```` fence around one. A true result answers with the
     `clarifyLine` **before the LLM** (a repeat still escalates via `GateStrike`)
     and never lets the text reach the model: gpt-4.1-mini otherwise reads slot
-    values out of pasted JSON and emits `lead_ready` (smoke §15c).
+    values out of pasted JSON and emits `lead_ready` (smoke: `docs/smoke/translation.md` §15c).
     -> [FUN-DLG-21] dialog.looksLikeInjection(text string) bool
 
 ### 4.5 Knowledge base
@@ -445,8 +445,10 @@ named constants are `@schema GateParams` in §1.
     messages, assert call order). The HTTP backend impls (Ollama / OpenAI /
     Gemini generators, whisper-1 STT, Azure TTS) are covered with `httptest`
     stubs — request shape, auth header, error paths. The end-to-end
-    conversation is exercised by hand from `docs/smoke-test.md`.
-    -> [LOG-TST-01] internal/*/*_test.go, cmd/bot/*_test.go; `make check` after each build-order step (AGENTS.md); docs/smoke-test.md for the manual round
+    conversation is exercised by hand from `docs/smoke-test.md` (the hub:
+    Setup, the multi-topic picker checks, robustness/clock/logging) plus a
+    per-topic scenario sweep under `docs/smoke/<id>.md`.
+    -> [LOG-TST-01] internal/*/*_test.go, cmd/bot/*_test.go; `make check` after each build-order step (AGENTS.md); docs/smoke-test.md + docs/smoke/*.md for the manual round
 
 ### 4.10 The cmd/bot update loop
 
