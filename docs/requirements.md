@@ -46,7 +46,7 @@ repo is public).
   bot_timezone:     String @constraint(default: "Europe/Kyiv", rule: "IANA name; the office-hours block in the runtime prompt is computed in this zone, not the server's — the host may be UTC. Validated with time.LoadLocation"),
   session_store:    Enum["memory","sqlite"] @constraint(default: "memory", rule: "memory = today's map[chatID]*Session, lost on restart. sqlite persists Session (modernc.org/sqlite, no cgo) — a bot restart mid-conversation resumes slots/topic/voice instead of starting over"),
   session_db_path:  String @constraint(default: "./data/sessions.db", rule: "used only when session_store=sqlite; parent dir is created if missing"),
-  topics_path:      String @constraint(default: "topics/topics.json", rule: "a JSON array of {id,title,kb,system_prompt,greeting,scope_uk,scope_en,slots:[SlotSpec],office?:OfficeHours}; the repo ships one with five topics (translation + dental + auto + realestate + cleaning) so the picker appears after /start by default. 2+ entries -> the picker; point TOPICS_PATH at a single-entry file to opt out. A missing file or an empty array falls back to a synthetic topic from kb_path/system_prompt_path/greeting_path + the translation slot schema. See topics/README.md")
+  topics_path:      String @constraint(default: "topics/topics.json", rule: "a JSON array of {id,title,title_en?,kb,system_prompt,greeting,scope_uk,scope_en,slots:[SlotSpec],office?:OfficeHours}; title_en is the optional English half of the bilingual picker button label; the repo ships one with five topics (translation + dental + auto + realestate + cleaning) so the picker appears after /start by default. 2+ entries -> the picker; point TOPICS_PATH at a single-entry file to opt out. A missing file or an empty array falls back to a synthetic topic from kb_path/system_prompt_path/greeting_path + the translation slot schema. See topics/README.md")
 }
 
 @schema GateParams {
@@ -426,17 +426,19 @@ named constants are `@schema GateParams` in §1.
     is logged. Fixed bilingual text, not LLM-generated.
     -> [FUN-UX-02] cmd/bot sends the body of topics/translation/greeting.md once per chat, gated on Update.IsStart or an unseen chat id @constraint(rule: "the sent text is the file content after the first line that is exactly '---', with further '---' lines dropped and the result trimmed — the header is never sent")
 
-29a. [REQ-UX-03] When `topics_path` configures **two or more** topics, first
-    contact shows a Telegram inline keyboard (one button per topic, in
-    manifest order) instead of a plain greeting; tapping one sets
-    `Session.topic`, acks the tap, and sends that topic's own greeting. Each
-    topic is a genuinely different assistant — its own KB, system prompt and
-    greeting — not a KB slice of one persona. `/voice` and `/reset` work
-    before a topic is chosen; any other text before a topic is chosen
-    re-shows the picker rather than guessing which assistant should answer.
-    With zero or one topic configured (the shipped default — no
-    `topics.json`), this is unreachable and REQ-UX-02's plain greeting
-    behavior is unchanged.
+29a. [REQ-UX-03] When `topics_path` configures **two or more** topics (the
+    shipped default — five), first contact shows a Telegram inline keyboard
+    (one button per topic, in manifest order) instead of a plain greeting;
+    tapping one sets `Session.topic`, acks the tap, and sends that topic's
+    own greeting. Each topic is a genuinely different assistant — its own KB,
+    system prompt and greeting — not a KB slice of one persona. The picker is
+    the first interaction, before any language is known, so its prompt and
+    the button labels are **bilingual**: a button reads `<title> · <title_en>`
+    when the manifest entry has a `title_en`, else `<title>` alone. `/voice`
+    and `/reset` work before a topic is chosen; any other text before a topic
+    is chosen re-shows the picker rather than guessing which assistant should
+    answer. Point `topics_path` at a single-entry file and this is
+    unreachable — REQ-UX-02's plain greeting behavior applies.
     -> [FUN-UX-03] cmd/bot loadTopics(cfg) (topicManifestEntry, topicBundle); cmd/bot handleUpdate CallbackID branch + sendTopicPicker; internal/telegram Update.CallbackData/CallbackID, Client.SendButtons/AnswerCallback
 
 ### 4.8 Logging

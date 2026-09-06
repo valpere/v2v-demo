@@ -13,7 +13,8 @@ import (
 // topicManifestEntry is one row of TOPICS_PATH's JSON array.
 type topicManifestEntry struct {
 	ID           string             `json:"id"`
-	Title        string             `json:"title"`
+	Title        string             `json:"title"`    // picker button label (Ukrainian / primary)
+	TitleEN      string             `json:"title_en"` // optional English half of the button label; blank -> Title only
 	KB           string             `json:"kb"`
 	SystemPrompt string             `json:"system_prompt"`
 	Greeting     string             `json:"greeting"`
@@ -28,6 +29,7 @@ type topicManifestEntry struct {
 type topicBundle struct {
 	ID       string
 	Title    string
+	TitleEN  string
 	Greeting string
 	Spec     dialog.TopicSpec // KB + system prompt + slots + scope — passed straight to dialog.Handle
 }
@@ -105,6 +107,7 @@ func loadTopics(cfg Config) (topics map[string]topicBundle, ids []string, err er
 		topics[e.ID] = topicBundle{
 			ID:       e.ID,
 			Title:    e.Title,
+			TitleEN:  e.TitleEN,
 			Greeting: greeting,
 			Spec: dialog.TopicSpec{
 				KB:      sections,

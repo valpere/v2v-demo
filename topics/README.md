@@ -38,7 +38,12 @@ are two or more).
   `Session.Topic`, the `topic` field of a lead record). Never shown to the
   user. A change to it orphans existing sessions on that topic (they
   re-show the picker).
-- `title` — the inline-keyboard button label shown after `/start`.
+- `title` — the inline-keyboard button label shown after `/start`
+  (Ukrainian / primary).
+- `title_en` — optional English half of the button label. When set (and
+  different from `title`) the button reads `<title> · <title_en>` — the
+  picker is the first interaction, before any language is known, so the
+  labels and the prompt are bilingual. Blank → the button is `title` alone.
 - `kb` / `system_prompt` / `greeting` — paths (relative to the bot's
   working directory) to that topic's own files, same formats as
   `KB_PATH` / `SYSTEM_PROMPT_PATH` / `GREETING_PATH`.

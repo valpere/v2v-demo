@@ -49,10 +49,10 @@ make run            # starts the bot (Ctrl-C to stop)
     (`.env`) to have a restart resume mid-conversation instead — that
     changes the "restart" vs "`/reset`" distinction wherever a scenario
     relies on a restart.
-  - **`TOPICS_PATH`** — the repo ships `topics/topics.json` with **two
-    topics** (translation + dental), so `/start` **shows the picker by
-    default**. Point `TOPICS_PATH` at a single-entry file to get the plain
-    no-picker greeting; §0 below covers the picker checks and assumes 2+
+  - **`TOPICS_PATH`** — the repo ships `topics/topics.json` with **five
+    topics**, so `/start` **shows the picker by default**. Point
+    `TOPICS_PATH` at a single-entry file to get the plain no-picker
+    greeting; §0 below covers the picker checks and assumes 2+
     topics.
 - The **first voice message ever** downloads the Whisper model (~1.5 GB) —
   that one turn takes minutes. After that ≈ 12 s STT + ~40 s LLM per voice
@@ -84,9 +84,11 @@ topic from the first message, and this section is skipped.*
 **0a — the picker on first contact.**
 
 1. Full reset, then send `/start`.
-   - **Expect:** a short prompt ("Оберіть тему розмови:") with **one inline
-     button per topic**, in manifest order. **No** topic greeting yet, no
-     `dialog.Handle` call — `data/turns.jsonl` gets no row.
+   - **Expect:** a bilingual prompt ("Оберіть тему розмови · Choose a
+     topic:") with **one inline button per topic**, in manifest order, each
+     label bilingual ("Бюро перекладів · Translation bureau", …). **No**
+     topic greeting yet, no `dialog.Handle` call — `data/turns.jsonl` gets
+     no row.
 2. Send `/start` again.
    - **Expect:** the picker again (idempotent).
 

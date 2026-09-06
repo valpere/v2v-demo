@@ -24,16 +24,27 @@ const RecordingTick = 4 * time.Second
 const topicCallbackPrefix = "topic:"
 
 // sendTopicPicker shows one inline button per configured topic, in
-// a.topicIDs order (map iteration isn't stable).
+// a.topicIDs order (map iteration isn't stable). The picker is the first
+// interaction — before any language is known — so both the prompt and the
+// button labels are bilingual.
 func (a *app) sendTopicPicker(ctx context.Context, chatID int64) {
 	buttons := make([]telegram.Button, len(a.topicIDs))
 	for i, id := range a.topicIDs {
-		buttons[i] = telegram.Button{Label: a.topics[id].Title, Data: topicCallbackPrefix + id}
+		buttons[i] = telegram.Button{Label: topicButtonLabel(a.topics[id]), Data: topicCallbackPrefix + id}
 	}
-	text := "Оберіть тему розмови:"
+	text := "Оберіть тему розмови · Choose a topic:"
 	if err := a.tg.SendButtons(ctx, chatID, text, buttons); err != nil {
 		log.Printf("send topic picker (chat %d): %v", chatID, err)
 	}
+}
+
+// topicButtonLabel is "<Title> · <TitleEN>" when a topic has an English
+// label, else just the Title.
+func topicButtonLabel(t topicBundle) string {
+	if t.TitleEN != "" && t.TitleEN != t.Title {
+		return t.Title + " · " + t.TitleEN
+	}
+	return t.Title
 }
 
 func (a *app) send(ctx context.Context, chatID int64, text string) {

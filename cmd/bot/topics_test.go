@@ -239,3 +239,37 @@ func TestReadTopicManifestMalformedJSONIsAnError(t *testing.T) {
 		t.Fatal("want an error for malformed JSON")
 	}
 }
+
+func TestTopicButtonLabelBilingual(t *testing.T) {
+	cases := []struct {
+		b    topicBundle
+		want string
+	}{
+		{topicBundle{Title: "Бюро перекладів", TitleEN: "Translation bureau"}, "Бюро перекладів · Translation bureau"},
+		{topicBundle{Title: "Only UK"}, "Only UK"},            // no TitleEN -> Title alone
+		{topicBundle{Title: "Same", TitleEN: "Same"}, "Same"}, // identical -> not doubled
+	}
+	for _, c := range cases {
+		if got := topicButtonLabel(c.b); got != c.want {
+			t.Errorf("topicButtonLabel(%+v) = %q, want %q", c.b, got, c.want)
+		}
+	}
+}
+
+func TestLoadTopicsParsesTitleEN(t *testing.T) {
+	dir := t.TempDir()
+	cfg := baseCfg(t, dir)
+	kbPath, sysPath, greetPath := writeTopicFixture(t, dir, "x")
+	entry := fmt.Sprintf(`{"id":"x","title":"Тема","title_en":"Topic","kb":%q,"system_prompt":%q,"greeting":%q,%s}`,
+		kbPath, sysPath, greetPath, validSlots)
+	if err := os.WriteFile(cfg.TopicsPath, []byte("["+entry+"]"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	topics, _, err := loadTopics(cfg)
+	if err != nil {
+		t.Fatalf("loadTopics: %v", err)
+	}
+	if got := topics["x"].TitleEN; got != "Topic" {
+		t.Fatalf("TitleEN = %q, want %q", got, "Topic")
+	}
+}

@@ -21,6 +21,10 @@ run: build ## run the bot (long-poll; needs .env)
 	# runs the binary (not `go run`) and swallows the Ctrl-C: the bot catches
 	# SIGINT, shuts down, and this recipe exits 0 — no "Error 1" / "Interrupt"
 
+.PHONY: run-text
+run-text: build ## run with STT + TTS off — text-only, no voice keys needed (bulk smoke-testing)
+	@STT_BACKEND=none TTS_BACKEND=none ./$(BIN) & pid=$$!; trap 'kill -INT $$pid 2>/dev/null; wait $$pid; exit 0' INT TERM; wait $$pid
+
 .PHONY: install
 install: ## go install the bot into GOBIN
 	$(GO) install ./cmd/bot
