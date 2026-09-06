@@ -49,6 +49,11 @@ var escalateKeywords = []string{
 	"хочу менедж", "потрібен менедж", "потрібно менедж", "дайте менедж", "покличте менедж",
 	"переведіть на менедж", "переключіть на менедж", "менеджера прошу", "давайте менедж",
 	"want a manager", "need a manager", "get me a manager", "connect me to a manager",
+	// explicit "connect me to a human" phrasings, topic-agnostic (a clinic
+	// administrator, a service advisor / майстер, an agent — same intent)
+	"єднайте з", "єднайте мене", "connect me", "put me through", "з'єднайте", "зʼєднайте",
+	"дайте майстра", "покличте майстра", "дайте адміністратора", "покличте адміністратора",
+	"дайте агента", "покличте агента", "з живою людиною", "жив адміністратор", "живого адміністратора",
 	// services the bureau definitively does not offer / methods not in the KB —
 	// distinctive enough to catch before the LLM (which is inconsistent at
 	// coupling "we don't do that" to signal:escalate)
@@ -240,6 +245,13 @@ func hardEscalate(query string) bool {
 // message was a real answer. This heuristic cannot otherwise tell the two
 // cases apart (it does not look at content, only length/"?"/nil-slot).
 func isSlotAnswer(sess *Session, spec []SlotSpec, userText string) bool {
+	// A message that is essentially just a phone number is always an answer to
+	// a "leave your number" ask (every lead-collecting topic ends with one).
+	// The model phrases that ask as a bare statement as often as a question,
+	// and a lone number scores ~0 kbOverlap — without this it hits the gate.
+	if looksLikePhone(userText) && !Complete(sess.Slots, spec) {
+		return true
+	}
 	if !strings.Contains(lastAssistant(sess.History), "?") {
 		return false
 	}
@@ -255,6 +267,25 @@ func isSlotAnswer(sess *Session, spec []SlotSpec, userText string) bool {
 		return true
 	}
 	return len(tokens(userText)) <= SlotAnswerMaxTok
+}
+
+// looksLikePhone reports whether s is essentially just a phone number —
+// 9–13 digits and nothing but digits and the usual separators (+ - ( ) .
+// and any whitespace). "0671234567", "+380 67 123 45 67" match; anything
+// with a letter does not.
+func looksLikePhone(s string) bool {
+	digits := 0
+	for _, r := range s {
+		switch {
+		case r >= '0' && r <= '9':
+			digits++
+		case unicode.IsSpace(r) || r == '+' || r == '(' || r == ')' || r == '-' || r == '.':
+			// separator, ignore
+		default:
+			return false
+		}
+	}
+	return digits >= 9 && digits <= 13
 }
 
 func lastAssistant(history []Msg) string {

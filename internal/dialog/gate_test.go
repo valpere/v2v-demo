@@ -128,6 +128,12 @@ func TestHardEscalate(t *testing.T) {
 		"дайте менеджера, будь ласка",
 		"переключіть на менеджера",
 		"I want a manager now",
+		"З'єднайте з майстром",
+		"дайте майстра, будь ласка",
+		"покличте адміністратора",
+		"connect me with a human",
+		"please put me through to someone",
+		"хочу з живою людиною поговорити",
 		// services the bureau doesn't do / methods not in the KB
 		"Скільки коштує усний переклад на весіллі?",
 		"Do you provide an interpreter for a meeting?",
@@ -193,6 +199,15 @@ func TestIsSlotAnswer(t *testing.T) {
 		},
 	}
 	noQuestion := &Session{History: []Msg{{Role: "assistant", Text: "Thanks, noted."}}}
+	// the bot asked for a phone number as a plain statement, no "?"
+	phoneAsked := &Session{History: []Msg{{Role: "assistant", Text: "Будь ласка, залиште номер телефону для зворотного дзвінка."}}}
+	phoneAskedFull := &Session{
+		History: []Msg{{Role: "assistant", Text: "Все зафіксовано."}},
+		Slots: map[string]string{
+			"language_pair": "uk->de", "doc_type": "d", "volume": "2",
+			"deadline": "fri", "certification": "none", "delivery": "email",
+		},
+	}
 	askedThenClause := &Session{History: []Msg{{Role: "assistant", Text: "Для якої установи ви готуєте документи? Це потрібно, щоб підібрати тип засвідчення."}}}
 	empty := &Session{}
 	midQuote := &Session{ // 2+ slots filled, bot asked a question -> a full-sentence answer still counts
@@ -214,6 +229,11 @@ func TestIsSlotAnswer(t *testing.T) {
 		{"short but no prior question", noQuestion, "5 pages", false},
 		{"short, question, but slots complete", askedFull, "no thanks", false},
 		{"no history at all", empty, "5 pages", false},
+		{"bare phone after a statement-form ask", phoneAsked, "0671234567", true},
+		{"formatted phone after a statement-form ask", phoneAsked, "+380 67 123 45 67", true},
+		{"phone but slots already complete", phoneAskedFull, "0671234567", false},
+		{"phone volunteered with no prior question", noQuestion, "0671234567", true},
+		{"not a phone — has words", phoneAsked, "можна в п'ятницю, 0671234567", false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
