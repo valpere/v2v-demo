@@ -265,7 +265,8 @@ next time. **Treatment "in sleep" (лікування уві сні)** — under
 general anaesthesia with an anaesthetist — is available for extensive work
 or very anxious children; it is arranged separately with a manager, needs
 prior tests and an anaesthetist consultation, and is priced case by case.
-The assistant records interest and passes the request to a manager.
+The assistant does **not** take a routine booking for it — it hands the
+request straight to a manager (an escalation, not a collected lead).
 
 Клініка приймає дітей **приблизно з 1 року** на перший огляд і поради, а
 повноцінне лікування проводить із віку, коли дитина може співпрацювати в
@@ -276,7 +277,8 @@ The assistant records interest and passes the request to a manager.
 наркозом з анестезіологом — доступне для великого обсягу робіт або дуже
 тривожних дітей; узгоджується окремо з менеджером, потребує попередніх
 аналізів і консультації анестезіолога, ціна — індивідуально. Асистент
-фіксує інтерес і передає заявку менеджеру.
+**не** оформлює звичайний запис на це — одразу передає запит менеджеру
+(це ескалація, а не зібраний лід).
 
 ## Guarantees / Гарантії
 
