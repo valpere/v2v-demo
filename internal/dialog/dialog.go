@@ -151,6 +151,7 @@ func responseFormatBlock(spec []SlotSpec) string {
 		}
 		b.WriteByte('\n')
 	}
+	b.WriteString("When one message gives several values at once (e.g. \"one-off, Friday, Obolon, 0501234567\"), fill EVERY one of them this turn — re-read the message before you reply so you don't drop a phone number or a date.\n")
 	b.WriteString(`signal: "continue" while still collecting or answering; "lead_ready" only on the turn whose reply reads every slot back and tells the client a manager will follow up; "escalate" per your rules.`)
 	return b.String()
 }
@@ -291,9 +292,18 @@ func Handle(
 	// The gate fires on a message the KB can't help with (off-topic, gibberish,
 	// noise). First hit → the fixed clarification line, no handoff. A second
 	// hit in a row → hand off.
+	//
+	// Right after a strike the bar is stricter: a message that is neither a
+	// slot answer nor small talk and only *barely* clears the floor
+	// (< 2×GateFloor) counts as a second strike. gpt-4.1-mini would otherwise
+	// just redirect a second time on "смішний факт про Австралію" (~0.4
+	// overlap) instead of handing off — and the two-strike gate can't see it
+	// because 0.4 >= GateFloor.
 	slotAnswer := isSlotAnswer(sess, topic.Slots, userText)
 	overlap := kbOverlap(userText, topic.KB)
-	if !isSmallTalk(userText) && groundingGate(overlap, slotAnswer) {
+	priorGateStrike := sess.GateStrike
+	weakAfterStrike := priorGateStrike && !slotAnswer && overlap < 2*GateFloor
+	if !isSmallTalk(userText) && (groundingGate(overlap, slotAnswer) || weakAfterStrike) {
 		if sess.GateStrike {
 			return esc()
 		}
@@ -305,7 +315,10 @@ func Handle(
 		), HistoryLimit)
 		return Reply{Text: clarify, Signal: SignalContinue}, nil
 	}
-	sess.GateStrike = false // this turn is a real one — reset the strike
+	// This turn reached the model. If the previous turn was a redirect (a gate
+	// strike), tell the model directly — a message that scraped past the gate
+	// but is *still* off-topic must escalate, not get redirected a third time.
+	sess.GateStrike = false // this turn reached the model — reset the strike
 
 	// 5 — system prompt: persona file + the WHOLE KB + collected slots + format
 	var b strings.Builder
@@ -333,6 +346,12 @@ func Handle(
 	if !now.IsZero() {
 		b.WriteString("\n\n--- CURRENT TIME ---\n")
 		b.WriteString(officeStatus(now, topic.Office))
+	}
+	if priorGateStrike {
+		b.WriteString("\n\n--- NOTE ---\n")
+		b.WriteString("Your previous reply was a redirect — the last client message was off-topic or unclear. " +
+			"If this message is ALSO off-topic, or still isn't a real request you can act on, set signal: escalate now (do not redirect a second time). " +
+			"If it IS a genuine request or answer, carry on normally.")
 	}
 	sysPrompt := b.String()
 

@@ -238,6 +238,35 @@ func TestHandleGateStrikeResetsOnARealTurn(t *testing.T) {
 	}
 }
 
+// After a gate strike, the next message that scrapes past the gate carries a
+// "--- NOTE ---" telling the model the previous turn was a redirect — so a
+// second off-topic message escalates instead of being redirected again (the
+// two-strike gate can't see this: overlap >= floor by then).
+func TestHandlePriorGateStrikeNote(t *testing.T) {
+	gen := &fakeGen{reply: reply("ok", "continue", nil)}
+	sess := &Session{}
+
+	dialogHandle(t, sess, gen, "capital of Australia and how tall is Everest") // strike 1, model not called
+	if gen.calls != 0 {
+		t.Fatalf("gen called on the gate strike (calls=%d)", gen.calls)
+	}
+
+	// a message with enough KB overlap to reach the model
+	dialogHandle(t, sess, gen, "certified translation, delivery by courier")
+	if gen.calls != 1 {
+		t.Fatalf("gen calls = %d, want 1 (message should reach the model)", gen.calls)
+	}
+	if !strings.Contains(gen.gotSys, "--- NOTE ---") || !strings.Contains(gen.gotSys, "redirect a second time") {
+		t.Fatalf("prompt missing the prior-gate-strike note:\n%s", gen.gotSys)
+	}
+
+	// the turn after that (no prior strike) has no note
+	dialogHandle(t, sess, gen, "notarized translation of a diploma")
+	if strings.Contains(gen.gotSys, "--- NOTE ---") {
+		t.Fatalf("note should not persist to a turn with no prior gate strike:\n%s", gen.gotSys)
+	}
+}
+
 func TestHandleSlotAnswerBypassesGate(t *testing.T) {
 	gen := &fakeGen{reply: reply("Записала.", "continue", map[string]string{"volume": "5 pages"})}
 	sess := &Session{
