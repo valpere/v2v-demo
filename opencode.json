@@ -11,6 +11,7 @@
         "minimax-m3:cloud": { "tools": true },
         "deepseek-v4-pro:cloud": { "tools": true },
         "deepseek-v4-flash:cloud": { "tools": true },
+        "glm-5.3:cloud": { "tools": true },
         "glm-5.3-flash:cloud": { "tools": true }
       }
     }
