@@ -14,14 +14,16 @@ import (
 type Config struct {
 	TelegramToken string
 
-	TTSBackend   string // "elevenlabs" | "azure"
-	ElevenKey    string
-	ElevenVoiceA string
-	ElevenVoiceB string
-	AzureKey     string
-	AzureRegion  string
-	AzureVoiceA  string
-	AzureVoiceB  string
+	TTSBackend         string // "elevenlabs" | "azure" | "espeak"
+	TTSFallbackBackend string // "" (default, no failover) | "elevenlabs" | "azure" | "espeak" — tried when TTSBackend errors
+	ElevenKey          string
+	ElevenVoiceA       string
+	ElevenVoiceB       string
+	AzureKey           string
+	AzureRegion        string
+	AzureVoiceA        string
+	AzureVoiceB        string
+	EspeakBin          string // default "espeak-ng"
 
 	STTBackend         string // "local" (default) | "openai"
 	STTFallbackBackend string // "" (default, no failover) | "local" | "openai" — tried when STTBackend errors
@@ -73,14 +75,16 @@ func LoadConfig() (Config, error) {
 	cfg := Config{
 		TelegramToken: get("TELEGRAM_BOT_TOKEN"),
 
-		TTSBackend:   def("TTS_BACKEND", "elevenlabs"),
-		ElevenKey:    get("ELEVENLABS_API_KEY"),
-		ElevenVoiceA: get("ELEVENLABS_VOICE_A"),
-		ElevenVoiceB: get("ELEVENLABS_VOICE_B"),
-		AzureKey:     get("AZURE_SPEECH_KEY"),
-		AzureRegion:  get("AZURE_SPEECH_REGION"),
-		AzureVoiceA:  def("AZURE_VOICE_A", "uk-UA-PolinaNeural"),
-		AzureVoiceB:  def("AZURE_VOICE_B", "uk-UA-OstapNeural"),
+		TTSBackend:         def("TTS_BACKEND", "elevenlabs"),
+		TTSFallbackBackend: get("TTS_FALLBACK_BACKEND"), // "" → no failover
+		ElevenKey:          get("ELEVENLABS_API_KEY"),
+		ElevenVoiceA:       get("ELEVENLABS_VOICE_A"),
+		ElevenVoiceB:       get("ELEVENLABS_VOICE_B"),
+		AzureKey:           get("AZURE_SPEECH_KEY"),
+		AzureRegion:        get("AZURE_SPEECH_REGION"),
+		AzureVoiceA:        def("AZURE_VOICE_A", "uk-UA-PolinaNeural"),
+		AzureVoiceB:        def("AZURE_VOICE_B", "uk-UA-OstapNeural"),
+		EspeakBin:          def("ESPEAK_BIN", "espeak-ng"),
 
 		STTBackend:         def("STT_BACKEND", "local"),
 		STTFallbackBackend: get("STT_FALLBACK_BACKEND"), // "" → no failover
@@ -113,6 +117,39 @@ func LoadConfig() (Config, error) {
 		return Config{}, err
 	}
 	return cfg, nil
+}
+
+// requireTTSKey checks the key(s) a given TTS backend name needs. envVar
+// names the field in the error message (TTS_BACKEND or
+// TTS_FALLBACK_BACKEND) so a bad fallback name is diagnosable at startup
+// same as a bad primary one.
+func (c Config) requireTTSKey(name, envVar string) []string {
+	switch name {
+	case "none":
+		return nil // voice replies disabled — text only (dev / bulk smoke-testing)
+	case "elevenlabs":
+		var errs []string
+		if c.ElevenKey == "" {
+			errs = append(errs, "ELEVENLABS_API_KEY is required for "+envVar+"=elevenlabs")
+		}
+		if c.ElevenVoiceA == "" || c.ElevenVoiceB == "" {
+			errs = append(errs, "ELEVENLABS_VOICE_A and ELEVENLABS_VOICE_B are required for "+envVar+"=elevenlabs")
+		}
+		return errs
+	case "azure":
+		var errs []string
+		if c.AzureKey == "" || c.AzureRegion == "" {
+			errs = append(errs, "AZURE_SPEECH_KEY and AZURE_SPEECH_REGION are required for "+envVar+"=azure")
+		}
+		if c.AzureVoiceA == "" || c.AzureVoiceB == "" {
+			errs = append(errs, "AZURE_VOICE_A and AZURE_VOICE_B are required for "+envVar+"=azure")
+		}
+		return errs
+	case "espeak":
+		return nil // no key needed
+	default:
+		return []string{fmt.Sprintf("%s %q: want none|elevenlabs|azure|espeak", envVar, name)}
+	}
 }
 
 // requireSTTKey checks the key(s) a given STT backend name needs. envVar
@@ -165,25 +202,13 @@ func (c Config) validate() error {
 		errs = append(errs, "TELEGRAM_BOT_TOKEN is required")
 	}
 
-	switch c.TTSBackend {
-	case "none":
-		// voice replies disabled — text only (dev / bulk smoke-testing)
-	case "elevenlabs":
-		if c.ElevenKey == "" {
-			errs = append(errs, "ELEVENLABS_API_KEY is required for TTS_BACKEND=elevenlabs")
+	errs = append(errs, c.requireTTSKey(c.TTSBackend, "TTS_BACKEND")...)
+	if c.TTSFallbackBackend != "" {
+		if c.TTSFallbackBackend == "none" {
+			errs = append(errs, "TTS_FALLBACK_BACKEND cannot be none")
+		} else {
+			errs = append(errs, c.requireTTSKey(c.TTSFallbackBackend, "TTS_FALLBACK_BACKEND")...)
 		}
-		if c.ElevenVoiceA == "" || c.ElevenVoiceB == "" {
-			errs = append(errs, "ELEVENLABS_VOICE_A and ELEVENLABS_VOICE_B are required for TTS_BACKEND=elevenlabs")
-		}
-	case "azure":
-		if c.AzureKey == "" || c.AzureRegion == "" {
-			errs = append(errs, "AZURE_SPEECH_KEY and AZURE_SPEECH_REGION are required for TTS_BACKEND=azure")
-		}
-		if c.AzureVoiceA == "" || c.AzureVoiceB == "" {
-			errs = append(errs, "AZURE_VOICE_A and AZURE_VOICE_B are required for TTS_BACKEND=azure")
-		}
-	default:
-		errs = append(errs, fmt.Sprintf("TTS_BACKEND %q: want none|elevenlabs|azure", c.TTSBackend))
 	}
 
 	errs = append(errs, c.requireSTTKey(c.STTBackend, "STT_BACKEND")...)

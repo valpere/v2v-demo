@@ -5,6 +5,7 @@ import (
 
 	"github.com/valpere/v2v-demo/internal/dialog"
 	"github.com/valpere/v2v-demo/internal/stt"
+	"github.com/valpere/v2v-demo/internal/tts"
 )
 
 // These check the newGenerator/newTranscriber *wiring* only — that a
@@ -85,5 +86,56 @@ func TestNewTranscriberFallbackNoneRejected(t *testing.T) {
 	}
 	if _, err := newTranscriber(cfg); err == nil {
 		t.Fatal("STTFallbackBackend=none — want an error, got nil")
+	}
+}
+
+func TestNewSynthesizerNoFallback(t *testing.T) {
+	cfg := Config{
+		TTSBackend:   "elevenlabs",
+		ElevenKey:    "k",
+		ElevenVoiceA: "a",
+		ElevenVoiceB: "b",
+	}
+	synth, err := newSynthesizer(cfg)
+	if err != nil {
+		t.Fatalf("newSynthesizer: %v", err)
+	}
+	if _, wrapped := synth.(*tts.FailoverSynthesizer); wrapped {
+		t.Error("no TTSFallbackBackend set — got a FailoverSynthesizer, want the bare primary")
+	}
+}
+
+func TestNewSynthesizerWithFallback(t *testing.T) {
+	cfg := Config{
+		TTSBackend:         "elevenlabs",
+		ElevenKey:          "k",
+		ElevenVoiceA:       "a",
+		ElevenVoiceB:       "b",
+		TTSFallbackBackend: "espeak",
+		EspeakBin:          "espeak-ng",
+	}
+	synth, err := newSynthesizer(cfg)
+	if err != nil {
+		t.Fatalf("newSynthesizer: %v", err)
+	}
+	fo, wrapped := synth.(*tts.FailoverSynthesizer)
+	if !wrapped {
+		t.Fatal("TTSFallbackBackend set — want a FailoverSynthesizer")
+	}
+	if fo.Primary == nil || fo.Fallback == nil {
+		t.Errorf("FailoverSynthesizer has a nil Primary/Fallback: %+v", fo)
+	}
+}
+
+func TestNewSynthesizerFallbackNoneRejected(t *testing.T) {
+	cfg := Config{
+		TTSBackend:         "elevenlabs",
+		ElevenKey:          "k",
+		ElevenVoiceA:       "a",
+		ElevenVoiceB:       "b",
+		TTSFallbackBackend: "none",
+	}
+	if _, err := newSynthesizer(cfg); err == nil {
+		t.Fatal("TTSFallbackBackend=none — want an error, got nil")
 	}
 }

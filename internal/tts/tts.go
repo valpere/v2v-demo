@@ -1,7 +1,12 @@
 // Package tts synthesises the reply text to OGG/Opus mono, ready for
-// Telegram sendVoice (REQ-TTS-01). Two impls, selected by TTS_BACKEND in
-// cmd/bot: elevenlabs (eleven_multilingual_v2, the demo default) and azure
-// (uk-UA-*Neural, the rollback). Google is a documented third impl, not built.
+// Telegram sendVoice (REQ-TTS-01). Three impls, selected by TTS_BACKEND in
+// cmd/bot: elevenlabs (eleven_multilingual_v2, the demo default), azure
+// (uk-UA-*Neural, the rollback), and espeak (espeak-ng formant synthesis —
+// free, local, robotic, intended as a TTS_FALLBACK_BACKEND "spare tire"
+// behind the other two, not a primary voice). Google is a documented
+// fourth impl, not built. A failure degrades to a text-only reply, unless
+// TTS_FALLBACK_BACKEND is set — then FailoverSynthesizer retries once
+// against a second backend before giving up.
 package tts
 
 import (

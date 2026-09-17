@@ -108,8 +108,12 @@ func main() {
 	if cfg.STTFallbackBackend != "" {
 		sttDesc += "→" + cfg.STTFallbackBackend
 	}
+	ttsDesc := cfg.TTSBackend
+	if cfg.TTSFallbackBackend != "" {
+		ttsDesc += "→" + cfg.TTSFallbackBackend
+	}
 	log.Printf("v2v-demo: listening — dialog=%s tts=%s stt=%s sessions=%s tz=%s; %d topic(s)",
-		dialogDesc, cfg.TTSBackend, sttDesc, cfg.SessionStore, cfg.Timezone, len(topics))
+		dialogDesc, ttsDesc, sttDesc, cfg.SessionStore, cfg.Timezone, len(topics))
 
 	for u := range updates {
 		a.dispatch(ctx, u)
@@ -223,19 +227,42 @@ func newTranscriber(cfg Config) (stt.Transcriber, error) {
 	return &stt.FailoverTranscriber{Primary: primary, Fallback: fallback}, nil
 }
 
-// newSynthesizer selects the TTS backend (TTS_BACKEND). "none" returns nil —
-// the update loop then skips SendVoice and replies with text only.
-func newSynthesizer(cfg Config) (tts.Synthesizer, error) {
-	switch cfg.TTSBackend {
+// buildSynthesizer resolves one TTS backend by name — the step
+// newSynthesizer needs twice when a fallback is configured. "none" is only
+// valid as the primary (the update loop then skips SendVoice and replies
+// with text only); it makes no sense as a fallback target, so callers
+// building a fallback reject it themselves (see newSynthesizer).
+func buildSynthesizer(name string, cfg Config) (tts.Synthesizer, error) {
+	switch name {
 	case "none":
 		return nil, nil
 	case "elevenlabs":
 		return tts.NewElevenLabs(cfg.ElevenKey), nil
 	case "azure":
 		return tts.NewAzure(cfg.AzureKey, cfg.AzureRegion), nil
+	case "espeak":
+		return tts.NewEspeak(cfg.EspeakBin), nil
 	default:
-		return nil, fmt.Errorf("unknown TTS_BACKEND %q", cfg.TTSBackend)
+		return nil, fmt.Errorf("unknown TTS_BACKEND %q", name)
 	}
+}
+
+// newSynthesizer selects the TTS backend (TTS_BACKEND), wrapping it in a
+// tts.FailoverSynthesizer when TTS_FALLBACK_BACKEND is set. "none" returns
+// nil — the update loop then skips SendVoice and replies with text only.
+func newSynthesizer(cfg Config) (tts.Synthesizer, error) {
+	primary, err := buildSynthesizer(cfg.TTSBackend, cfg)
+	if err != nil || cfg.TTSFallbackBackend == "" {
+		return primary, err
+	}
+	if cfg.TTSFallbackBackend == "none" {
+		return nil, fmt.Errorf("TTS_FALLBACK_BACKEND cannot be %q", "none")
+	}
+	fallback, err := buildSynthesizer(cfg.TTSFallbackBackend, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("tts fallback: %w", err)
+	}
+	return &tts.FailoverSynthesizer{Primary: primary, Fallback: fallback}, nil
 }
 
 // voiceID resolves the active backend's voice id for "a" | "b".

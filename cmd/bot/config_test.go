@@ -10,8 +10,8 @@ import (
 // environment (e.g. an exported GEMINI_API_KEY) never leaks into a test.
 var configEnvKeys = []string{
 	"TELEGRAM_BOT_TOKEN",
-	"TTS_BACKEND", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_A", "ELEVENLABS_VOICE_B",
-	"AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION", "AZURE_VOICE_A", "AZURE_VOICE_B",
+	"TTS_BACKEND", "TTS_FALLBACK_BACKEND", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_A", "ELEVENLABS_VOICE_B",
+	"AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION", "AZURE_VOICE_A", "AZURE_VOICE_B", "ESPEAK_BIN",
 	"STT_BACKEND", "STT_FALLBACK_BACKEND", "WHISPER_BIN", "WHISPER_MODEL", "WHISPER_LANG",
 	"DIALOG_BACKEND", "DIALOG_FALLBACK_BACKEND", "DIALOG_MODEL", "GEMINI_API_KEY", "OLLAMA_BASE_URL", "OPENAI_API_KEY",
 	"KB_PATH", "SYSTEM_PROMPT_PATH", "GREETING_PATH", "DATA_DIR",
@@ -80,6 +80,8 @@ func TestLoadConfigDefaults(t *testing.T) {
 	}
 	checks := map[string][2]string{
 		"TTSBackend":            {cfg.TTSBackend, "elevenlabs"},
+		"TTSFallbackBackend":    {cfg.TTSFallbackBackend, ""}, // "" → no failover
+		"EspeakBin":             {cfg.EspeakBin, "espeak-ng"},
 		"STTBackend":            {cfg.STTBackend, "local"},
 		"STTFallbackBackend":    {cfg.STTFallbackBackend, ""}, // "" → no failover
 		"WhisperModel":          {cfg.WhisperModel, "turbo"},
@@ -131,6 +133,8 @@ func TestLoadConfigValidation(t *testing.T) {
 		"stt fallback none":             minValidEnv + "STT_FALLBACK_BACKEND=none\n",
 		"stt fallback openai no key":    minValidEnv + "STT_FALLBACK_BACKEND=openai\n",
 		"dialog fallback gemini no key": minValidEnv + "DIALOG_FALLBACK_BACKEND=gemini\n",
+		"tts fallback none":             minValidEnv + "TTS_FALLBACK_BACKEND=none\n",
+		"tts fallback azure no key":     minValidEnv + "TTS_FALLBACK_BACKEND=azure\n",
 	}
 	for name, dotenv := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -208,6 +212,19 @@ func TestLoadConfigSTTFallback(t *testing.T) {
 		t.Fatalf("openai primary + local fallback should validate: %v", err)
 	}
 	if cfg.STTBackend != "openai" || cfg.STTFallbackBackend != "local" {
+		t.Fatalf("got %+v", cfg)
+	}
+}
+
+func TestLoadConfigTTSFallback(t *testing.T) {
+	// TTS_BACKEND=elevenlabs (minValidEnv already sets its key/voices) with
+	// TTS_FALLBACK_BACKEND=espeak (no key needed) should validate.
+	chdirWithEnv(t, minValidEnv+"TTS_FALLBACK_BACKEND=espeak\n")
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("elevenlabs primary + espeak fallback should validate: %v", err)
+	}
+	if cfg.TTSBackend != "elevenlabs" || cfg.TTSFallbackBackend != "espeak" {
 		t.Fatalf("got %+v", cfg)
 	}
 }

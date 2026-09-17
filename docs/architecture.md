@@ -242,7 +242,7 @@ The demo validates the *conversation design*; the MVP swaps the *substrate*.
 | JSONL turn log | SQLite `message` + `audit_log` tables |
 | lead record written to the log | real Zoho lead via REST (`.eu` base) |
 | Telegram voice glue in `internal/telegram` | a reusable `channel/voice` adapter |
-| ~~single provider (gpt-4.1-mini)~~ dialog + STT runtime failover done | TTS multi-provider failover — no free/local `Synthesizer` exists yet (only elevenlabs/azure, both paid); also `voiceID()` (`cmd/bot/main.go`) picks a voice id from static `cfg.TTSBackend`, not from whichever instance actually handles a call — needs rework first |
+| ~~single provider (gpt-4.1-mini)~~ dialog + STT + TTS runtime failover done (TTS via local `espeak` backend) | An elevenlabs↔azure *mutual* TTS failover — `voiceID()` (`cmd/bot/main.go`) still picks a voice id from static `cfg.TTSBackend`, not from whichever instance actually handles a call. Not a blocker for the shipped elevenlabs/azure→espeak pairing (espeak ignores voiceID entirely), only for a future paid↔paid pairing |
 
 ### 7.1 Datastore (MVP) — SQLite by default
 
@@ -277,7 +277,7 @@ vectors in Go memory and use the pure-Go driver for everything else.
 |---|---|
 | STT error / empty transcript | tries `stt_fallback_backend` if configured; still failing → text reply: "не розчув, повторіть, будь ласка"; log; no LLM call |
 | LLM error / unparseable trailer | tries `dialog_fallback_backend` if configured; still failing → text reply: apology + "з'єдную з менеджером"; mark escalated; log |
-| TTS error | send the reply as **text only**; log |
+| TTS error | tries `tts_fallback_backend` if configured; still failing → send the reply as **text only**; log |
 | Telegram send error | retry once, then log and drop the turn |
 | any panic in a handler | recovered in the loop; the bot keeps serving other chats |
 

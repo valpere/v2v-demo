@@ -22,7 +22,8 @@ repo is public).
 
 @schema Config {
   telegram_token:   String @constraint(rule: "required"),
-  tts_backend:      Enum["elevenlabs","azure"] @constraint(default: "elevenlabs"),
+  tts_backend:      Enum["elevenlabs","azure","espeak"] @constraint(default: "elevenlabs"),
+  tts_fallback_backend: Enum["","elevenlabs","azure","espeak"] @constraint(default: "", rule: "opt-in runtime failover — empty means off (unchanged current behavior). When set, tts.FailoverSynthesizer retries once against this backend on ANY error from tts_backend before degrading to the text-only reply. Not none (there is no none Synthesizer to speak of). espeak is the intended target — a free local formant-synthesis 'spare tire', not a quality-competitive primary"),
   eleven_key:       String @constraint(rule: "required when tts_backend=elevenlabs"),
   eleven_voice_a:   String @constraint(rule: "required when tts_backend=elevenlabs (no default — an empty voice id fails at SendVoice)"),
   eleven_voice_b:   String @constraint(rule: "required when tts_backend=elevenlabs"),
@@ -30,6 +31,7 @@ repo is public).
   azure_region:     String @constraint(rule: "required when tts_backend=azure"),
   azure_voice_a:    String @constraint(default: "uk-UA-PolinaNeural", rule: "required when tts_backend=azure"),
   azure_voice_b:    String @constraint(default: "uk-UA-OstapNeural", rule: "required when tts_backend=azure"),
+  espeak_bin:       String @constraint(default: "espeak-ng", rule: "the espeak-ng CLI; used only when tts_backend=espeak or tts_fallback_backend=espeak. Also needs ffmpeg on PATH (WAV -> OGG/Opus transcode), not itself configurable"),
   stt_backend:      Enum["none","local","openai"] @constraint(default: "local", rule: "dev default: local (openai-whisper CLI) is free + needs no key. The client-facing recording (I-10) MUST flip to openai — local Whisper on a CPU box is tens of seconds to minutes and fails REQ-NFR-02 live (B2 substance kept, its default-flip reverted). none disables voice input entirely — a voice message gets a fixed decline reply, no download/transcribe attempted (symmetric with tts_backend=none)"),
   stt_fallback_backend: Enum["","local","openai"] @constraint(default: "", rule: "opt-in runtime failover — empty means off (unchanged current behavior). When set, stt.FailoverTranscriber retries once against this backend on ANY error from stt_backend before degrading to the fixed sttFailLine. Not none (a fallback that does nothing is a config error, rejected at startup)"),
   whisper_bin:      String @constraint(default: "whisper", rule: "the openai-whisper CLI (pipx-installed); used only when stt_backend=local"),
@@ -416,10 +418,15 @@ named constants are `@schema GateParams` in §1.
 ### 4.6 Text-to-speech
 
 27. [REQ-TTS-01] The bot must synthesize the reply text to OGG/Opus mono
-    through a `Synthesizer` interface with two implementations —
-    `elevenlabs` (`eleven_multilingual_v2`, default) and `azure`
-    (`uk-UA-*Neural`) — selected by `tts_backend`.
-    -> [FUN-TTS-01] tts.Synthesizer.Speak(ctx, text, voiceID, lang) ([]byte, error); impls tts.NewElevenLabs, tts.NewAzure chosen by Config.tts_backend
+    through a `Synthesizer` interface with three implementations —
+    `elevenlabs` (`eleven_multilingual_v2`, default), `azure`
+    (`uk-UA-*Neural`), and `espeak` (local espeak-ng formant synthesis,
+    free, robotic — intended as a `tts_fallback_backend` "spare tire",
+    not a primary voice) — selected by `tts_backend`. Optionally,
+    `tts_fallback_backend` (empty by default) names a second backend to
+    retry once before the reply degrades to text-only — no error
+    classification, any error from the primary triggers it.
+    -> [FUN-TTS-01] tts.Synthesizer.Speak(ctx, text, voiceID, lang) ([]byte, error); impls tts.NewElevenLabs, tts.NewAzure, tts.NewEspeak chosen by Config.tts_backend; tts.FailoverSynthesizer wraps both when Config.tts_fallback_backend is set
 
 ### 4.7 Session controls & first contact
 
