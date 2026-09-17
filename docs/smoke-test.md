@@ -144,26 +144,43 @@ topic from the first message, and this section is skipped.*
 
 **0e — a stale topic id (manifest changed under a live session).**
 
-1. `/start`, tap any topic (e.g. `cleaning`), send one message so the
-   session records that topic id.
-2. Stop the bot, remove that topic's entry from `topics/topics.json`,
-   restart, send any message in the same chat.
-   - **Expect:** the picker is shown (the persisted `Session.Topic` no
-     longer resolves) — **not** a crash, **not** an answer from an empty
-     KB / prompt.
-3. Restore the removed entry in `topics/topics.json` afterward.
+1. `/start`, tap **«Клінінг «Тримаємо чистоту»»**, send `Скільки коштує
+   генеральне прибирання двокімнатної?` → wait for a reply
+   (fills `area_m2`, the session records `topic=cleaning`).
+2. Stop the bot, remove the `cleaning` entry from `topics/topics.json`,
+   restart, send `А ще є знижка на миття вікон?` in the same chat.
+   - **Expect:** the picker is shown — "Оберіть тему розмови · Choose a
+     topic:" with four buttons (translation/dental/auto/realestate — no
+     cleaning), **not** "Так, миття вікон коштує…", **not** a crash, no
+     voice reply, no `TurnRecord` in `data/turns.jsonl`. The persisted
+     `Session.Topic=cleaning` no longer resolves (it was removed from the
+     manifest), so the session is treated as "no topic chosen yet" — same
+     code path as first contact.
+3. Tap **«Бюро перекладів «FromToBridge»»**.
+   - **Expect:** Олена's greeting; the cleaning slot `area_m2` is **gone**
+     (slot state is per-topic, and the previous topic is now orphaned; the
+     new topic starts clean — same as switching mid-conversation in §0d).
+4. Restore the removed `cleaning` entry in `topics/topics.json` afterward.
 
 **0f — `/voice` and `/reset` work before a topic is picked.**
 
 1. Full reset, `/start` (picker shows, **do not** tap a topic), then send
    `/voice b`.
    - **Expect:** "Гаразд, тепер другий голос" — the command is **not**
-     swallowed by the picker gate.
-2. Send `/voice a`.
-   - **Expect:** "Гаразд, повертаю перший голос".
-3. Send `/reset`.
-   - **Expect:** "Сесію очищено." — then the next message re-shows the
-     picker.
+     swallowed by the picker gate; the picker does **not** re-appear, no
+     `TurnRecord` in `data/turns.jsonl`.
+2. Tap **«Бюро перекладів «FromToBridge»»** (still under voice B from the
+   previous step), send `Скільки коштує переклад загального тексту?`.
+   - **Expect:** Олена's reply spoken with voice B (the `/voice` choice
+     carried across the pick — it is per-chat, not per-topic, see §0d #5).
+3. Send `/voice a`.
+   - **Expect:** "Гаразд, повертаю перший голос". No topic switch.
+4. Send `/reset`.
+   - **Expect:** "Сесію очищено." — then sending `Привіт` re-shows the
+     picker; voice is back to its `.env` default `AZURE_VOICE_A` (the
+     `/reset` clears `/voice` choice along with slots/history/escalated).
+     `data/turns.jsonl` has **no** new rows from this section (commands
+     + picker re-shown don't count as turns, see §18).
 
 ---
 
