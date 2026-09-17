@@ -47,10 +47,20 @@ var (
 	reABBRcyr = regexp.MustCompile(`(^|[^\p{L}])(ЄДРПОУ|ЄДРПО|ПДВ|НДА)($|[^\p{L}])`)
 	reABBRlat = regexp.MustCompile(`\b(NDA|EET|DHL)\b`)
 
-	// Latin brand names the uk-UA voice reads with English stress
-	// ("PRIvat" not "приВАТ"). Give it the Cyrillic form.
-	reBrand = regexp.MustCompile(`\bPrivat\s?24\b`)
+	// Latin brand names the uk-UA voice mispronounces reading them as plain
+	// Latin letters. Give each its correct Ukrainian phonetic form —
+	// language-agnostic (unlike currency/%/м², these stay Cyrillic even in
+	// an English reply, same as a proper noun keeps its own pronunciation
+	// mid-sentence in any language). Privat24: English stress ("PRIvat" not
+	// "приВАТ"). Skoda: reads as "Скода" (plain transliteration) instead of
+	// the correct "Шкода" (found live, 2026-09-17, auto topic §0d).
+	reBrand = regexp.MustCompile(`(?i)\bPrivat\s?24\b|\bSkoda\b`)
 )
+
+var brandSpoken = map[string]string{
+	"privat24": "Приват24",
+	"skoda":    "Шкода",
+}
 
 var abbrSpoken = map[string]string{
 	"ПДВ":    "пе де ве",
@@ -124,7 +134,10 @@ func Spoken(s, lang string) string {
 	s = reABBRlat.ReplaceAllStringFunc(s, func(m string) string {
 		return abbrSpoken[m]
 	})
-	s = reBrand.ReplaceAllString(s, "Приват24")
+	s = reBrand.ReplaceAllStringFunc(s, func(m string) string {
+		key := strings.ToLower(strings.Join(strings.Fields(m), ""))
+		return brandSpoken[key]
+	})
 
 	// digit cleanup first: drop a trailing zero-only fraction before any
 	// symbol word-substitution runs, so "12.00%" becomes "12%" before the

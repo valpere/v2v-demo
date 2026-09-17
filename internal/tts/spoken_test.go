@@ -29,6 +29,8 @@ func TestSpoken(t *testing.T) {
 		{"доставка кур'єром DHL за кордон", "uk", "доставка кур'єром ді ейч ель за кордон"},
 		{"оплата через Privat24 або картку", "uk", "оплата через Приват24 або картку"},
 		{"pay via Privat 24", "en", "pay via Приват24"},
+		{"Skoda Octavia 2016", "uk", "Шкода Octavia 2016"},
+		{"repairs for a Skoda", "en", "repairs for a Шкода"},
 
 		{"знижка 10–25%", "uk", "знижка 10–25 відсотків"},
 		{"discount 10–25%", "en", "discount 10–25 percent"},
