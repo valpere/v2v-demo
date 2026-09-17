@@ -90,7 +90,8 @@ topic from the first message, and this section is skipped.*
      **one inline button per topic** in manifest order, each label bilingual
      ("Бюро перекладів «FromToBridge» · Translation bureau",
      …). **No** topic greeting yet, no `dialog.Handle` call —
-     `data/turns.jsonl` gets no row.
+     `data/turns.jsonl` isn't created yet (nothing in `data/` at all, on a
+     fresh checkout — the file only appears on the first real turn).
 2. Send `/start` again.
    - **Expect:** the picker again (idempotent).
 
@@ -98,7 +99,7 @@ topic from the first message, and this section is skipped.*
 
 1. Continuing from 0a, **tap** a topic button.
    - **Expect:** that topic's own greeting is sent; the tapped button stops
-     spinning (it was acked). `data/turns.jsonl` still has no row (a pick is
+     spinning (it was acked). `data/turns.jsonl` still doesn't exist (a pick is
      not a dialogue turn). In `data/` there's nothing to check, but the next
      message is answered by that topic's assistant.
 2. Send a normal opening line for that topic.
