@@ -33,7 +33,7 @@ repo is public).
   azure_voice_b:    String @constraint(default: "uk-UA-OstapNeural", rule: "required when tts_backend=azure"),
   espeak_bin:       String @constraint(default: "espeak-ng", rule: "the espeak-ng CLI; used only when tts_backend=espeak or tts_fallback_backend=espeak. Also needs ffmpeg on PATH (WAV -> OGG/Opus transcode), not itself configurable"),
   stt_backend:      Enum["none","local","openai"] @constraint(default: "local", rule: "dev default: local (openai-whisper CLI) is free + needs no key. The client-facing recording (I-10) MUST flip to openai — local Whisper on a CPU box is tens of seconds to minutes and fails REQ-NFR-02 live (B2 substance kept, its default-flip reverted). none disables voice input entirely — a voice message gets a fixed decline reply, no download/transcribe attempted (symmetric with tts_backend=none)"),
-  stt_fallback_backend: Enum["","local","openai"] @constraint(default: "", rule: "opt-in runtime failover — empty means off (unchanged current behavior). When set, stt.FailoverTranscriber retries once against this backend on ANY error from stt_backend before degrading to the fixed sttFailLine. Not none (a fallback that does nothing is a config error, rejected at startup)"),
+  stt_fallback_backend: Enum["","local","openai"] @constraint(default: "", rule: "opt-in runtime failover — empty means off (unchanged current behavior). When set, stt.FailoverTranscriber retries once against this backend on ANY error from stt_backend before degrading to the fixed sttFailLine. Not none (a fallback that does nothing is a config error, rejected at startup). Service-level protection only: local and openai are the same Whisper model lineage, so this does not diversify against a model-level mistranscription/hallucination, only against the openai backend's API/network/quota being unavailable"),
   whisper_bin:      String @constraint(default: "whisper", rule: "the openai-whisper CLI (pipx-installed); used only when stt_backend=local"),
   whisper_model:    String @constraint(default: "turbo", rule: "openai-whisper model NAME (tiny|base|small|medium|large-v3|turbo), auto-downloaded to ~/.cache/whisper on first use; used only when stt_backend=local. turbo = large-v3-turbo: faster than medium on CPU AND better Ukrainian (benchmarked 2026-08-31, Ryzen 7700: turbo 12s vs medium 15s on a 4.6s clip)"),
   whisper_lang:     Enum["auto","uk","en"] @constraint(default: "uk", rule: "pins Whisper's language; default uk because auto-detect drifts short Ukrainian clips to Russian and the model then mirrors it (2026-08-31 test-5_1). auto/en only to test English voice messages"),
@@ -191,7 +191,11 @@ dialogue. Out: everything in §6.
    setting (B2). A failure degrades to a fixed line by default; optionally,
    `stt_fallback_backend` (empty by default) names a second backend to retry
    once before degrading — opt-in, no error classification (any error
-   triggers the fallback).
+   triggers the fallback). **Scope note:** local and openai both run the same
+   Whisper model lineage, so pairing them as fallback/primary only protects
+   against a service-level failure (the openai backend's API/network/quota),
+   not a model-level one (both would likely mishandle the same input the
+   same way — see the `hallucinations` list in internal/stt/stt.go).
    -> [FUN-STT-01] stt.Transcriber.Transcribe(ctx, oggPath, langHint); impls stt.NewLocal (default), stt.NewOpenAI, selected by Config.stt_backend; stt.FailoverTranscriber wraps both when Config.stt_fallback_backend is set
 
 ### 4.3 Dialogue core

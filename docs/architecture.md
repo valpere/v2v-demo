@@ -275,7 +275,7 @@ vectors in Go memory and use the pure-Go driver for everything else.
 
 | Failure | Behaviour |
 |---|---|
-| STT error / empty transcript | tries `stt_fallback_backend` if configured; still failing → text reply: "не розчув, повторіть, будь ласка"; log; no LLM call |
+| STT error / empty transcript | tries `stt_fallback_backend` if configured — service-level only (local/openai are the same Whisper model, not model-diverse); still failing → text reply: "не розчув, повторіть, будь ласка"; log; no LLM call |
 | LLM error / unparseable trailer | tries `dialog_fallback_backend` if configured; still failing → text reply: apology + "з'єдную з менеджером"; mark escalated; log |
 | TTS error | tries `tts_fallback_backend` if configured; still failing → send the reply as **text only**; log |
 | Telegram send error | retry once, then log and drop the turn |

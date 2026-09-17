@@ -1,9 +1,16 @@
 // Package stt transcribes a voice message to text (REQ-STT-01). Two impls,
 // selected by STT_BACKEND in cmd/bot: local (the openai-whisper CLI, the dev
 // default) and openai (whisper-1 API, the mandatory flip for the I-10 client
-// recording). A failure degrades to a fixed line, unless STT_FALLBACK_BACKEND
-// is set — then FailoverTranscriber retries once against a second backend
-// before giving up.
+// recording). Both run the same Whisper model family (OpenAI's own weights,
+// one hosted, one run locally from the same lineage) — a failure degrades to
+// a fixed line, unless STT_FALLBACK_BACKEND pairs the two, which retries once
+// against the other before giving up. That pairing is a **service-level**
+// safety net (the openai backend's API/network/quota is down) — it does NOT
+// diversify against a **model-level** problem (e.g. a Whisper hallucination
+// pattern, see the `hallucinations` list below), since local and openai are
+// the same model under a different runtime and would very likely fail the
+// same way on the same input. A genuinely model-diverse fallback would need
+// a different architecture entirely (e.g. Vosk/Kaldi) — not implemented.
 package stt
 
 import (
