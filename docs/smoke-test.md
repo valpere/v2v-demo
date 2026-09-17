@@ -130,28 +130,38 @@ topic from the first message, and this section is skipped.*
 
 **0d — switching topics mid-conversation.**
 
-1. Pick topic A, fill a slot or two (send a couple of real answers), then
-   send `/start` and **tap topic B**.
-   - **Expect:** topic B's greeting. Then send a message: it's answered by
-     **B**, and B starts from a **clean slate** — none of A's slots,
-     history, or escalated flag carry over. (`/voice` preference **does**
-     carry over — it's per-chat, not per-topic.)
+1. `/reset`, `/start`, tap **«Автосервіс «Подбай-Авто»»** (topic A).
+2. `Стукає щось у передній підвісці на Skoda Octavia 2016` → wait for a
+   reply (fills `car`+`problem`).
+3. `Можна в п'ятницю?` → wait for a reply (fills `preferred_date`).
+4. `/start` again, tap **«Стоматологія «Зуб даю»»** (topic B).
+   - **Expect:** Аліна's greeting (topic B). No trace of the auto request.
+5. `Болить зуб` (something neutral, not auto-shaped).
+   - **Expect:** answered by **Аліна**, not Максим — **B** starts from a
+     **clean slate**: none of A's slots, history, or escalated flag carry
+     over. (`/voice` preference **does** carry over — it's per-chat, not
+     per-topic.)
 
 **0e — a stale topic id (manifest changed under a live session).**
 
-1. Pick a topic, then stop the bot, remove that topic's entry from
-   `topics/topics.json`, restart, and send a message in the same chat.
+1. `/start`, tap any topic (e.g. `cleaning`), send one message so the
+   session records that topic id.
+2. Stop the bot, remove that topic's entry from `topics/topics.json`,
+   restart, send any message in the same chat.
    - **Expect:** the picker is shown (the persisted `Session.Topic` no
      longer resolves) — **not** a crash, **not** an answer from an empty
      KB / prompt.
+3. Restore the removed entry in `topics/topics.json` afterward.
 
 **0f — `/voice` and `/reset` work before a topic is picked.**
 
-1. Full reset, `/start` (picker shows), then send `/voice b`.
-   - **Expect:** the "switched to the second voice" line — the command is
-     **not** swallowed by the picker gate. Then `/voice a` → the "back to
-     the first voice" line.
-2. Send `/reset`.
+1. Full reset, `/start` (picker shows, **do not** tap a topic), then send
+   `/voice b`.
+   - **Expect:** "Гаразд, тепер другий голос" — the command is **not**
+     swallowed by the picker gate.
+2. Send `/voice a`.
+   - **Expect:** "Гаразд, повертаю перший голос".
+3. Send `/reset`.
    - **Expect:** "Сесію очищено." — then the next message re-shows the
      picker.
 
