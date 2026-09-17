@@ -102,9 +102,24 @@ topic from the first message, and this section is skipped.*
      spinning (it was acked). `data/turns.jsonl` still doesn't exist (a pick is
      not a dialogue turn). In `data/` there's nothing to check, but the next
      message is answered by that topic's assistant.
-2. Send a normal opening line for that topic.
-   - **Expect:** a normal reply from that assistant, using **its** KB and
-     persona (not another topic's).
+2. Send a normal opening line for that topic — **use the topic's own line
+   below**, not a generic one, so a wrong answer (another topic's price, or
+   a fabricated one) is unmistakable evidence of KB bleed:
+
+   | Topic | Send | Expect (from **that** topic's KB only) |
+   | -- | -- | -- |
+   | translation | `Скільки коштує переклад загального тексту?` | 12–16 EUR / standard page (general text) |
+   | dental | `Скільки коштує зняти зубний камінь?` | 1 200–2 500 грн |
+   | auto | `Скільки коштує комп'ютерна діагностика?` | 600–1 200 грн |
+   | realestate | `Скільки коштують ваші послуги і хто платить?` | resale ~3–5% one side; rental 50–100% of a month |
+   | cleaning | `Скільки коштує генеральне прибирання двокімнатної?` | 110–150 грн/м² |
+
+   - **Expect:** the price/range above, **never** another topic's figures or
+     a number the KB doesn't have, and **no final total** — a manager
+     confirms the exact figure. This is the mechanics check only (right
+     persona, right KB engaged); the full per-topic sweep — happy path to
+     `lead_ready`, domain escalation, grounding beyond this one question —
+     is in that topic's own `docs/smoke/<id>.md`, not here.
 
 **0c — a message before any topic is picked.**
 
