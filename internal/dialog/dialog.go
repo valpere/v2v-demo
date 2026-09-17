@@ -152,6 +152,7 @@ func responseFormatBlock(spec []SlotSpec) string {
 		b.WriteByte('\n')
 	}
 	b.WriteString("When one message gives several values at once (e.g. \"one-off, Friday, Obolon, 0501234567\"), fill EVERY one of them this turn — re-read the message before you reply so you don't drop a phone number or a date.\n")
+	b.WriteString("Write amounts, percentages, and areas as digits, exactly the shape the knowledge base gives them (e.g. \"600–1 200 грн\", \"50–100%\", \"110–150 м²\") — never spell a number out in words. Drop a trailing \".00\"/\",00\" (say \"12\", not \"12.00\"). The phone number is the one exception: read it back digit by digit on a lead_ready, never as a number.\n")
 	b.WriteString(`signal: "continue" while still collecting or answering; "lead_ready" only on the turn whose reply reads every slot back and tells the client a manager will follow up; "escalate" per your rules.`)
 	return b.String()
 }
