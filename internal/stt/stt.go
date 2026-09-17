@@ -1,7 +1,9 @@
 // Package stt transcribes a voice message to text (REQ-STT-01). Two impls,
 // selected by STT_BACKEND in cmd/bot: local (the openai-whisper CLI, the dev
 // default) and openai (whisper-1 API, the mandatory flip for the I-10 client
-// recording). A failure never auto-switches backends.
+// recording). A failure degrades to a fixed line, unless STT_FALLBACK_BACKEND
+// is set — then FailoverTranscriber retries once against a second backend
+// before giving up.
 package stt
 
 import (

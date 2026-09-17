@@ -31,11 +31,13 @@ repo is public).
   azure_voice_a:    String @constraint(default: "uk-UA-PolinaNeural", rule: "required when tts_backend=azure"),
   azure_voice_b:    String @constraint(default: "uk-UA-OstapNeural", rule: "required when tts_backend=azure"),
   stt_backend:      Enum["none","local","openai"] @constraint(default: "local", rule: "dev default: local (openai-whisper CLI) is free + needs no key. The client-facing recording (I-10) MUST flip to openai — local Whisper on a CPU box is tens of seconds to minutes and fails REQ-NFR-02 live (B2 substance kept, its default-flip reverted). none disables voice input entirely — a voice message gets a fixed decline reply, no download/transcribe attempted (symmetric with tts_backend=none)"),
+  stt_fallback_backend: Enum["","local","openai"] @constraint(default: "", rule: "opt-in runtime failover — empty means off (unchanged current behavior). When set, stt.FailoverTranscriber retries once against this backend on ANY error from stt_backend before degrading to the fixed sttFailLine. Not none (a fallback that does nothing is a config error, rejected at startup)"),
   whisper_bin:      String @constraint(default: "whisper", rule: "the openai-whisper CLI (pipx-installed); used only when stt_backend=local"),
   whisper_model:    String @constraint(default: "turbo", rule: "openai-whisper model NAME (tiny|base|small|medium|large-v3|turbo), auto-downloaded to ~/.cache/whisper on first use; used only when stt_backend=local. turbo = large-v3-turbo: faster than medium on CPU AND better Ukrainian (benchmarked 2026-08-31, Ryzen 7700: turbo 12s vs medium 15s on a 4.6s clip)"),
   whisper_lang:     Enum["auto","uk","en"] @constraint(default: "uk", rule: "pins Whisper's language; default uk because auto-detect drifts short Ukrainian clips to Russian and the model then mirrors it (2026-08-31 test-5_1). auto/en only to test English voice messages"),
   dialog_backend:   Enum["ollama","openai","gemini"] @constraint(default: "ollama", rule: "D-20 dual-mode: dev default ollama gemma4:cloud (free, good uk, latency irrelevant while building); the client-facing artefact (I-10) flips to openai gpt-4.1-mini — the Ollama cloud free tier runs 13–86 s/turn (shared queue), gpt-4.1-mini is ~2–5 s on dedicated infra, same OpenAI key as whisper-1. gpt-4o-mini was tried first but followed the certification/grounding rules poorly (2026-09-03, .engage/conversation-style.md). gemini stays last resort (needs a $25 AI Studio prepay, 429)"),
   dialog_model:     String @constraint(rule: "blank → the backend's default: ollama gemma4:cloud, openai gpt-4.1-mini, gemini gemini-flash-latest; set explicitly to override. gpt-4.1-mini is a protected model — the OpenAI org must be verified and the project must allow it"),
+  dialog_fallback_backend: Enum["","ollama","openai","gemini"] @constraint(default: "", rule: "opt-in runtime failover — empty means off (unchanged current behavior). When set, dialog.FailoverGenerator retries once against this backend on ANY error from dialog_backend before the turn degrades to the fixed apology + escalate"),
   gemini_key:       String @constraint(rule: "required when dialog_backend=gemini"),
   ollama_base_url:  String @constraint(default: "http://localhost:11434"),
   openai_key:       String @constraint(rule: "required when stt_backend=openai (the I-10 client recording) or dialog_backend=openai; not needed for the dev default"),
@@ -184,9 +186,11 @@ dialogue. Out: everything in §6.
    `stt_backend=openai`** (`whisper-1` API, ~2–4 s): even at `turbo`, local
    Whisper on a CPU box (~12 s per short turn, most of it Python + model
    load — the shell-out pays it every turn) alone blows REQ-NFR-02 in a live
-   setting (B2). A failure never auto-switches backends — only the config
-   flag does.
-   -> [FUN-STT-01] stt.Transcriber.Transcribe(ctx, oggPath, langHint); impls stt.NewLocal (default), stt.NewOpenAI, selected by Config.stt_backend
+   setting (B2). A failure degrades to a fixed line by default; optionally,
+   `stt_fallback_backend` (empty by default) names a second backend to retry
+   once before degrading — opt-in, no error classification (any error
+   triggers the fallback).
+   -> [FUN-STT-01] stt.Transcriber.Transcribe(ctx, oggPath, langHint); impls stt.NewLocal (default), stt.NewOpenAI, selected by Config.stt_backend; stt.FailoverTranscriber wraps both when Config.stt_fallback_backend is set
 
 ### 4.3 Dialogue core
 
@@ -227,8 +231,10 @@ dialogue. Out: everything in §6.
 12. [REQ-DLG-07] The LLM call must go through a `Generator` interface with
     three interchangeable implementations — `ollama` (default), `openai`,
     `gemini` — selected by `dialog_backend`; switching must need no code
-    change.
-    -> [FUN-DLG-07] dialog.Generator.Generate(ctx, systemPrompt, history); impls dialog.NewOllama, dialog.NewOpenAI, dialog.NewGemini chosen by Config.dialog_backend
+    change. Optionally, `dialog_fallback_backend` (empty by default) names a
+    second backend to retry once before the call is treated as failed — no
+    error classification, any error from the primary triggers it.
+    -> [FUN-DLG-07] dialog.Generator.Generate(ctx, systemPrompt, history); impls dialog.NewOllama, dialog.NewOpenAI, dialog.NewGemini chosen by Config.dialog_backend; dialog.FailoverGenerator wraps both when Config.dialog_fallback_backend is set
 
 13. [REQ-DLG-08] The model response must be a single JSON object
     `{"reply","slots","signal"}`; `reply` is the only text spoken; a missing

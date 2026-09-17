@@ -100,8 +100,16 @@ func main() {
 	if dialogModel == "" {
 		dialogModel = "(backend default)"
 	}
-	log.Printf("v2v-demo: listening — dialog=%s/%s tts=%s stt=%s sessions=%s tz=%s; %d topic(s)",
-		cfg.DialogBackend, dialogModel, cfg.TTSBackend, cfg.STTBackend, cfg.SessionStore, cfg.Timezone, len(topics))
+	dialogDesc := fmt.Sprintf("%s/%s", cfg.DialogBackend, dialogModel)
+	if cfg.DialogFallbackBackend != "" {
+		dialogDesc += "→" + cfg.DialogFallbackBackend
+	}
+	sttDesc := cfg.STTBackend
+	if cfg.STTFallbackBackend != "" {
+		sttDesc += "→" + cfg.STTFallbackBackend
+	}
+	log.Printf("v2v-demo: listening — dialog=%s tts=%s stt=%s sessions=%s tz=%s; %d topic(s)",
+		dialogDesc, cfg.TTSBackend, sttDesc, cfg.SessionStore, cfg.Timezone, len(topics))
 
 	for u := range updates {
 		a.dispatch(ctx, u)
@@ -147,10 +155,12 @@ func (a *app) chatWorker(ctx context.Context, ch <-chan telegram.Update) {
 	}
 }
 
-// newGenerator selects the dialogue backend (DIALOG_BACKEND). An empty
+// buildGenerator resolves one dialogue backend by name — the step
+// newGenerator needs twice when a fallback is configured (once for
+// DIALOG_BACKEND, once for DIALOG_FALLBACK_BACKEND). An empty
 // DIALOG_MODEL lets each impl pick its own default.
-func newGenerator(cfg Config) (dialog.Generator, error) {
-	switch cfg.DialogBackend {
+func buildGenerator(name string, cfg Config) (dialog.Generator, error) {
+	switch name {
 	case "ollama":
 		return dialog.NewOllama(cfg.OllamaBaseURL, cfg.DialogModel), nil
 	case "openai":
@@ -158,15 +168,31 @@ func newGenerator(cfg Config) (dialog.Generator, error) {
 	case "gemini":
 		return dialog.NewGemini(cfg.GeminiKey, cfg.DialogModel), nil
 	default:
-		return nil, fmt.Errorf("unknown DIALOG_BACKEND %q", cfg.DialogBackend)
+		return nil, fmt.Errorf("unknown DIALOG_BACKEND %q", name)
 	}
 }
 
-// newTranscriber selects the STT backend (STT_BACKEND). "none" returns
-// nil — resolveText then declines any voice message with a fixed line
-// instead of attempting STT.
-func newTranscriber(cfg Config) (stt.Transcriber, error) {
-	switch cfg.STTBackend {
+// newGenerator selects the dialogue backend (DIALOG_BACKEND), wrapping it
+// in a dialog.FailoverGenerator when DIALOG_FALLBACK_BACKEND is set.
+func newGenerator(cfg Config) (dialog.Generator, error) {
+	primary, err := buildGenerator(cfg.DialogBackend, cfg)
+	if err != nil || cfg.DialogFallbackBackend == "" {
+		return primary, err
+	}
+	fallback, err := buildGenerator(cfg.DialogFallbackBackend, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("dialog fallback: %w", err)
+	}
+	return &dialog.FailoverGenerator{Primary: primary, Fallback: fallback}, nil
+}
+
+// buildTranscriber resolves one STT backend by name — the step
+// newTranscriber needs twice when a fallback is configured. "none" is only
+// valid as the primary (resolveText then declines voice messages outright);
+// it makes no sense as a fallback target, so callers building a fallback
+// reject it themselves (see newTranscriber).
+func buildTranscriber(name string, cfg Config) (stt.Transcriber, error) {
+	switch name {
 	case "none":
 		return nil, nil
 	case "local":
@@ -174,8 +200,27 @@ func newTranscriber(cfg Config) (stt.Transcriber, error) {
 	case "openai":
 		return stt.NewOpenAI(cfg.OpenAIKey, ""), nil
 	default:
-		return nil, fmt.Errorf("unknown STT_BACKEND %q", cfg.STTBackend)
+		return nil, fmt.Errorf("unknown STT_BACKEND %q", name)
 	}
+}
+
+// newTranscriber selects the STT backend (STT_BACKEND), wrapping it in a
+// stt.FailoverTranscriber when STT_FALLBACK_BACKEND is set. "none" returns
+// nil — resolveText then declines any voice message with a fixed line
+// instead of attempting STT.
+func newTranscriber(cfg Config) (stt.Transcriber, error) {
+	primary, err := buildTranscriber(cfg.STTBackend, cfg)
+	if err != nil || cfg.STTFallbackBackend == "" {
+		return primary, err
+	}
+	if cfg.STTFallbackBackend == "none" {
+		return nil, fmt.Errorf("STT_FALLBACK_BACKEND cannot be %q", "none")
+	}
+	fallback, err := buildTranscriber(cfg.STTFallbackBackend, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("stt fallback: %w", err)
+	}
+	return &stt.FailoverTranscriber{Primary: primary, Fallback: fallback}, nil
 }
 
 // newSynthesizer selects the TTS backend (TTS_BACKEND). "none" returns nil —

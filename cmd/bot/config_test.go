@@ -12,8 +12,8 @@ var configEnvKeys = []string{
 	"TELEGRAM_BOT_TOKEN",
 	"TTS_BACKEND", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_A", "ELEVENLABS_VOICE_B",
 	"AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION", "AZURE_VOICE_A", "AZURE_VOICE_B",
-	"STT_BACKEND", "WHISPER_BIN", "WHISPER_MODEL", "WHISPER_LANG",
-	"DIALOG_BACKEND", "DIALOG_MODEL", "GEMINI_API_KEY", "OLLAMA_BASE_URL", "OPENAI_API_KEY",
+	"STT_BACKEND", "STT_FALLBACK_BACKEND", "WHISPER_BIN", "WHISPER_MODEL", "WHISPER_LANG",
+	"DIALOG_BACKEND", "DIALOG_FALLBACK_BACKEND", "DIALOG_MODEL", "GEMINI_API_KEY", "OLLAMA_BASE_URL", "OPENAI_API_KEY",
 	"KB_PATH", "SYSTEM_PROMPT_PATH", "GREETING_PATH", "DATA_DIR",
 	"BOT_TIMEZONE",
 	"SESSION_STORE", "SESSION_DB_PATH",
@@ -79,19 +79,21 @@ func TestLoadConfigDefaults(t *testing.T) {
 		t.Fatalf("LoadConfig: %v", err)
 	}
 	checks := map[string][2]string{
-		"TTSBackend":    {cfg.TTSBackend, "elevenlabs"},
-		"STTBackend":    {cfg.STTBackend, "local"},
-		"WhisperModel":  {cfg.WhisperModel, "turbo"},
-		"WhisperLang":   {cfg.WhisperLang, "uk"},
-		"DialogBackend": {cfg.DialogBackend, "ollama"},
-		"DialogModel":   {cfg.DialogModel, ""}, // "" → the generator picks its backend default
-		"OllamaBaseURL": {cfg.OllamaBaseURL, "http://localhost:11434"},
-		"DataDir":       {cfg.DataDir, "./data"},
-		"KBPath":        {cfg.KBPath, "topics/translation/kb.md"},
-		"Timezone":      {cfg.Timezone, "Europe/Kyiv"},
-		"SessionStore":  {cfg.SessionStore, "memory"},
-		"SessionDBPath": {cfg.SessionDBPath, "./data/sessions.db"},
-		"TopicsPath":    {cfg.TopicsPath, "topics/topics.json"},
+		"TTSBackend":            {cfg.TTSBackend, "elevenlabs"},
+		"STTBackend":            {cfg.STTBackend, "local"},
+		"STTFallbackBackend":    {cfg.STTFallbackBackend, ""}, // "" → no failover
+		"WhisperModel":          {cfg.WhisperModel, "turbo"},
+		"WhisperLang":           {cfg.WhisperLang, "uk"},
+		"DialogBackend":         {cfg.DialogBackend, "ollama"},
+		"DialogFallbackBackend": {cfg.DialogFallbackBackend, ""}, // "" → no failover
+		"DialogModel":           {cfg.DialogModel, ""},           // "" → the generator picks its backend default
+		"OllamaBaseURL":         {cfg.OllamaBaseURL, "http://localhost:11434"},
+		"DataDir":               {cfg.DataDir, "./data"},
+		"KBPath":                {cfg.KBPath, "topics/translation/kb.md"},
+		"Timezone":              {cfg.Timezone, "Europe/Kyiv"},
+		"SessionStore":          {cfg.SessionStore, "memory"},
+		"SessionDBPath":         {cfg.SessionDBPath, "./data/sessions.db"},
+		"TopicsPath":            {cfg.TopicsPath, "topics/topics.json"},
 	}
 	for field, cw := range checks {
 		if cw[0] != cw[1] {
@@ -125,6 +127,10 @@ func TestLoadConfigValidation(t *testing.T) {
 		"bad timezone":        minValidEnv + "BOT_TIMEZONE=Mars/Olympus\n",
 		"bad stt backend":     "TELEGRAM_BOT_TOKEN=t\nSTT_BACKEND=carrier-pigeon\n",
 		"bad session store":   "TELEGRAM_BOT_TOKEN=t\nSESSION_STORE=redis\n",
+
+		"stt fallback none":             minValidEnv + "STT_FALLBACK_BACKEND=none\n",
+		"stt fallback openai no key":    minValidEnv + "STT_FALLBACK_BACKEND=openai\n",
+		"dialog fallback gemini no key": minValidEnv + "DIALOG_FALLBACK_BACKEND=gemini\n",
 	}
 	for name, dotenv := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -177,5 +183,31 @@ func TestLoadConfigSTTNone(t *testing.T) {
 	}
 	if cfg.STTBackend != "none" {
 		t.Fatalf("STTBackend = %q", cfg.STTBackend)
+	}
+}
+
+func TestLoadConfigDialogFallback(t *testing.T) {
+	// DIALOG_BACKEND=openai (needs OPENAI_API_KEY, present via minValidEnv)
+	// with DIALOG_FALLBACK_BACKEND=ollama (no key needed) should validate.
+	chdirWithEnv(t, minValidEnv+"OPENAI_API_KEY=k\nDIALOG_BACKEND=openai\nDIALOG_FALLBACK_BACKEND=ollama\n")
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("openai primary + ollama fallback should validate: %v", err)
+	}
+	if cfg.DialogBackend != "openai" || cfg.DialogFallbackBackend != "ollama" {
+		t.Fatalf("got %+v", cfg)
+	}
+}
+
+func TestLoadConfigSTTFallback(t *testing.T) {
+	// STT_BACKEND=openai (needs OPENAI_API_KEY) with STT_FALLBACK_BACKEND=local
+	// (no key needed) should validate.
+	chdirWithEnv(t, minValidEnv+"OPENAI_API_KEY=k\nSTT_BACKEND=openai\nSTT_FALLBACK_BACKEND=local\n")
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("openai primary + local fallback should validate: %v", err)
+	}
+	if cfg.STTBackend != "openai" || cfg.STTFallbackBackend != "local" {
+		t.Fatalf("got %+v", cfg)
 	}
 }

@@ -23,16 +23,18 @@ type Config struct {
 	AzureVoiceA  string
 	AzureVoiceB  string
 
-	STTBackend   string // "local" (default) | "openai"
-	WhisperBin   string
-	WhisperModel string
-	WhisperLang  string // "auto" | "uk" | "en"
+	STTBackend         string // "local" (default) | "openai"
+	STTFallbackBackend string // "" (default, no failover) | "local" | "openai" — tried when STTBackend errors
+	WhisperBin         string
+	WhisperModel       string
+	WhisperLang        string // "auto" | "uk" | "en"
 
-	DialogBackend string // "ollama" (default) | "openai" | "gemini"
-	DialogModel   string
-	GeminiKey     string
-	OllamaBaseURL string
-	OpenAIKey     string
+	DialogBackend         string // "ollama" (default) | "openai" | "gemini"
+	DialogFallbackBackend string // "" (default, no failover) | "ollama" | "openai" | "gemini" — tried when DialogBackend errors
+	DialogModel           string
+	GeminiKey             string
+	OllamaBaseURL         string
+	OpenAIKey             string
 
 	KBPath           string
 	SystemPromptPath string
@@ -80,13 +82,15 @@ func LoadConfig() (Config, error) {
 		AzureVoiceA:  def("AZURE_VOICE_A", "uk-UA-PolinaNeural"),
 		AzureVoiceB:  def("AZURE_VOICE_B", "uk-UA-OstapNeural"),
 
-		STTBackend:   def("STT_BACKEND", "local"),
-		WhisperBin:   def("WHISPER_BIN", "whisper"),
-		WhisperModel: def("WHISPER_MODEL", "turbo"),
-		WhisperLang:  def("WHISPER_LANG", "uk"),
+		STTBackend:         def("STT_BACKEND", "local"),
+		STTFallbackBackend: get("STT_FALLBACK_BACKEND"), // "" → no failover
+		WhisperBin:         def("WHISPER_BIN", "whisper"),
+		WhisperModel:       def("WHISPER_MODEL", "turbo"),
+		WhisperLang:        def("WHISPER_LANG", "uk"),
 
-		DialogBackend: def("DIALOG_BACKEND", "ollama"),
-		DialogModel:   get("DIALOG_MODEL"), // "" → the generator picks its backend default
+		DialogBackend:         def("DIALOG_BACKEND", "ollama"),
+		DialogFallbackBackend: get("DIALOG_FALLBACK_BACKEND"), // "" → no failover
+		DialogModel:           get("DIALOG_MODEL"),            // "" → the generator picks its backend default
 
 		GeminiKey:     get("GEMINI_API_KEY"),
 		OllamaBaseURL: def("OLLAMA_BASE_URL", "http://localhost:11434"),
@@ -111,8 +115,50 @@ func LoadConfig() (Config, error) {
 	return cfg, nil
 }
 
+// requireSTTKey checks the key(s) a given STT backend name needs. envVar
+// names the field in the error message (STT_BACKEND or
+// STT_FALLBACK_BACKEND) so a bad fallback name is diagnosable at startup
+// same as a bad primary one.
+func (c Config) requireSTTKey(name, envVar string) []string {
+	switch name {
+	case "none":
+		return nil // voice input disabled — the bot asks the client to type instead
+	case "local":
+		return nil // no key needed
+	case "openai":
+		if c.OpenAIKey == "" {
+			return []string{"OPENAI_API_KEY is required for " + envVar + "=openai"}
+		}
+		return nil
+	default:
+		return []string{fmt.Sprintf("%s %q: want none|local|openai", envVar, name)}
+	}
+}
+
+// requireDialogKey checks the key(s) a given dialogue backend name needs.
+// See requireSTTKey for the envVar parameter's purpose.
+func (c Config) requireDialogKey(name, envVar string) []string {
+	switch name {
+	case "ollama":
+		return nil // uses OLLAMA_BASE_URL, which has a default
+	case "openai":
+		if c.OpenAIKey == "" {
+			return []string{"OPENAI_API_KEY is required for " + envVar + "=openai"}
+		}
+		return nil
+	case "gemini":
+		if c.GeminiKey == "" {
+			return []string{"GEMINI_API_KEY is required for " + envVar + "=gemini"}
+		}
+		return nil
+	default:
+		return []string{fmt.Sprintf("%s %q: want ollama|openai|gemini", envVar, name)}
+	}
+}
+
 // validate checks the required keys for the selected backends only — the
-// alternates (Azure, OpenAI, Gemini) are not needed for the dev path.
+// alternates (Azure, OpenAI, Gemini) not chosen anywhere (primary or
+// fallback) are not needed for the dev path.
 func (c Config) validate() error {
 	var errs []string
 	if c.TelegramToken == "" {
@@ -140,32 +186,18 @@ func (c Config) validate() error {
 		errs = append(errs, fmt.Sprintf("TTS_BACKEND %q: want none|elevenlabs|azure", c.TTSBackend))
 	}
 
-	switch c.STTBackend {
-	case "none":
-		// voice input disabled — the bot asks the client to type instead
-	case "local":
-		// no key needed
-	case "openai":
-		if c.OpenAIKey == "" {
-			errs = append(errs, "OPENAI_API_KEY is required for STT_BACKEND=openai")
+	errs = append(errs, c.requireSTTKey(c.STTBackend, "STT_BACKEND")...)
+	if c.STTFallbackBackend != "" {
+		if c.STTFallbackBackend == "none" {
+			errs = append(errs, "STT_FALLBACK_BACKEND cannot be none")
+		} else {
+			errs = append(errs, c.requireSTTKey(c.STTFallbackBackend, "STT_FALLBACK_BACKEND")...)
 		}
-	default:
-		errs = append(errs, fmt.Sprintf("STT_BACKEND %q: want none|local|openai", c.STTBackend))
 	}
 
-	switch c.DialogBackend {
-	case "ollama":
-		// uses OLLAMA_BASE_URL, which has a default
-	case "openai":
-		if c.OpenAIKey == "" {
-			errs = append(errs, "OPENAI_API_KEY is required for DIALOG_BACKEND=openai")
-		}
-	case "gemini":
-		if c.GeminiKey == "" {
-			errs = append(errs, "GEMINI_API_KEY is required for DIALOG_BACKEND=gemini")
-		}
-	default:
-		errs = append(errs, fmt.Sprintf("DIALOG_BACKEND %q: want ollama|openai|gemini", c.DialogBackend))
+	errs = append(errs, c.requireDialogKey(c.DialogBackend, "DIALOG_BACKEND")...)
+	if c.DialogFallbackBackend != "" {
+		errs = append(errs, c.requireDialogKey(c.DialogFallbackBackend, "DIALOG_FALLBACK_BACKEND")...)
 	}
 
 	if _, err := time.LoadLocation(c.Timezone); err != nil {
