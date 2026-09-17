@@ -32,11 +32,16 @@ repo is public).
   azure_voice_a:    String @constraint(default: "uk-UA-PolinaNeural", rule: "required when tts_backend=azure"),
   azure_voice_b:    String @constraint(default: "uk-UA-OstapNeural", rule: "required when tts_backend=azure"),
   espeak_bin:       String @constraint(default: "espeak-ng", rule: "the espeak-ng CLI; used only when tts_backend=espeak or tts_fallback_backend=espeak. Also needs ffmpeg on PATH (WAV -> OGG/Opus transcode), not itself configurable"),
-  stt_backend:      Enum["none","local","openai"] @constraint(default: "local", rule: "dev default: local (openai-whisper CLI) is free + needs no key. The client-facing recording (I-10) MUST flip to openai — local Whisper on a CPU box is tens of seconds to minutes and fails REQ-NFR-02 live (B2 substance kept, its default-flip reverted). none disables voice input entirely — a voice message gets a fixed decline reply, no download/transcribe attempted (symmetric with tts_backend=none)"),
-  stt_fallback_backend: Enum["","local","openai"] @constraint(default: "", rule: "opt-in runtime failover — empty means off (unchanged current behavior). When set, stt.FailoverTranscriber retries once against this backend on ANY error from stt_backend before degrading to the fixed sttFailLine. Not none (a fallback that does nothing is a config error, rejected at startup). Service-level protection only: local and openai are the same Whisper model lineage, so this does not diversify against a model-level mistranscription/hallucination, only against the openai backend's API/network/quota being unavailable"),
+  stt_backend:      Enum["none","local","openai","whispercpp"] @constraint(default: "local", rule: "dev default: local (openai-whisper CLI) is free + needs no key. The client-facing recording (I-10) MUST flip to openai — local Whisper on a CPU box is tens of seconds to minutes and fails REQ-NFR-02 live (B2 substance kept, its default-flip reverted). none disables voice input entirely — a voice message gets a fixed decline reply, no download/transcribe attempted (symmetric with tts_backend=none). whispercpp is opt-in (never the default — needs a manually built binary + downloaded model, no pip-install equivalent)"),
+  stt_fallback_backend: Enum["","local","openai","whispercpp"] @constraint(default: "", rule: "opt-in runtime failover — empty means off (unchanged current behavior). When set, stt.FailoverTranscriber retries once against this backend on ANY error from stt_backend before degrading to the fixed sttFailLine. Not none (a fallback that does nothing is a config error, rejected at startup). Service-level protection only: all three backends are the same Whisper model lineage, so this does not diversify against a model-level mistranscription/hallucination, only against the openai backend's API/network/quota being unavailable"),
   whisper_bin:      String @constraint(default: "whisper", rule: "the openai-whisper CLI (pipx-installed); used only when stt_backend=local"),
   whisper_model:    String @constraint(default: "turbo", rule: "openai-whisper model NAME (tiny|base|small|medium|large-v3|turbo), auto-downloaded to ~/.cache/whisper on first use; used only when stt_backend=local. turbo = large-v3-turbo: faster than medium on CPU AND better Ukrainian (benchmarked 2026-08-31, Ryzen 7700: turbo 12s vs medium 15s on a 4.6s clip)"),
   whisper_lang:     Enum["auto","uk","en"] @constraint(default: "uk", rule: "pins Whisper's language; default uk because auto-detect drifts short Ukrainian clips to Russian and the model then mirrors it (2026-08-31 test-5_1). auto/en only to test English voice messages"),
+  whisper_cpp_bin:       String @constraint(default: "whisper-cli", rule: "whisper.cpp's compiled CLI; used only when stt_backend or stt_fallback_backend is whispercpp"),
+  whisper_cpp_model_path: String @constraint(rule: "required when stt_backend or stt_fallback_backend is whispercpp — a downloaded ggml .bin (models/download-ggml-model.sh in the whisper.cpp repo). No default; there is no universally-correct location to assume"),
+  whisper_cpp_threads:   Int @constraint(default: 0, rule: "0 = omit -t, whisper-cli picks its own default. Host-sensitive, NEVER auto-tuned — measured on one host: 4 threads=69.7s, 8=39.7s (best), 16=3m31s (severe contention) on the same clip. Benchmark per host before setting"),
+  whisper_cpp_lang:      Enum["auto","uk","en"] @constraint(default: "auto", rule: "NOT uk like whisper_lang — whisper-cli's own -l default is en, not auto-detect (the opposite of openai-whisper's CLI), so this must never rely on an omitted flag"),
+  ffmpeg_bin:            String @constraint(default: "ffmpeg", rule: "shared by tts_backend=espeak (WAV->OGG) and stt_backend=whispercpp (OGG->WAV — whisper.cpp's built-in decoder cannot read Opus/OGG directly, confirmed against a real opus_48000_128 file)"),
   dialog_backend:   Enum["ollama","openai","gemini"] @constraint(default: "ollama", rule: "D-20 dual-mode: dev default ollama gemma4:cloud (free, good uk, latency irrelevant while building); the client-facing artefact (I-10) flips to openai gpt-4.1-mini — the Ollama cloud free tier runs 13–86 s/turn (shared queue), gpt-4.1-mini is ~2–5 s on dedicated infra, same OpenAI key as whisper-1. gpt-4o-mini was tried first but followed the certification/grounding rules poorly (2026-09-03, .engage/conversation-style.md). gemini stays last resort (needs a $25 AI Studio prepay, 429)"),
   dialog_model:     String @constraint(rule: "blank → the backend's default: ollama gemma4:cloud, openai gpt-4.1-mini, gemini gemini-flash-latest; set explicitly to override. gpt-4.1-mini is a protected model — the OpenAI org must be verified and the project must allow it"),
   dialog_fallback_backend: Enum["","ollama","openai","gemini"] @constraint(default: "", rule: "opt-in runtime failover — empty means off (unchanged current behavior). When set, dialog.FailoverGenerator retries once against this backend on ANY error from dialog_backend before the turn degrades to the fixed apology + escalate"),
@@ -180,23 +185,39 @@ dialogue. Out: everything in §6.
 
 ### 4.2 Speech-to-text
 
-5. [REQ-STT-01] The bot must transcribe a voice message to text. Dual-mode:
-   the dev / code default is `stt_backend=local` — the `openai-whisper` CLI
-   (`whisper`), which ingests the OGG directly via its own ffmpeg call (no
-   manual conversion), model name from `whisper_model` (default `turbo`).
-   Free, no key. The **client-facing recording (I-10) MUST use
-   `stt_backend=openai`** (`whisper-1` API, ~2–4 s): even at `turbo`, local
-   Whisper on a CPU box (~12 s per short turn, most of it Python + model
-   load — the shell-out pays it every turn) alone blows REQ-NFR-02 in a live
-   setting (B2). A failure degrades to a fixed line by default; optionally,
+5. [REQ-STT-01] The bot must transcribe a voice message to text. Three
+   backends: the dev / code default is `stt_backend=local` — the
+   `openai-whisper` CLI (`whisper`), which ingests the OGG directly via its
+   own ffmpeg call (no manual conversion), model name from `whisper_model`
+   (default `turbo`), free, no key. The **client-facing recording (I-10)
+   MUST use `stt_backend=openai`** (`whisper-1` API, ~2–4 s): even at
+   `turbo`, local Whisper on a CPU box (~12 s per short turn, most of it
+   Python + model load — the shell-out pays it every turn) alone blows
+   REQ-NFR-02 in a live setting (B2). `stt_backend=whispercpp` (opt-in, not
+   a default) shells out to whisper.cpp's `whisper-cli` — a compiled
+   binary + a downloaded ggml model file (`whisper_cpp_model_path`, no
+   default, required when selected), no Python/PyTorch. Measured
+   2026-09-17 on a real 102.6s UK+EN clip: with the right `whisper_cpp_threads`
+   it can be meaningfully faster than `local` (39.7s vs 63.0s at the
+   best-found thread count on that host) and needs far less RAM/disk
+   (no PyTorch runtime, native GGML quantization) — but thread count is
+   host-sensitive, NOT "more is better" (4 threads: 69.7s; 8: 39.7s best;
+   16: 3m31s from contention on the same host) — `whisper_cpp_threads`
+   must be benchmarked per host, never auto-tuned. It also cannot decode
+   Opus/OGG directly (confirmed: a real `opus_48000_128` file fails with
+   "failed to read audio data" — its built-in decoder handles WAV/MP3/FLAC
+   only), so the impl converts via `ffmpeg` first, same as
+   `internal/tts/espeak.go` already needs `ffmpeg` for TTS.
+   A failure degrades to a fixed line by default; optionally,
    `stt_fallback_backend` (empty by default) names a second backend to retry
    once before degrading — opt-in, no error classification (any error
-   triggers the fallback). **Scope note:** local and openai both run the same
-   Whisper model lineage, so pairing them as fallback/primary only protects
-   against a service-level failure (the openai backend's API/network/quota),
-   not a model-level one (both would likely mishandle the same input the
-   same way — see the `hallucinations` list in internal/stt/stt.go).
-   -> [FUN-STT-01] stt.Transcriber.Transcribe(ctx, oggPath, langHint); impls stt.NewLocal (default), stt.NewOpenAI, selected by Config.stt_backend; stt.FailoverTranscriber wraps both when Config.stt_fallback_backend is set
+   triggers the fallback). **Scope note:** all three backends run the same
+   Whisper model lineage, so pairing any two as fallback/primary only
+   protects against a service-level failure (the openai backend's
+   API/network/quota), not a model-level one (all would likely mishandle
+   the same input the same way — see the `hallucinations` list in
+   internal/stt/stt.go).
+   -> [FUN-STT-01] stt.Transcriber.Transcribe(ctx, oggPath, langHint); impls stt.NewLocal (default), stt.NewOpenAI, stt.NewWhisperCPP, selected by Config.stt_backend; stt.FailoverTranscriber wraps two when Config.stt_fallback_backend is set
 
 ### 4.3 Dialogue core
 

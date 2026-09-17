@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -24,12 +25,17 @@ type Config struct {
 	AzureVoiceA        string
 	AzureVoiceB        string
 	EspeakBin          string // default "espeak-ng"
+	FfmpegBin          string // default "ffmpeg" — shared by espeak and whispercpp
 
-	STTBackend         string // "local" (default) | "openai"
-	STTFallbackBackend string // "" (default, no failover) | "local" | "openai" — tried when STTBackend errors
-	WhisperBin         string
-	WhisperModel       string
-	WhisperLang        string // "auto" | "uk" | "en"
+	STTBackend          string // "local" (default) | "openai" | "whispercpp"
+	STTFallbackBackend  string // "" (default, no failover) | "local" | "openai" | "whispercpp" — tried when STTBackend errors
+	WhisperBin          string
+	WhisperModel        string
+	WhisperLang         string // "auto" | "uk" | "en"
+	WhisperCPPBin       string // default "whisper-cli"
+	WhisperCPPModelPath string // no default — required when STTBackend or STTFallbackBackend is "whispercpp"
+	WhisperCPPThreads   int    // default 0 (omit -t, whisper-cli's own default) — host-sensitive, benchmark before setting
+	WhisperCPPLang      string // default "auto" — NOT "uk" like WhisperLang; whisper-cli's own -l default is "en", not auto-detect
 
 	DialogBackend         string // "ollama" (default) | "openai" | "gemini"
 	DialogFallbackBackend string // "" (default, no failover) | "ollama" | "openai" | "gemini" — tried when DialogBackend errors
@@ -72,6 +78,18 @@ func LoadConfig() (Config, error) {
 		return fallback
 	}
 
+	// WHISPER_CPP_THREADS: 0 (unset) means "omit -t, let whisper-cli pick
+	// its own default" — host-sensitive, never auto-tuned. See
+	// Config.WhisperCPPThreads's doc comment.
+	whisperCPPThreads := 0
+	if v := get("WHISPER_CPP_THREADS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return Config{}, fmt.Errorf("config: WHISPER_CPP_THREADS %q: must be a non-negative integer", v)
+		}
+		whisperCPPThreads = n
+	}
+
 	cfg := Config{
 		TelegramToken: get("TELEGRAM_BOT_TOKEN"),
 
@@ -85,12 +103,17 @@ func LoadConfig() (Config, error) {
 		AzureVoiceA:        def("AZURE_VOICE_A", "uk-UA-PolinaNeural"),
 		AzureVoiceB:        def("AZURE_VOICE_B", "uk-UA-OstapNeural"),
 		EspeakBin:          def("ESPEAK_BIN", "espeak-ng"),
+		FfmpegBin:          def("FFMPEG_BIN", "ffmpeg"),
 
-		STTBackend:         def("STT_BACKEND", "local"),
-		STTFallbackBackend: get("STT_FALLBACK_BACKEND"), // "" → no failover
-		WhisperBin:         def("WHISPER_BIN", "whisper"),
-		WhisperModel:       def("WHISPER_MODEL", "turbo"),
-		WhisperLang:        def("WHISPER_LANG", "uk"),
+		STTBackend:          def("STT_BACKEND", "local"),
+		STTFallbackBackend:  get("STT_FALLBACK_BACKEND"), // "" → no failover
+		WhisperBin:          def("WHISPER_BIN", "whisper"),
+		WhisperModel:        def("WHISPER_MODEL", "turbo"),
+		WhisperLang:         def("WHISPER_LANG", "uk"),
+		WhisperCPPBin:       def("WHISPER_CPP_BIN", "whisper-cli"),
+		WhisperCPPModelPath: get("WHISPER_CPP_MODEL_PATH"),
+		WhisperCPPThreads:   whisperCPPThreads,
+		WhisperCPPLang:      def("WHISPER_CPP_LANG", "auto"),
 
 		DialogBackend:         def("DIALOG_BACKEND", "ollama"),
 		DialogFallbackBackend: get("DIALOG_FALLBACK_BACKEND"), // "" → no failover
@@ -167,8 +190,13 @@ func (c Config) requireSTTKey(name, envVar string) []string {
 			return []string{"OPENAI_API_KEY is required for " + envVar + "=openai"}
 		}
 		return nil
+	case "whispercpp":
+		if c.WhisperCPPModelPath == "" {
+			return []string{"WHISPER_CPP_MODEL_PATH is required for " + envVar + "=whispercpp"}
+		}
+		return nil
 	default:
-		return []string{fmt.Sprintf("%s %q: want none|local|openai", envVar, name)}
+		return []string{fmt.Sprintf("%s %q: want none|local|openai|whispercpp", envVar, name)}
 	}
 }
 

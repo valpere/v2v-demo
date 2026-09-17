@@ -16,16 +16,21 @@ import (
 // elevenlabs/azure, not a primary voice.
 type espeakSynth struct {
 	bin       string // espeak-ng binary, default "espeak-ng"
-	ffmpegBin string // default "ffmpeg" — no config knob, matches
-	// minions/i10-sample's existing hardcoded "ffmpeg"
+	ffmpegBin string // default "ffmpeg" — shared with stt.whisperCPP's dependency
 }
 
-// NewEspeak builds the espeak-ng Synthesizer.
-func NewEspeak(bin string) Synthesizer {
+// NewEspeak builds the espeak-ng Synthesizer. ffmpegBin == "" defaults to
+// "ffmpeg" (the same binary internal/stt's whispercpp backend needs, one
+// FFMPEG_BIN config knob shared by both rather than duplicating an
+// unconfigurable constant in each).
+func NewEspeak(bin, ffmpegBin string) Synthesizer {
 	if bin == "" {
 		bin = "espeak-ng"
 	}
-	return &espeakSynth{bin: bin, ffmpegBin: "ffmpeg"}
+	if ffmpegBin == "" {
+		ffmpegBin = "ffmpeg"
+	}
+	return &espeakSynth{bin: bin, ffmpegBin: ffmpegBin}
 }
 
 // Speak ignores voiceID — eSpeak's "voice" concept is the language, not a

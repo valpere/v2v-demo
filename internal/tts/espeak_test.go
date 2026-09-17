@@ -159,7 +159,7 @@ func TestEspeakSpeakFfmpegFails(t *testing.T) {
 }
 
 func TestNewEspeakDefault(t *testing.T) {
-	e := NewEspeak("").(*espeakSynth)
+	e := NewEspeak("", "").(*espeakSynth)
 	if e.bin != "espeak-ng" {
 		t.Errorf("bin = %q, want espeak-ng", e.bin)
 	}

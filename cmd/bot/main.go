@@ -203,6 +203,9 @@ func buildTranscriber(name string, cfg Config) (stt.Transcriber, error) {
 		return stt.NewLocal(cfg.WhisperBin, cfg.WhisperModel, cfg.WhisperLang), nil
 	case "openai":
 		return stt.NewOpenAI(cfg.OpenAIKey, ""), nil
+	case "whispercpp":
+		return stt.NewWhisperCPP(cfg.WhisperCPPBin, cfg.FfmpegBin, cfg.WhisperCPPModelPath,
+			cfg.WhisperCPPThreads, cfg.WhisperCPPLang), nil
 	default:
 		return nil, fmt.Errorf("unknown STT_BACKEND %q", name)
 	}
@@ -241,7 +244,7 @@ func buildSynthesizer(name string, cfg Config) (tts.Synthesizer, error) {
 	case "azure":
 		return tts.NewAzure(cfg.AzureKey, cfg.AzureRegion), nil
 	case "espeak":
-		return tts.NewEspeak(cfg.EspeakBin), nil
+		return tts.NewEspeak(cfg.EspeakBin, cfg.FfmpegBin), nil
 	default:
 		return nil, fmt.Errorf("unknown TTS_BACKEND %q", name)
 	}

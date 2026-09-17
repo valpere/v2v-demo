@@ -11,8 +11,9 @@ import (
 var configEnvKeys = []string{
 	"TELEGRAM_BOT_TOKEN",
 	"TTS_BACKEND", "TTS_FALLBACK_BACKEND", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_A", "ELEVENLABS_VOICE_B",
-	"AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION", "AZURE_VOICE_A", "AZURE_VOICE_B", "ESPEAK_BIN",
+	"AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION", "AZURE_VOICE_A", "AZURE_VOICE_B", "ESPEAK_BIN", "FFMPEG_BIN",
 	"STT_BACKEND", "STT_FALLBACK_BACKEND", "WHISPER_BIN", "WHISPER_MODEL", "WHISPER_LANG",
+	"WHISPER_CPP_BIN", "WHISPER_CPP_MODEL_PATH", "WHISPER_CPP_THREADS", "WHISPER_CPP_LANG",
 	"DIALOG_BACKEND", "DIALOG_FALLBACK_BACKEND", "DIALOG_MODEL", "GEMINI_API_KEY", "OLLAMA_BASE_URL", "OPENAI_API_KEY",
 	"KB_PATH", "SYSTEM_PROMPT_PATH", "GREETING_PATH", "DATA_DIR",
 	"BOT_TIMEZONE",
@@ -82,10 +83,14 @@ func TestLoadConfigDefaults(t *testing.T) {
 		"TTSBackend":            {cfg.TTSBackend, "elevenlabs"},
 		"TTSFallbackBackend":    {cfg.TTSFallbackBackend, ""}, // "" → no failover
 		"EspeakBin":             {cfg.EspeakBin, "espeak-ng"},
+		"FfmpegBin":             {cfg.FfmpegBin, "ffmpeg"},
 		"STTBackend":            {cfg.STTBackend, "local"},
 		"STTFallbackBackend":    {cfg.STTFallbackBackend, ""}, // "" → no failover
 		"WhisperModel":          {cfg.WhisperModel, "turbo"},
 		"WhisperLang":           {cfg.WhisperLang, "uk"},
+		"WhisperCPPBin":         {cfg.WhisperCPPBin, "whisper-cli"},
+		"WhisperCPPModelPath":   {cfg.WhisperCPPModelPath, ""}, // no default — required only when selected
+		"WhisperCPPLang":        {cfg.WhisperCPPLang, "auto"},  // NOT "uk" — see the field's doc comment
 		"DialogBackend":         {cfg.DialogBackend, "ollama"},
 		"DialogFallbackBackend": {cfg.DialogFallbackBackend, ""}, // "" → no failover
 		"DialogModel":           {cfg.DialogModel, ""},           // "" → the generator picks its backend default
@@ -101,6 +106,9 @@ func TestLoadConfigDefaults(t *testing.T) {
 		if cw[0] != cw[1] {
 			t.Errorf("%s = %q, want %q", field, cw[0], cw[1])
 		}
+	}
+	if cfg.WhisperCPPThreads != 0 {
+		t.Errorf("WhisperCPPThreads = %d, want 0 (omit -t by default)", cfg.WhisperCPPThreads)
 	}
 }
 
@@ -130,11 +138,14 @@ func TestLoadConfigValidation(t *testing.T) {
 		"bad stt backend":     "TELEGRAM_BOT_TOKEN=t\nSTT_BACKEND=carrier-pigeon\n",
 		"bad session store":   "TELEGRAM_BOT_TOKEN=t\nSESSION_STORE=redis\n",
 
-		"stt fallback none":             minValidEnv + "STT_FALLBACK_BACKEND=none\n",
-		"stt fallback openai no key":    minValidEnv + "STT_FALLBACK_BACKEND=openai\n",
-		"dialog fallback gemini no key": minValidEnv + "DIALOG_FALLBACK_BACKEND=gemini\n",
-		"tts fallback none":             minValidEnv + "TTS_FALLBACK_BACKEND=none\n",
-		"tts fallback azure no key":     minValidEnv + "TTS_FALLBACK_BACKEND=azure\n",
+		"stt fallback none":              minValidEnv + "STT_FALLBACK_BACKEND=none\n",
+		"stt fallback openai no key":     minValidEnv + "STT_FALLBACK_BACKEND=openai\n",
+		"dialog fallback gemini no key":  minValidEnv + "DIALOG_FALLBACK_BACKEND=gemini\n",
+		"tts fallback none":              minValidEnv + "TTS_FALLBACK_BACKEND=none\n",
+		"tts fallback azure no key":      minValidEnv + "TTS_FALLBACK_BACKEND=azure\n",
+		"whispercpp no model path":       minValidEnv + "STT_BACKEND=whispercpp\n",
+		"whispercpp bad threads":         minValidEnv + "WHISPER_CPP_THREADS=-1\n",
+		"whispercpp non-numeric threads": minValidEnv + "WHISPER_CPP_THREADS=abc\n",
 	}
 	for name, dotenv := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -226,5 +237,22 @@ func TestLoadConfigTTSFallback(t *testing.T) {
 	}
 	if cfg.TTSBackend != "elevenlabs" || cfg.TTSFallbackBackend != "espeak" {
 		t.Fatalf("got %+v", cfg)
+	}
+}
+
+func TestLoadConfigWhisperCPP(t *testing.T) {
+	chdirWithEnv(t, minValidEnv+"STT_BACKEND=whispercpp\nWHISPER_CPP_MODEL_PATH=/models/ggml-large-v3-turbo.bin\nWHISPER_CPP_THREADS=8\n")
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("whispercpp with a model path should validate: %v", err)
+	}
+	if cfg.STTBackend != "whispercpp" {
+		t.Fatalf("got %+v", cfg)
+	}
+	if cfg.WhisperCPPModelPath != "/models/ggml-large-v3-turbo.bin" {
+		t.Fatalf("got %+v", cfg)
+	}
+	if cfg.WhisperCPPThreads != 8 {
+		t.Fatalf("WhisperCPPThreads = %d, want 8", cfg.WhisperCPPThreads)
 	}
 }

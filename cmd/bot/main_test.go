@@ -89,6 +89,23 @@ func TestNewTranscriberFallbackNoneRejected(t *testing.T) {
 	}
 }
 
+func TestBuildTranscriberWhisperCPP(t *testing.T) {
+	cfg := Config{
+		WhisperCPPBin:       "whisper-cli",
+		WhisperCPPModelPath: "/models/ggml-large-v3-turbo.bin",
+		WhisperCPPThreads:   8,
+		WhisperCPPLang:      "auto",
+		FfmpegBin:           "ffmpeg",
+	}
+	tr, err := buildTranscriber("whispercpp", cfg)
+	if err != nil {
+		t.Fatalf("buildTranscriber: %v", err)
+	}
+	if tr == nil {
+		t.Fatal("buildTranscriber(\"whispercpp\", ...) returned a nil Transcriber")
+	}
+}
+
 func TestNewSynthesizerNoFallback(t *testing.T) {
 	cfg := Config{
 		TTSBackend:   "elevenlabs",

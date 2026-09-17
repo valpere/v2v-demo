@@ -1,16 +1,22 @@
-// Package stt transcribes a voice message to text (REQ-STT-01). Two impls,
-// selected by STT_BACKEND in cmd/bot: local (the openai-whisper CLI, the dev
-// default) and openai (whisper-1 API, the mandatory flip for the I-10 client
-// recording). Both run the same Whisper model family (OpenAI's own weights,
-// one hosted, one run locally from the same lineage) — a failure degrades to
-// a fixed line, unless STT_FALLBACK_BACKEND pairs the two, which retries once
-// against the other before giving up. That pairing is a **service-level**
-// safety net (the openai backend's API/network/quota is down) — it does NOT
-// diversify against a **model-level** problem (e.g. a Whisper hallucination
-// pattern, see the `hallucinations` list below), since local and openai are
-// the same model under a different runtime and would very likely fail the
-// same way on the same input. A genuinely model-diverse fallback would need
-// a different architecture entirely (e.g. Vosk/Kaldi) — not implemented.
+// Package stt transcribes a voice message to text (REQ-STT-01). Three
+// impls, selected by STT_BACKEND in cmd/bot: local (the openai-whisper
+// CLI, the dev default), openai (whisper-1 API, the mandatory flip for the
+// I-10 client recording), and whispercpp (whisper.cpp's whisper-cli — a
+// compiled binary + a downloaded ggml model file, no Python/PyTorch
+// runtime; opt-in, not the default, since neither the binary nor the model
+// exist on a fresh checkout the way local/openai's dependencies do).
+//
+// All three run the same Whisper model family (OpenAI's own weights, one
+// hosted, two run locally from the same lineage) — a failure degrades to a
+// fixed line, unless STT_FALLBACK_BACKEND pairs two of them, which retries
+// once against the other before giving up. That pairing is a
+// **service-level** safety net (the openai backend's API/network/quota is
+// down) — it does NOT diversify against a **model-level** problem (e.g. a
+// Whisper hallucination pattern, see the `hallucinations` list below),
+// since all three are the same model under a different runtime and would
+// very likely fail the same way on the same input. A genuinely
+// model-diverse fallback would need a different architecture entirely
+// (e.g. Vosk/Kaldi) — not implemented.
 package stt
 
 import (
