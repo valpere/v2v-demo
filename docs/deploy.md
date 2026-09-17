@@ -17,8 +17,10 @@ and are not worth running on a free instance for a demo.
    charged for Always Free resources).
 2. Compute → Instances → **Create instance**.
    - Image: **Ubuntu 24.04** (aarch64/ARM).
-   - Shape: **VM.Standard.A1.Flex** — 1 OCPU / 6 GB is plenty for this bot;
-     you can go up to 4/24 at no cost.
+   - Shape: **VM.Standard.A1.Flex** — 1 OCPU / 6 GB is plenty for this bot
+     alone; you can go up to 4/24 at no cost. If you're also co-hosting
+     `shopogoda` (§7), take the full 4 OCPU / 24 GB up front — still $0,
+     and its Postgres + Redis want the headroom.
    - Keep the default VCN/subnet; add your SSH public key.
 3. Wait for it to go **Running**, note the public IP.
 
@@ -119,6 +121,68 @@ scp bot ubuntu@<public-ip>:~/v2v-demo/bot
 ssh ubuntu@<public-ip> sudo systemctl restart v2v-demo
 ```
 
+## 7. Co-hosting a second bot (shopogoda)
+
+Optional: the same Always Free instance has room for `shopogoda`
+(`~/wrk/projects/telegram_bot/shopogoda/`) alongside `v2v-demo` — a
+completely separate project/repo, own Telegram bot token, own directory.
+Nothing below touches that repo's own files; it only says how to *run* its
+existing `docker/docker-compose.prod.yml` on this box.
+
+**Needs Docker** (v2v-demo doesn't; shopogoda's Postgres + Redis do):
+
+```bash
+sudo apt install -y docker.io docker-compose-v2
+sudo usermod -aG docker $USER   # log out/in once for this to take effect
+```
+
+**Get its own copy onto the box**, in its own directory (don't nest it
+under `~/v2v-demo/`):
+
+```bash
+git clone https://github.com/valpere/shopogoda.git ~/shopogoda
+```
+
+**Config.** `docker/docker-compose.prod.yml` reads `../.env.production` for
+the bot container, and interpolates a few `${VAR}` host vars for
+Postgres/Grafana straight from a `.env` file **next to the compose file**
+(`~/shopogoda/docker/.env`) — compose parses the whole file up front, so
+`DB_PASSWORD` and `GRAFANA_ADMIN_PASSWORD` must be set there even for
+services you don't start (their `:?required` guards fail at parse time
+otherwise):
+
+```bash
+scp .env.production ubuntu@<public-ip>:~/shopogoda/.env.production   # its own bot token, DB/Redis creds
+# ~/shopogoda/docker/.env — DB_PASSWORD=... and GRAFANA_ADMIN_PASSWORD=... at minimum
+```
+
+**Start only what a demo needs** — skip Prometheus/Grafana/Jaeger (extra
+RAM, extra ports to reason about, no value for a demo). `docker compose up`
+lets you name a subset of services and it starts only those, leaving the
+rest defined but not run:
+
+```bash
+cd ~/shopogoda/docker
+docker compose -f docker-compose.prod.yml up -d bot postgres redis
+```
+
+**Ports.** If `BOT_WEBHOOK_URL` is unset, shopogoda long-polls like
+v2v-demo (checked in `internal/config/config.go`) and port 8080 is only its
+internal `/health` endpoint — leave it unpublished / firewalled, same "no
+inbound port" posture as §1. Postgres (5432) and Redis (6379) only need to
+be reachable from the bot container on the compose network — don't publish
+them to the host's public interface. Switching shopogoda to real webhook
+mode (TLS reverse proxy, opening 8080) is a bigger step, out of scope here.
+
+**Updating:**
+
+```bash
+ssh ubuntu@<public-ip>
+cd ~/shopogoda && git pull
+cd docker && docker compose -f docker-compose.prod.yml build bot \
+  && docker compose -f docker-compose.prod.yml up -d bot postgres redis
+```
+
 ## Cost & limits
 
 - **$0** as long as the instance stays within Always Free limits (1 A1
@@ -126,6 +190,9 @@ ssh ubuntu@<public-ip> sudo systemctl restart v2v-demo
   Oracle does reclaim idle Always Free instances after long periods of
   zero activity — a long-polling bot with real traffic avoids that, but if
   the demo goes quiet for weeks, log in and touch it.
+- Co-hosting shopogoda (§7) counts against the same 4 OCPU/24 GB ceiling —
+  bot + Postgres + Redis is modest, but skipping its observability stack
+  (Prometheus/Grafana/Jaeger) keeps real headroom for v2v-demo alongside it.
 - If this ever needs to grow past the free tier (local whisper.cpp/Ollama,
   higher traffic), the cheapest paid step up is Hetzner CX22
   (~€4.2/month) — same systemd setup, no bot-side changes.
