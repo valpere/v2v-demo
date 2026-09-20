@@ -22,7 +22,7 @@ repo is public).
 
 @schema Config {
   telegram_token:   String @constraint(rule: "required"),
-  tts_backend:      Enum["elevenlabs","azure","espeak"] @constraint(default: "elevenlabs"),
+  tts_backend:      Enum["elevenlabs","azure","espeak","none"] @constraint(default: "elevenlabs"),
   tts_fallback_backend: Enum["","elevenlabs","azure","espeak"] @constraint(default: "", rule: "opt-in runtime failover — empty means off (unchanged current behavior). When set, tts.FailoverSynthesizer retries once against this backend on ANY error from tts_backend before degrading to the text-only reply. Not none (there is no none Synthesizer to speak of). espeak is the intended target — a free local formant-synthesis 'spare tire', not a quality-competitive primary"),
   eleven_key:       String @constraint(rule: "required when tts_backend=elevenlabs"),
   eleven_voice_a:   String @constraint(rule: "required when tts_backend=elevenlabs (no default — an empty voice id fails at SendVoice)"),
