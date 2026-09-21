@@ -317,7 +317,16 @@ type Config struct {
 
 // topics/topics.json: a JSON array of these.
 type topicManifestEntry struct {
-	ID, Title, KB, SystemPrompt, Greeting string
+	ID           string             `json:"id"`
+	Title        string             `json:"title"`     // picker button label (Ukrainian / primary)
+	TitleEN      string             `json:"title_en"`  // optional English half of the button label; blank -> Title only
+	KB           string             `json:"kb"`
+	SystemPrompt string             `json:"system_prompt"`
+	Greeting     string             `json:"greeting"`
+	ScopeUK      string             `json:"scope_uk"`  // "Я допомагаю лише з …" — the clarify line's scope sentence
+	ScopeEN      string             `json:"scope_en"`
+	Slots        []dialog.SlotSpec  `json:"slots"`     // what this assistant collects, in ask order
+	Office       dialog.OfficeHours `json:"office"`    // business hours for the CURRENT TIME block; zero = Mon–Fri 09:00–18:00
 }
 
 // topicBundle is a fully loaded topic — its own KB, persona and greeting.
