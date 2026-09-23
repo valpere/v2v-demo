@@ -27,8 +27,9 @@ FDA) matter most.
 ## 1. Greeting
 
 1. `/reset`, `/start`, tap the **lyapko** button.
-   - **Expect:** the bilingual greeting (UK "Вітаю! Мене звати Олена…" then
-     EN "Hi! I'm Elena…"), incl. the demo/logging notice. No turn record.
+   - **Expect:** the bilingual greeting, **EN first** (US-market audience):
+     "Hi! I'm Elena…" then UK "Вітаю! Мене звати Олена…", each with the
+     unofficial-demo / logging notice. No turn record.
 2. `Доброго дня` → a warm one-liner moving to "що вас турбує?", **not** a
    second self-introduction.
 
