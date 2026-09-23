@@ -79,8 +79,8 @@ internal/store/     store.go — append-only JSONL turn + lead records (DATA_DIR
                     table). cmd/bot/session_mem.go is the in-process default.
 
 topics/topics.json  the topic manifest (id/title/paths/scope/slots/office per
-                   topic); ships with five topics (translation + dental + auto
-                   + realestate + cleaning) — the picker is on by default;
+                   topic); ships with six topics (translation + dental + auto
+                   + realestate + cleaning + lyapko) — the picker is on by default;
                    a single-entry manifest opts out
 topics/translation/system.md   the assistant persona + conversation playbook +
                    hard rules + slot-filling semantics (the JSON shape + key list

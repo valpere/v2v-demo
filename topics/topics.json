@@ -97,5 +97,22 @@
       { "key": "district", "ask_uk": "який район Києва", "ask_en": "which Kyiv district", "rule": "district only; full address goes to the manager" },
       { "key": "contact", "ask_uk": "ваш номер телефону", "ask_en": "a phone number", "rule": "phone for the manager callback" }
     ]
+  },
+  {
+    "id": "lyapko",
+    "title": "Магазин аплікаторів «Lyapko Shop»",
+    "title_en": "«Lyapko Shop» Acupressure Advisor",
+    "kb": "topics/lyapko/kb.md",
+    "system_prompt": "topics/lyapko/system.md",
+    "greeting": "topics/lyapko/greeting.md",
+    "scope_uk": "Я допомагаю підібрати аплікатор Ляпка за симптомами та відповідаю на запитання про товари магазину.",
+    "scope_en": "I help you choose the right Lyapko acupressure applicator for your symptoms and answer product questions.",
+    "office": { "label": "Online 24/7 (Worldwide Shipping)", "weekday": [0, 24], "sat": [0, 24], "sun": [0, 24] },
+    "slots": [
+      { "key": "symptom", "ask_uk": "що саме вас турбує (спина, шия, сон, омолодження)", "ask_en": "what symptom or goal you need help with (back, neck, sleep, facial)", "rule": "lower back|sciatica|neck|headache|insomnia|facial|cellulite|feet" },
+      { "key": "skin_type", "ask_uk": "яка у вас чутливість шкіри або комплекція", "ask_en": "your skin sensitivity or build", "rule": "delicate/beginner (4.9)|regular (5.8)|thick/athletic (6.2/7.0)" },
+      { "key": "format", "ask_uk": "який формат зручніший — килимок, ручний валик чи пояс", "ask_en": "preferred format — mat, roller, or wearable belt", "rule": "mat|roller|belt|insoles" },
+      { "key": "contact", "ask_uk": "ваш email або телефон для оформлення", "ask_en": "your email or phone to receive the product link", "rule": "email or phone" }
+    ]
   }
 ]

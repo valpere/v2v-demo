@@ -15,6 +15,7 @@ scenario sweep for each assistant lives in its own file under `docs/smoke/`:
 | Автосервіс «Подбай-Авто» (auto) | `docs/smoke/auto.md` | yes |
 | Агенція «Ваші Ключі» (realestate) | `docs/smoke/realestate.md` | yes |
 | Клінінг «Тримаємо чистоту» (cleaning) | `docs/smoke/cleaning.md` | yes |
+| Магазин аплікаторів «Lyapko Shop» (lyapko) | `docs/smoke/lyapko.md` | yes |
 
 **How to read a scenario.** Each step says what to **send** and what to
 **expect** — compare against that. `[R]` = a regression case for a bug
@@ -113,6 +114,7 @@ topic from the first message, and this section is skipped.*
    | auto | `Скільки коштує комп'ютерна діагностика?` | 600–1 200 грн |
    | realestate | `Скільки коштують ваші послуги і хто платить?` | resale ~3–5% one side; rental 50–100% of a month |
    | cleaning | `Скільки коштує генеральне прибирання двокімнатної?` | 110–150 грн/м² |
+   | lyapko | `Скільки коштує Big Pad?` | Big Pad 6.2 — $146 (7.0 — $122), USD, no other topic's figures |
 
    - **Expect:** the price/range above, **never** another topic's figures or
      a number the KB doesn't have, and **no final total** — a manager
