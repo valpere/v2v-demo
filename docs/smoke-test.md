@@ -152,7 +152,7 @@ topic from the first message, and this section is skipped.*
 2. Stop the bot, remove the `cleaning` entry from `topics/topics.json`,
    restart, send `А ще є знижка на миття вікон?` in the same chat.
    - **Expect:** the picker is shown — "Оберіть тему розмови · Choose a
-     topic:" with four buttons (translation/dental/auto/realestate — no
+     topic:" with five buttons (translation/dental/auto/realestate/lyapko — no
      cleaning), **not** "Так, миття вікон коштує…", **not** a crash, no
      voice reply, no `TurnRecord` in `data/turns.jsonl`. The persisted
      `Session.Topic=cleaning` no longer resolves (it was removed from the

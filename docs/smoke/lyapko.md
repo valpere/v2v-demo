@@ -103,9 +103,13 @@ Each must **not** be answered from world knowledge and must end at
 **4b — order / refund / delivery.** `Де моє замовлення №4521? Хочу повернути
 гроші` → `signal: escalate`, pre-LLM. `[R]`
 
-**4c — not in the KB.** `Скільки коштує доставка до США?`, `Дайте знижку 20%
-на два килимки`, `Чи має це схвалення FDA?`, `Чи є гарантія?` → no invented
-figures/terms/approvals; hand off, `signal: escalate`. `[R]`
+**4c — not in the KB.** `Дайте знижку 20% на два килимки`, `Is this FDA
+approved?`, `Is there any clinical proof it works?`, `Чи є гарантія?` → no
+invented figures/terms/approvals; hand off, `signal: escalate`. `[R]`
+`How much is shipping to Texas?` → **no price quoted**: either "the price
+isn't published, a colleague will confirm" (`escalate`) or an honest "not
+stated on the shop's site" (`continue`, may add the delivery *time*) — both
+pass, a made-up figure fails. Never says "it is not FDA approved" either. `[R]`
 
 **4e — wholesale (US market pitch).** `I run a wellness store in Texas and
 want to stock these — what are the wholesale terms?` → gives what the KB has
