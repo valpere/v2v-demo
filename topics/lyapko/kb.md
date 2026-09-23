@@ -1,7 +1,7 @@
 # Knowledge Base — «Lyapko Shop» (Acupressure & Reflexology)
 
-Official store for patented Lyapko multi-metal acupressure applicators.
-Website: https://lyapko-shop.com/
+Demo assistant modelled on the online shop https://lyapko-shop.com/ (Lyapko multi-metal acupressure applicators).
+UNOFFICIAL: this assistant is a demonstration, not affiliated with or authorised by the shop. Product names and USD prices below match the shop's product listing as checked on 2026-09-23; shipping and returns terms come from the shop's own policy pages.
 
 ---
 
@@ -9,7 +9,7 @@ Website: https://lyapko-shop.com/
 
 Українською (принцип дії): аплікатори Ляпка розробив рефлексотерапевт Микола Ляпко. Багато металевих голок м'яко діють на біологічно активні точки тіла: виділяються ендорфіни (природні знеболювальні), розширюються капіляри, знімається м'язовий спазм. Голки виготовлені зі сплаву заліза, міді, цинку, нікелю та срібла — між ними та шкірою виникають гальванічні мікроструми, що прискорюють обмін речовин у тканинах. Голки НЕ проколюють шкіру: верхівки закруглені, а гумові обмежувачі й еластичність шкіри не дають уколу. Перші 1–3 хвилини — поколювання, далі — приємне тепло та глибоке розслаблення. Аплікатор — це масажер і засіб рефлексотерапії для самодопомоги, а не ліки й не заміна лікаря.
 
-Lyapko applicators were developed by Dr. Nikolay Lyapko, a renowned reflexologist and reflexotherapist from Ukraine. They are patented worldwide and certified as medical / wellness reflexology devices.
+Lyapko applicators were developed by Dr. Nikolay Lyapko, a renowned reflexologist and reflexotherapist from Ukraine. They are sold as reflexology and wellness self-massage tools; the shop's pages do not state any regulatory approval, so never claim one.
 
 ### How it Works
 1. **Mechanical Reflex Action:** Thousands of specially arranged metal needles gently stimulate biological active points (meridians and reflex zones) of the human body. This releases endorphins (natural pain blockers), dilates capillaries, and relieves muscle spasms.
@@ -127,3 +127,18 @@ The needle pitch (distance between needles) determines the intensity of the acup
   - *Evening / Relaxation (Pain relief & sleep):* 20–30 minutes static lying on a mat. Many users comfortably fall asleep.
 - **How to lie down:** Place a rolled towel under the mat to support the natural curves of the lower back and neck. Lie down slowly and exhale. Tingling lasts 2-3 minutes, followed by pleasant warmth.
 - **Hygiene & Maintenance:** Made of high-grade medical rubber and metals. Clean with warm water and liquid soap. Dry thoroughly with a hair dryer or soft towel.
+
+---
+
+## 6. Shipping, Returns, Wholesale (from the shop's policy pages)
+
+- **Processing:** 3–5 business days before an order ships. Tracking numbers usually appear within 3–7 business days; if none arrives within 5 business days, the customer writes to info@lyapko.com.
+- **Delivery time (after processing):** USA 10–24 business days; international 20–40 business days. Delivery times are estimates, not guarantees (customs, holidays and strikes can delay).
+- **Customs and duties:** the customer pays any customs charges or duties; the shop is not liable for customs delays.
+- **Shipping cost, carriers, free-shipping threshold:** NOT stated on the shop's pages — never quote a figure; hand off.
+- **Returns:** 30 days from purchase, item unused and in its original packaging, proof of purchase required. The customer pays return shipping (non-refundable, deducted from the refund). Refund goes back to the original payment method (number of days not stated). Exchanges only for defective or damaged items. Returns and refund questions: drlyapko@gmail.com.
+- **Offer:** the shop's banner advertises "10% off your first order" and "30-day returns"; do not promise any other discount.
+- **Wholesale / retail partners:** the shop takes wholesale inquiries through a form on its site (name, email, message); an agent replies within 48 hours. Minimum order and wholesale prices are NOT stated — hand off.
+- **Payment methods, warranty, regulatory approval (e.g. FDA):** NOT stated — hand off, never guess.
+
+Українською (доставка, повернення, гурт): обробка замовлення — 3–5 робочих днів; номер відстеження зазвичай з'являється за 3–7 робочих днів, якщо його немає за 5 — писати на info@lyapko.com. Доставка після обробки: США — 10–24 робочих дні, інші країни — 20–40 робочих днів; це орієнтовні строки, не гарантія. Мито та митні збори сплачує покупець. Вартість доставки, перевізники й поріг безкоштовної доставки на сторінках не вказані — не називати сум, передати менеджеру. Повернення: протягом 30 днів від покупки, товар невикористаний, в оригінальній упаковці, потрібен доказ покупки; вартість зворотної доставки платить покупець (вона не повертається й віднімається від суми повернення); гроші повертаються тим самим способом оплати; обмін лише для бракованого або пошкодженого товару; питання щодо повернення — drlyapko@gmail.com. Магазин рекламує знижку 10% на перше замовлення та 30 днів на повернення — інших знижок не обіцяти. Гурт і роздрібні партнери: заявка через форму на сайті (ім'я, email, повідомлення), агент відповідає протягом 48 годин; мінімальне замовлення й гуртові ціни не вказані — передати менеджеру. Способи оплати, гарантія та регуляторне схвалення (наприклад FDA) не вказані — не вигадувати, передати менеджеру.

@@ -17,8 +17,10 @@ that checks a `leads.jsonl` row.
 
 Slots: **`symptom`**, **`skin_type`**, **`format`**, **`contact`**.
 `lead_ready` only when all four are set. The shop is online 24/7 — there is
-no closed-office note. Prices are USD, from the KB (the KB is a snapshot of
-the shop, not live pricing — see "KB vs site" in the pass criteria).
+no closed-office note. Prices are USD, from the KB (a snapshot of the shop —
+see "KB vs site" in the pass criteria). Pitch context: the shop wants to
+enter the **US market**, so the USA cases (delivery, returns, wholesale,
+FDA) matter most.
 
 ---
 
@@ -100,9 +102,14 @@ Each must **not** be answered from world knowledge and must end at
 **4b — order / refund / delivery.** `Де моє замовлення №4521? Хочу повернути
 гроші` → `signal: escalate`, pre-LLM. `[R]`
 
-**4c — not in the KB.** `Яка доставка в Канаду і скільки днів?`, `Дайте
-знижку 20% на два килимки` → no invented terms/figures; hand off,
-`signal: escalate`.
+**4c — not in the KB.** `Скільки коштує доставка до США?`, `Дайте знижку 20%
+на два килимки`, `Чи має це схвалення FDA?`, `Чи є гарантія?` → no invented
+figures/terms/approvals; hand off, `signal: escalate`. `[R]`
+
+**4e — wholesale (US market pitch).** `I run a wellness store in Texas and
+want to stock these — what are the wholesale terms?` → gives what the KB has
+(inquiry form on the shop's site, reply within 48 h), no minimum order / no
+wholesale price invented, `signal: escalate`.
 
 **4d — asks for a person.** `З'єднайте з менеджером` → `signal: escalate`,
 fast.
@@ -118,12 +125,21 @@ fast.
   1–3 min then warmth.
 - `Скільки лежати на килимку?` → 7–10 min morning, 20–30 min evening.
 - `Як мити?` → warm water + liquid soap, dry; no boiling / harsh chemistry.
+- `How long does delivery to the USA take?` → 3–5 business days processing +
+  10–24 business days to the USA; estimates, not guarantees; customs/duties on
+  the buyer; **no** shipping cost quoted. `[R]`
+- `Can I return it?` → 30 days, unused, original packaging, buyer pays return
+  shipping; exchange only if defective/damaged.
+- `Is there a discount for a first order?` → the advertised 10% first-order
+  offer only, nothing more.
+- `Are you the official Lyapko store?` → no — an unofficial demo, not
+  affiliated. `[R]`
 - `Який крок голок обрати для початківця?` → 4.9 mm.
 
 **5b — not covered → escalate (not invented):**
 
 - `Чи є у вас магазин у Києві?` → not in the KB → hand off.
-- `Скільки коштує доставка?` → not in the KB → hand off.
+- `Які способи оплати?` → not in the KB → hand off.
 
 ---
 
@@ -167,8 +183,11 @@ email spoken clearly (no letter-by-letter noise besides the address).
 - Prices and sizes are only those in the KB; nothing invented.
 - One `leads.jsonl` row per completed request, `topic: "lyapko"`, four
   fields; a correction replaces it; a thank-you after does not.
-- **KB vs site:** the KB (`topics/lyapko/kb.md`) is a snapshot; a spot check
-  against https://lyapko-shop.com/ on 2026-09-23 showed the homepage's
-  featured prices differ from it (e.g. Hand & Foot Ball $29 vs KB $39,
-  Universal Roller $49 vs $46, Big Pad $89 vs $146 for the 6.2 model).
-  Refresh the KB before showing it to the shop.
+- **Unofficial demo, said out loud** — the greeting, the KB and the persona
+  all say it is not affiliated with the shop; it never claims a regulatory
+  approval (FDA / medical certification) and never repeats the shop's
+  pregnancy / labour health claims (those go to `escalate`).
+- **KB vs site:** the 26 products and USD prices match
+  https://lyapko-shop.com/collections/all as checked 2026-09-23; shipping /
+  returns / wholesale come from the shop's policy pages. Re-check before a
+  real pitch — the shop can change prices.
