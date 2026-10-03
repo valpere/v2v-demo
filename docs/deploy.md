@@ -13,11 +13,12 @@ and are not worth running on a free instance for a demo.
 
 ## 0. Before you start
 
-- **A separate bot token for the server.** Telegram allows exactly one
-  `getUpdates` consumer per token — if the server and a local `make run`
-  share a token, both fail with `409 Conflict`. Create a second bot in
-  @BotFather (e.g. `@v2v_demo_prod_bot`) for the server and keep the dev
-  token for local work.
+- **One token, one poller.** Telegram allows exactly one `getUpdates`
+  consumer per token — if the server and a local `make run` share a token,
+  both fail with `409 Conflict`. The server runs the public bot
+  (`@v2v_demo_bot`, the address people already have); local development uses
+  a separate dev bot created in @BotFather. The public token is in
+  @BotFather → `/mybots` → the bot → **API Token** (don't Revoke it).
 - **Server config = `.env.client`**, not the dev `.env`: `STT_BACKEND=openai`,
   `DIALOG_BACKEND=openai` (`gpt-4.1-mini`), `TTS_BACKEND=azure` (the
   ElevenLabs subscription is ending — don't depend on it). Needs
@@ -86,7 +87,7 @@ Either way, the instance needs: the `bot` binary, `topics/`, and a `.env`
 ## 4. `.env`
 
 Build the server `.env` from `.env.client` (see §0): the three flips it
-documents plus `TELEGRAM_BOT_TOKEN` (the **server** bot), `OPENAI_API_KEY`,
+documents plus `TELEGRAM_BOT_TOKEN` (the **public** bot's), `OPENAI_API_KEY`,
 `AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION`, `SESSION_STORE=sqlite`, and
 `BOT_TIMEZONE=Europe/Kyiv` set explicitly (the instance clock is UTC, and
 the "within 15 minutes / next business morning" line uses this zone).
