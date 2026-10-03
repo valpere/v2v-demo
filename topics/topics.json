@@ -100,8 +100,8 @@
   },
   {
     "id": "lyapko",
-    "title": "Магазин аплікаторів «Lyapko Shop»",
-    "title_en": "«Lyapko Shop» Acupressure Advisor",
+    "title": "Магазин «Lyapko Shop»",
+    "title_en": "Acupressure shop",
     "kb": "topics/lyapko/kb.md",
     "system_prompt": "topics/lyapko/system.md",
     "greeting": "topics/lyapko/greeting.md",

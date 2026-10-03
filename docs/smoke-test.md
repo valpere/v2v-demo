@@ -15,7 +15,7 @@ scenario sweep for each assistant lives in its own file under `docs/smoke/`:
 | Автосервіс «Подбай-Авто» (auto) | `docs/smoke/auto.md` | yes |
 | Агенція «Ваші Ключі» (realestate) | `docs/smoke/realestate.md` | yes |
 | Клінінг «Тримаємо чистоту» (cleaning) | `docs/smoke/cleaning.md` | yes |
-| Магазин аплікаторів «Lyapko Shop» (lyapko) | `docs/smoke/lyapko.md` | yes |
+| Магазин «Lyapko Shop» (lyapko) | `docs/smoke/lyapko.md` | yes |
 
 **How to read a scenario.** Each step says what to **send** and what to
 **expect** — compare against that. `[R]` = a regression case for a bug
