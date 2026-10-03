@@ -11,6 +11,23 @@ This assumes the **client demo config** (`STT_BACKEND=openai`,
 "Client demo config"), not local whisper.cpp/Ollama — those need real CPU
 and are not worth running on a free instance for a demo.
 
+## 0. Before you start
+
+- **A separate bot token for the server.** Telegram allows exactly one
+  `getUpdates` consumer per token — if the server and a local `make run`
+  share a token, both fail with `409 Conflict`. Create a second bot in
+  @BotFather (e.g. `@v2v_demo_prod_bot`) for the server and keep the dev
+  token for local work.
+- **Server config = `.env.client`**, not the dev `.env`: `STT_BACKEND=openai`,
+  `DIALOG_BACKEND=openai` (`gpt-4.1-mini`), `TTS_BACKEND=azure` (the
+  ElevenLabs subscription is ending — don't depend on it). Needs
+  `OPENAI_API_KEY` (positive balance), `AZURE_SPEECH_KEY` +
+  `AZURE_SPEECH_REGION`, and the new bot's `TELEGRAM_BOT_TOKEN`.
+- **The demo is public:** `data/turns.jsonl` stores users' messages and
+  replies (the greeting says the chat is logged). Keep `data/` on the server
+  only, never commit it, and delete old logs when the pitch is over.
+  `SESSION_STORE=sqlite` keeps conversations across a restart.
+
 ## 1. Create the instance
 
 1. cloud.oracle.com → sign up for **Always Free** (card verification, not
@@ -58,7 +75,8 @@ make build
 ```bash
 # on your machine
 GOOS=linux GOARCH=arm64 go build -o bot ./cmd/bot
-scp bot ubuntu@<public-ip>:~/v2v-demo/bot
+ssh ubuntu@<public-ip> mkdir -p ~/v2v-demo
+scp bot ubuntu@<public-ip>:~/v2v-demo/bot       # ~140 MB: lingua-go embeds all language models
 scp -r topics ubuntu@<public-ip>:~/v2v-demo/   # KB, prompts, greetings, topics.json
 ```
 
@@ -67,15 +85,17 @@ Either way, the instance needs: the `bot` binary, `topics/`, and a `.env`
 
 ## 4. `.env`
 
-Copy `.env.example` → `.env` on the instance and fill in the **client demo
-config**: `TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY` (STT + dialog),
-`ELEVENLABS_API_KEY` + voice ids (or `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION`
-if using the Azure rollback). Leave `SESSION_STORE=memory` unless you want a
-restart to resume mid-conversation, in which case set
-`SESSION_STORE=sqlite`.
+Build the server `.env` from `.env.client` (see §0): the three flips it
+documents plus `TELEGRAM_BOT_TOKEN` (the **server** bot), `OPENAI_API_KEY`,
+`AZURE_SPEECH_KEY` / `AZURE_SPEECH_REGION`, `SESSION_STORE=sqlite`, and
+`BOT_TIMEZONE=Europe/Kyiv` set explicitly (the instance clock is UTC, and
+the "within 15 minutes / next business morning" line uses this zone).
+Optional safety net: `TTS_FALLBACK_BACKEND=espeak` (+ `apt install
+espeak-ng`) so a TTS outage degrades to a robotic voice instead of text.
 
 ```bash
-scp .env ubuntu@<public-ip>:~/v2v-demo/.env   # never commit this file
+scp .env.server ubuntu@<public-ip>:~/v2v-demo/.env   # never commit this file
+ssh ubuntu@<public-ip> chmod 600 ~/v2v-demo/.env
 ```
 
 ## 5. Run it as a systemd service
