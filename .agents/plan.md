@@ -55,10 +55,17 @@ internal/telegram/  long-poll getUpdates, file download, SendVoice (no caption)
                     / SendText / SendRecordingAction — transport only, no
                     command or session logic
 internal/stt/       Transcriber interface; local.go (shell openai-whisper CLI
-                    on the ogg) · openai.go (whisper-1 API). STT_BACKEND picks.
+                    on the ogg) · openai.go (whisper-1 API) · whispercpp.go
+                    (whisper-cli; ffmpeg converts OGG->WAV first — its own
+                    decoder can't read Opus) · failover.go (FailoverTranscriber:
+                    primary, then STT_FALLBACK_BACKEND once on ANY error).
+                    STT_BACKEND picks.
 internal/tts/       Synthesizer interface; elevenlabs.go (eleven_multilingual_v2,
-                    output_format opus) · azure.go (SSML + ogg-opus header).
-                    TTS_BACKEND picks. Google = documented, not built.
+                    output_format opus) · azure.go (SSML + ogg-opus header) ·
+                    espeak.go (espeak-ng + ffmpeg; free, local, robotic — the
+                    "spare tire") · failover.go (FailoverSynthesizer, same
+                    shape, TTS_FALLBACK_BACKEND). TTS_BACKEND picks.
+                    Google = documented, not built.
 internal/kb/        load a KB file, split on "##" into titled sections (per topic)
 internal/dialog/    gate.go (kbOverlap + hardEscalate + isSlotAnswer +
                     isSmallTalk + groundingGate + looksLikePhone) · lang.go
@@ -81,7 +88,8 @@ internal/store/     store.go — append-only JSONL turn + lead records (DATA_DIR
 topics/topics.json  the topic manifest (id/title/paths/scope/slots/office per
                    topic); ships with six topics (translation + dental + auto
                    + realestate + cleaning + lyapko) — the picker is on by default;
-                   a single-entry manifest opts out
+                   a single-entry manifest opts out. lyapko is the one topic
+                   modelled on a real third-party shop (see its smoke doc)
 topics/translation/system.md   the assistant persona + conversation playbook +
                    hard rules + slot-filling semantics (the JSON shape + key list
                    is a generated --- RESPONSE FORMAT --- block, not in this file)
@@ -284,7 +292,10 @@ func AppendLead(dir string, r LeadRecord) error // dir/leads.jsonl
 type Config struct {
 	TelegramToken string
 
-	TTSBackend   string // "elevenlabs" | "azure"
+	TTSBackend   string // "elevenlabs" | "azure" | "espeak" | "none"
+	TTSFallbackBackend string // "" (default, off) | "elevenlabs" | "azure" | "espeak"
+	EspeakBin    string // default "espeak-ng"
+	FfmpegBin    string // default "ffmpeg" — shared by espeak and whispercpp
 	ElevenKey    string
 	ElevenVoiceA string
 	ElevenVoiceB string
@@ -293,12 +304,18 @@ type Config struct {
 	AzureVoiceA  string
 	AzureVoiceB  string
 
-	STTBackend   string // "none" | "local" (default) | "openai" (I-10 client recording)
+	STTBackend   string // "none" | "local" (default) | "openai" (I-10 client recording) | "whispercpp"
+	STTFallbackBackend string // "" (default, off) | "local" | "openai" | "whispercpp" — never "none"
+	WhisperCPPBin       string // default "whisper-cli"
+	WhisperCPPModelPath string // no default — required when STT[Fallback]Backend is "whispercpp"
+	WhisperCPPThreads   int    // 0 = omit -t; host-sensitive, benchmark before setting
+	WhisperCPPLang      string // default "auto" (whisper-cli's own -l default is "en", so always passed)
 	WhisperBin   string // openai-whisper CLI; default "whisper"
 	WhisperModel string // openai-whisper model name; default "turbo"
 	WhisperLang  string // "auto" | "uk" | "en"
 
 	DialogBackend string // "ollama" (default) | "openai" | "gemini"
+	DialogFallbackBackend string // "" (default, off) | "ollama" | "openai" | "gemini"
 	DialogModel   string
 	GeminiKey     string
 	OllamaBaseURL string
@@ -737,8 +754,9 @@ further `---` lines dropped, trimmed); `leadFrom(chatID, slots)` builds a
 ## Details / decisions
 
 - **Telegram:** long-polling (`getUpdates`), no webhook / public URL. Use
-  `github.com/go-telegram/bot` (maintained, std-context API). Two
-  dependencies total — this and `lingua-go` (D-19, language detection);
+  `github.com/go-telegram/bot` (maintained, std-context API). Three
+  direct dependencies total — this, `lingua-go` (D-19, language detection) and
+  `modernc.org/sqlite` (opt-in session persistence);
   every HTTP client (Ollama / OpenAI / Gemini / ElevenLabs / Azure / the
   Telegram file download) is stdlib `net/http`.
 - **STT (D-13, dual-mode):** dev / code default is `local` — shell out to the

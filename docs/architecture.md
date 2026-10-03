@@ -73,7 +73,9 @@ All HTTP is stdlib.
 ## 3. Turn data flow
 
 1. Telegram update arrives. If voice: download OGG to a temp file (path
-   validated), transcribe, delete the file. If text: use it directly.
+   validated), transcribe (a `FailoverTranscriber` retries once on
+   `STT_FALLBACK_BACKEND` when set — §8), delete the file. If text: use it
+   directly.
 2. `dialog.Handle(ctx, sess, topic, gen, text, now)` — full pseudocode in
    `.agents/plan.md` §"Behavioural spec":
    a. **`hardEscalate(text)`** — keyword list for liability topics; a hit
@@ -112,9 +114,10 @@ All HTTP is stdlib.
       a lead record; a post-summary correction appends a fresh one (newest
       wins).
 3. `tts.Spoken` normalises the reply for the ear (drops markdown, arrow
-   shorthand, currency codes, percent signs, м²/m² units, and a trailing
-   .00/,00), then `tts` synthesises it with the session's current voice →
-   OGG. The text message sent alongside keeps the original.
+   shorthand, currency codes, percent signs, м²/m² units, a trailing
+   .00/,00, and respells brand names the voice misreads — Privat24, Skoda),
+   then `tts` synthesises it with the session's current voice → OGG
+   (`FailoverSynthesizer` retries once on `TTS_FALLBACK_BACKEND` when set). The text message sent alongside keeps the original.
 4. Telegram: send the voice note, and the text as a normal message (so the
    client can read what was said).
 5. `store` appends the turn record: transcript, reply, signal, matched
