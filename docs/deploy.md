@@ -207,6 +207,42 @@ cd docker && docker compose -f docker-compose.prod.yml build bot \
   && docker compose -f docker-compose.prod.yml up -d bot postgres redis
 ```
 
+## 8. Runbook as actually deployed (2026-10-03)
+
+What the first real deployment looked like — Stockholm home region, where
+the A1 shape was **"Out of capacity" on five tries in a row**, so the bot runs
+on the other Always Free shape, **VM.Standard.E2.1.Micro** (AMD x86, 1 GB).
+
+- **Console order matters.** The wizard filters shapes by the selected image's
+  architecture. Pick the *image first* (Ubuntu **without** `aarch64` in the
+  name for x86), then Change shape → **"Specialty and previous generation"**
+  (Micro is not under the "AMD" tile). With an aarch64 image Micro is hidden.
+- **Public IP:** with "Create new VCN + public subnet" the *Automatically
+  assign public IPv4* switch stays disabled. Create the instance without it,
+  then Instances → the instance → Networking → Attached VNICs → the VNIC →
+  IP administration → primary private IP → Actions → Edit → *Ephemeral public
+  IP*. SSH (22) is open by default; the bot needs no inbound port.
+- **Build for the host's architecture:** Micro is `GOOS=linux GOARCH=amd64`
+  (A1 is `arm64`). The static binary is ~140 MB (lingua-go embeds its models).
+- **1 GB needs swap:** `fallocate -l 2G /swapfile`, `chmod 600`, `mkswap`,
+  `swapon`, an `/etc/fstab` line. Measured: the bot idles at ~140 MB RSS.
+- **SSH alias** in `~/.ssh/config` (`Host v2vdemo`, `User ubuntu`,
+  `IdentityFile`, `IdentitiesOnly yes`) → `ssh v2vdemo`, `scp … v2vdemo:~/v2v-demo/`.
+- **Config:** `.env.server` in the repo root (gitignored by `.env.*`) is the
+  server's `.env`; `scp` it to `~/v2v-demo/.env`, `chmod 600`.
+- **Disable a topic on the public bot without touching the repo:** upload a
+  filtered `topics/topics.json` (lyapko is off on the server) and
+  `sudo systemctl restart v2v-demo`.
+- **Update the binary:** `scp bot v2vdemo:~/v2v-demo/bot && ssh v2vdemo sudo
+  systemctl restart v2v-demo`; logs: `ssh v2vdemo journalctl -u v2v-demo -f`.
+- **TTS bridge:** the Azure key returned `401` on the token endpoint from
+  every region (checked locally and on the server), so the server runs
+  `TTS_BACKEND=elevenlabs` until that subscription period ends. Fix the Azure
+  key/region *before* then (portal → Speech resource → Keys and Endpoint).
+- **Idle-reclamation watch:** Micro has no memory criterion, so the instance
+  can be reclaimed after 7 quiet days. Check `systemctl is-active v2v-demo`
+  now and then, and retry creating an A1 later (it counts memory).
+
 ## Cost & limits
 
 - **$0** as long as the A1 instances stay within 2 OCPU / 12 GB in total.
@@ -230,3 +266,7 @@ cd docker && docker compose -f docker-compose.prod.yml build bot \
 - If this ever needs to grow past the free tier (local whisper.cpp/Ollama,
   higher traffic), the cheapest paid step up is Hetzner CX22
   (~€4.2/month) — same systemd setup, no bot-side changes.
+
+---
+
+поки перетвори частовикористовувані однотипні запити та виклики у посіпак
