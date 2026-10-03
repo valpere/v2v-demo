@@ -116,3 +116,59 @@ the end — every agent runs read-only/plan-mode plus an explicit
 not a sandbox guarantee, so the status check is the actual tripwire. Read
 the reports yourself (or hand them to Claude) — treat every finding as a
 claim to verify against the real code, not a verdict.
+
+## `srv.sh` — operate the live bot on its server
+
+One command per thing we kept typing by hand over `ssh`/`scp` (layout and
+rationale: `docs/deploy.md` §8). The host is an ssh alias — `v2vdemo` by
+default, `V2V_HOST=…` to override.
+
+```
+./minions/srv.sh status                      # active?, host uptime, bot RSS, free memory/swap, startup line, errors/hour, disk
+./minions/srv.sh logs [N | -f]               # last N journal lines (50) / follow
+./minions/srv.sh restart
+./minions/srv.sh build                       # cross-compile for the server's arch (amd64 Micro / arm64 A1) -> tmp/deploy/bot-<arch>
+./minions/srv.sh push-bin                    # build + atomic replace (scp to bot.new, mv) + restart
+./minions/srv.sh push-topics [--without id,id]   # upload topics/, optionally filter the server's manifest (lyapko is off live), restart, list live topics
+./minions/srv.sh push-env [file]             # upload a config (default .env.server) as ~/v2v-demo/.env, chmod 600, restart
+```
+
+`push-env` refuses a Telegram token equal to the local `.env`'s (two pollers on
+one token = 409 Conflict) unless `FORCE=1`. Nothing secret is printed.
+
+## `env-show.sh` — print `.env*` files with secrets masked
+
+Use this instead of `cat`/`grep` on env files — those print the keys into the
+terminal and into an agent's transcript (it happened once, 2026-10-03). Keys
+containing `KEY`/`TOKEN`/`SECRET`/`PASSWORD` show only `<set, len N>`.
+
+```
+./minions/env-show.sh                        # .env and .env.server
+./minions/env-show.sh .env.client .env       # explicit files
+```
+
+## `check-keys.sh` — are the credentials in an env file actually accepted?
+
+One OK/FAIL line per service, never the secret (keys go to curl on stdin).
+Exit 1 if anything failed.
+
+```
+./minions/check-keys.sh                      # .env.server: Telegram getMe (@username), OpenAI 1-token chat, Azure Speech issueToken
+./minions/check-keys.sh .env --tts           # another file, + ElevenLabs (synthesises one word, ~4 credits)
+```
+
+The OpenAI check is a real 1-token chat call on purpose: a project-restricted
+key is often forbidden to *list* models (403) yet allowed to chat.
+
+## `probe-all.sh` — the dialog-probe sweep over every topic
+
+Runs `dialog-probe` for each topic that has a `tmp/probe-<id>.txt` scenario
+file and prints a compact transcript (one line per user turn: signal, latency,
+gate-or-LLM, slot delta). The sweep to repeat after touching a KB, a
+`system.md`, the gate or the model.
+
+```
+./minions/probe-all.sh                       # every topic in topics/topics.json
+./minions/probe-all.sh lyapko dental         # selected topics
+./minions/probe-all.sh -m gpt-4.1-mini -b openai
+```
