@@ -1,8 +1,10 @@
 # Deploy — Oracle Cloud Free Tier
 
 Cheapest viable host for the demo: Oracle's **Always Free** Ampere A1 (ARM)
-shape — free forever, not a trial, up to 4 OCPU / 24 GB RAM across your A1
-instances. The bot is a single Go binary, long-polls Telegram (no inbound
+shape — free after the trial too, up to **2 OCPU / 12 GB RAM** across your
+A1 instances ([official limits](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm):
+1,500 OCPU-hours + 9,000 GB-hours per month, 200 GB boot/block storage in
+total). **Read "Idle reclamation" under Cost & limits before relying on it.** The bot is a single Go binary, long-polls Telegram (no inbound
 port to open), and reads `.env` itself (`cmd/bot/config.go`) — no secrets
 manager needed for a demo.
 
@@ -36,9 +38,10 @@ and are not worth running on a free instance for a demo.
 2. Compute → Instances → **Create instance**.
    - Image: **Ubuntu 24.04** (aarch64/ARM).
    - Shape: **VM.Standard.A1.Flex** — 1 OCPU / 6 GB is plenty for this bot
-     alone; you can go up to 4/24 at no cost. If you're also co-hosting
-     `shopogoda` (§7), take the full 4 OCPU / 24 GB up front — still $0,
-     and its Postgres + Redis want the headroom.
+     alone; the Always Free ceiling is 2 OCPU / 12 GB in total (anything
+     above it is disabled and deleted 30 days after the trial ends). If
+     you're also co-hosting `shopogoda` (§7), use up to 2 / 12. A smaller
+     memory size also helps with idle reclamation (see Cost & limits).
    - Keep the default VCN/subnet; add your SSH public key.
 3. Wait for it to go **Running**, note the public IP.
 
@@ -206,12 +209,22 @@ cd docker && docker compose -f docker-compose.prod.yml build bot \
 
 ## Cost & limits
 
-- **$0** as long as the instance stays within Always Free limits (1 A1
-  instance up to 4 OCPU/24 GB, or several smaller ones summing to that).
-  Oracle does reclaim idle Always Free instances after long periods of
-  zero activity — a long-polling bot with real traffic avoids that, but if
-  the demo goes quiet for weeks, log in and touch it.
-- Co-hosting shopogoda (§7) counts against the same 4 OCPU/24 GB ceiling —
+- **$0** as long as the A1 instances stay within 2 OCPU / 12 GB in total.
+- **Idle reclamation — a real risk for this bot.** Oracle's docs: "Idle
+  Always Free compute instances may be reclaimed by Oracle. … idle if,
+  during a 7-day period: CPU utilization for the 95th percentile is less
+  than 20%, network utilization is less than 20%, memory utilization is
+  less than 20% (applies to A1 shapes only)." A long-polling Telegram bot
+  uses almost no CPU or network, so the first two are met whatever the
+  traffic; only **memory** can keep it above the line. The docs say nothing
+  about Pay As You Go accounts being exempt, and I did not verify that.
+  Levers: (1) size memory so the bot's resident memory is ≥ ~20% of it
+  (measure with `ps -o rss -C bot` / `free -m` after a day, then resize —
+  1 OCPU with a small amount of RAM instead of 6 GB); (2) co-hosting
+  shopogoda adds Postgres/Redis memory, which helps; (3) if it is reclaimed
+  anyway, the move is Hetzner CX22 (no reclamation policy). Don't count on
+  "real traffic" — it does not move CPU or network above 20%.
+- Co-hosting shopogoda (§7) counts against the same 2 OCPU/12 GB ceiling —
   bot + Postgres + Redis is modest, but skipping its observability stack
   (Prometheus/Grafana/Jaeger) keeps real headroom for v2v-demo alongside it.
 - If this ever needs to grow past the free tier (local whisper.cpp/Ollama,
