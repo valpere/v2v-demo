@@ -50,8 +50,10 @@ make run            # starts the bot (Ctrl-C to stop)
     (`.env`) to have a restart resume mid-conversation instead — that
     changes the "restart" vs "`/reset`" distinction wherever a scenario
     relies on a restart.
-  - **`TOPICS_PATH`** — the repo ships `topics/topics.json` with **five
-    topics**, so `/start` **shows the picker by default**. Point
+  - **`TOPICS_PATH`** — the repo ships `topics/topics.json` with **six
+    topics**, so `/start` **shows the picker by default**. (The public bot on
+    the server runs a filtered copy **without lyapko** — five buttons there;
+    see `docs/deploy.md` §8–9.) Point
     `TOPICS_PATH` at a single-entry file to get the plain no-picker
     greeting; §0 below covers the picker checks and assumes 2+
     topics.
