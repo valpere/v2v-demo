@@ -932,3 +932,32 @@ func TestOversizedVoiceRefusedBeforeDownload(t *testing.T) {
 		})
 	}
 }
+
+// 1.6 — an idle chat's worker and inbox entry are released, and a later
+// message transparently starts a fresh worker.
+func TestIdleWorkerEvictedAndRespawned(t *testing.T) {
+	a, tg := newTestApp(t, &fakeGen{})
+	a.idleEvict = 50 * time.Millisecond
+	seed(t, a, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer func() { cancel(); a.wg.Wait() }()
+
+	a.dispatch(ctx, telegram.Update{ChatID: 5, Text: "translation one"})
+	waitFor(t, func() bool { return len(tg.sentTo(5)) == 1 }, "first reply")
+	waitFor(t, func() bool { a.mu.Lock(); defer a.mu.Unlock(); return len(a.inbox) == 0 }, "inbox eviction")
+
+	a.dispatch(ctx, telegram.Update{ChatID: 5, Text: "translation two"})
+	waitFor(t, func() bool { return len(tg.sentTo(5)) == 2 }, "reply after respawn")
+}
+
+func waitFor(t *testing.T, cond func() bool, what string) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", what)
+}

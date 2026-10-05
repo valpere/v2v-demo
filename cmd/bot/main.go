@@ -35,10 +35,11 @@ type app struct {
 
 	lim *limiter // nil = no limits
 
-	mu    sync.Mutex
-	inbox map[int64]chan telegram.Update // per-chat FIFO queue (one serial worker each)
-	slow  map[int64]time.Time            // last "slow down" notice per chat — one per slowDownWindow
-	wg    sync.WaitGroup                 // outstanding chatWorker goroutines — see main()'s shutdown order
+	mu        sync.Mutex
+	inbox     map[int64]chan telegram.Update // per-chat FIFO queue (one serial worker each)
+	idleEvict time.Duration                  // 0 = defaultIdleEvict
+	slow      map[int64]time.Time            // last "slow down" notice per chat — one per slowDownWindow
+	wg        sync.WaitGroup                 // outstanding chatWorker goroutines — see main()'s shutdown order
 }
 
 func main() {
@@ -143,49 +144,87 @@ const (
 // per-chat lock would serialise them but not order them) while different
 // chats run concurrently (B5).
 func (a *app) dispatch(ctx context.Context, u telegram.Update) {
+	// The non-blocking send happens under a.mu so an idle worker cannot be
+	// evicted between "found its queue" and "queued the update".
 	a.mu.Lock()
 	ch := a.inbox[u.ChatID]
 	if ch == nil {
 		ch = make(chan telegram.Update, chatQueueSize)
 		a.inbox[u.ChatID] = ch
 		a.wg.Add(1)
-		go a.chatWorker(ctx, ch)
+		go a.chatWorker(ctx, u.ChatID, ch)
 	}
-	a.mu.Unlock()
-
+	queued := true
 	select {
 	case ch <- u:
 	default:
+		queued = false
+	}
+	notify := false
+	if !queued {
 		// Queue full: never block the single update loop (that would stall
 		// every other chat). Drop the update; tell the sender once per window.
-		a.mu.Lock()
-		notify := time.Since(a.slow[u.ChatID]) >= slowDownWindow
+		notify = time.Since(a.slow[u.ChatID]) >= slowDownWindow
 		if notify {
 			if a.slow == nil {
 				a.slow = make(map[int64]time.Time)
 			}
 			a.slow[u.ChatID] = time.Now()
 		}
-		a.mu.Unlock()
-		log.Printf("dispatch (chat %d): queue full, dropped an update", u.ChatID)
-		if notify {
-			a.wg.Add(1)
-			go func() {
-				defer a.wg.Done()
-				a.send(ctx, u.ChatID, slowDownLine)
-			}()
-		}
+	}
+	a.mu.Unlock()
+
+	if queued {
+		return
+	}
+	log.Printf("dispatch (chat %d): queue full, dropped an update", u.ChatID)
+	if notify {
+		a.wg.Add(1)
+		go func() {
+			defer a.wg.Done()
+			a.send(ctx, u.ChatID, slowDownLine)
+		}()
 	}
 }
 
-func (a *app) chatWorker(ctx context.Context, ch <-chan telegram.Update) {
+// defaultIdleEvict is how long a chat's worker may sit idle before it is
+// released; app.idleEvict overrides it (tests).
+const defaultIdleEvict = 15 * time.Minute
+
+// chatWorker serves one chat's queue until ctx ends or the chat has been idle
+// for idleEvict, at which point it deregisters itself (a later message starts
+// a fresh worker, so a long-running bot does not hold a goroutine and a
+// 64-slot channel per chat ever seen).
+func (a *app) chatWorker(ctx context.Context, chatID int64, ch chan telegram.Update) {
 	defer a.wg.Done()
+	idle := a.idleEvict
+	if idle <= 0 {
+		idle = defaultIdleEvict
+	}
+	timer := time.NewTimer(idle)
+	defer timer.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case u := <-ch:
 			a.handleUpdate(ctx, u)
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			timer.Reset(idle)
+		case <-timer.C:
+			a.mu.Lock()
+			if len(ch) == 0 { // dispatch queues under a.mu, so this is exact
+				delete(a.inbox, chatID)
+				a.mu.Unlock()
+				return
+			}
+			a.mu.Unlock()
+			timer.Reset(idle)
 		}
 	}
 }
