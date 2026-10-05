@@ -24,6 +24,7 @@
 
 # opencode agent scratch (keep plan.md tracked)
 .agents/changes.md
+.agents/backlog.md
 .agents/test-report.md
 .agents/summary.md
 
