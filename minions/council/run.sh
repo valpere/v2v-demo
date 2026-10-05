@@ -28,6 +28,8 @@
 #   cursor-agent  --model auto, --mode plan
 #   kiro-cli      --trust-tools=fs_read (no write/exec tools trusted)
 #   kilo          kilo-auto/free, --agent plan
+#   agy           Antigravity CLI, --mode plan --sandbox (note: the prompt must be
+#                 attached as --print="...", not as a separate argument)
 #   codex         (needs --dangerously-bypass-approvals-and-sandbox in this
 #                 sandboxed shell — codex's own bubblewrap sandbox can't nest.
 #                 Off by default: pass -a codex explicitly once your ChatGPT
@@ -49,7 +51,7 @@ cd "$(git rev-parse --show-toplevel)"
 RANGE="HEAD~3..HEAD"
 PATHSPEC=""
 OUTDIR=""
-AGENTS="opencode,cursor-agent,kiro-cli,kilo"
+AGENTS="opencode,cursor-agent,kiro-cli,kilo,agy"
 TIMEOUT=900
 BRIEF_FILE=""
 AUDIT=0
@@ -149,6 +151,7 @@ GO="Read the file $PROMPT_FILE IN FULL — it is your complete instructions plus
 
 agent_opencode() { opencode run --agent reviewer --model opencode/nemotron-3-ultra-free "$GO"; }
 agent_kilo() { kilo run --agent plan --model kilo/kilo-auto/free "$GO"; }
+agent_agy() { agy --mode plan --sandbox --print="$GO"; }
 agent_cursor_agent() { cursor-agent --print --mode plan --model auto "$GO"; }
 agent_kiro_cli() { kiro-cli chat --no-interactive --trust-tools=fs_read "$GO"; }
 agent_codex() { codex --dangerously-bypass-approvals-and-sandbox exec "$GO"; }

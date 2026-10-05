@@ -96,8 +96,9 @@ repo root ignores it. One dependency: `github.com/gorilla/websocket`.
 Runs the same review prompt (a git range's log + diff, embedded directly —
 not left for each agent to fetch, since some run with no shell trusted) in
 parallel through several independent coding-agent CLIs installed on this
-machine (`opencode`, `kilo`, `cursor-agent`, `kiro-cli`; `codex`/`omp` exist
-but are off by default — see the script header for why), each in the
+machine (`opencode`, `kilo`, `cursor-agent`, `kiro-cli`, `agy`; `codex`/`omp` exist
+but are off by default — `codex` needs `--dangerously-bypass-approvals-and-sandbox`, so it can read
+anything the user can: opt in with `-a codex` knowingly; see the script header), each in the
 safest read-only/plan mode that CLI offers. Use it to get a second (third,
 fourth…) opinion on a change before or after committing it — a poor man's
 multi-model code review when `/code-review` or `/fix-review` isn't set up
