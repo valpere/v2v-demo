@@ -1,6 +1,7 @@
 package dialog
 
 import (
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -41,17 +42,19 @@ var escalateKeywords = []string{
 	"скарг", "complaint",
 	// legal threats only — a bare "суд"/"court" also matched "для суду" /
 	// "for a court" (a court as the document's recipient — a normal
-	// certification case). Keep the phrasings that are unambiguously threats.
-	"до суду", "в суд ", "позов", "судитися", "судовий позов",
+	// certification case). Keep the phrasings that are unambiguously threats;
+	// the first-person Ukrainian "подам … в суд" form is in escalateRegexps.
+	"позов", "судитися", "судовий позов",
 	"see you in court", "you to court", "sue you", "sue the", "lawsuit", "legal action",
-	"дайте людину", "з людиною", "справжн", "real person",
+	"дайте людину", "з людиною", "справжню людину", "справжньою людиною",
+	"справжнього менедж", "справжній менедж", "справжнього адмін", "справжній адмін", "real person",
 	"talk to a person", "з менеджером", "менеджера напряму", "напряму з", "speak to a manager", "human agent",
 	"хочу менедж", "потрібен менедж", "потрібно менедж", "дайте менедж", "покличте менедж",
 	"переведіть на менедж", "переключіть на менедж", "менеджера прошу", "давайте менедж",
 	"want a manager", "need a manager", "get me a manager", "connect me to a manager",
 	// explicit "connect me to a human" phrasings, topic-agnostic (a clinic
 	// administrator, a service advisor / майстер, an agent — same intent)
-	"єднайте з", "єднайте мене", "connect me", "put me through", "з'єднайте", "зʼєднайте",
+	"connect me", "put me through",
 	"дайте майстра", "покличте майстра", "дайте адміністратора", "покличте адміністратора",
 	"дайте агента", "покличте агента", "з живою людиною", "жив адміністратор", "живого адміністратора",
 	// services the bureau definitively does not offer / methods not in the KB —
@@ -61,6 +64,22 @@ var escalateKeywords = []string{
 	"субтитр", "subtitle", "переклад відео", "translate a video", "translate the video",
 	"paypal", "пейпал",
 	"факсом", "по факсу", "by fax", "send it by fax",
+}
+
+// escalateRegexps are the handoff triggers that need word boundaries or a
+// small grammar — a plain substring over-matches. hardEscalate lowercases the
+// query first, and RE2's \b is ASCII-only, hence the explicit \p{L} edges.
+var escalateRegexps = []*regexp.Regexp{
+	// "connect me …" in any apostrophe spelling (з'єднайте, з’єднайте, зʼєднайте,
+	// зєднайте). Anchored on the leading "з" so that "об'єднайте з …" (merge with
+	// …) is not a request for a person.
+	regexp.MustCompile("(?:^|[^\\p{L}])з['\u2019\u02bc\u00b4`]?єднайте(?:[^\\p{L}]|$)"),
+	// first-person legal threat: a threat verb, at most the pronouns "на / вас /
+	// вам", then "до суду / в суд / у суд". Any other word in between ("подам
+	// ДОКУМЕНТИ до суду") is a court named as the document's recipient — a
+	// normal certification case — and must not escalate.
+	regexp.MustCompile(`(?:^|[^\p{L}])(?:подам|подаю|подамо|подаємо|піду|підемо|звернуся|звернусь|звернемося|звертатимусь)` +
+		`(?:\s+(?:на|вас|вам)){0,3}\s+(?:до суду|в суд|у суд)(?:[^\p{L}]|$)`),
 }
 
 // pleasantryMarkers are greeting / thanks / farewell / acknowledgement
@@ -218,6 +237,11 @@ func hardEscalate(query string) bool {
 	q := strings.ToLower(query)
 	for _, kw := range escalateKeywords {
 		if strings.Contains(q, kw) {
+			return true
+		}
+	}
+	for _, re := range escalateRegexps {
+		if re.MatchString(q) {
 			return true
 		}
 	}

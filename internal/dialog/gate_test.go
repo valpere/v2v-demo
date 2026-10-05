@@ -143,6 +143,15 @@ func TestHardEscalate(t *testing.T) {
 		"оплата через пейпал можлива?",
 		"надішліть переклад факсом",
 		"can you send it by fax",
+		// legal threats in first person, any word order tail / punctuation / apostrophe variants
+		"подаю в суд",
+		"я подам на вас в суд",
+		"піду в суд!",
+		"Подам в суд завтра",
+		"я звернуся до суду",
+		"зєднайте з майстром",
+		"з\u2019єднайте мене з адміністратором",
+		"з\u02bcєднайте з менеджером",
 	}
 	miss := []string{
 		"Скільки коштує переклад диплома?",
@@ -157,6 +166,19 @@ func TestHardEscalate(t *testing.T) {
 		"to court",
 		"send it to court",
 		"the document will be used in court",
+		// a court as the destination of the document, in every inflection and
+		// punctuation, is not a threat (the old "в суд " / "до суду" keywords hit these)
+		"Документ потрібно подати до суду",
+		"переклад потрібен в суд завтра",
+		"в суд.",
+		"Це для подачі в суд",
+		"я подам документи до суду",
+		"подам його в суд після перекладу",
+		// domain words that merely contain an old keyword fragment
+		"Чи підтверджує нотаріус справжність підпису перекладача?",
+		"Потрібен переклад зі справжнього оригіналу",
+		"Об'єднайте з додатком в один файл",
+		"Об\u2019єднайте з додатком в один файл",
 	}
 	for _, s := range hit {
 		if !hardEscalate(s) {
