@@ -327,6 +327,15 @@ revoke the old key.** (Portal labels below are from memory and may have moved.)
   <https://learn.microsoft.com/azure/ai-services/rotate-keys> · region short names
   <https://learn.microsoft.com/azure/ai-services/speech-service/regions> · F0 free-tier limits
   <https://azure.microsoft.com/pricing/details/cognitive-services/speech-services/>.
+  **Likely cause of the long-standing 401 (reported 2026-10-05): "Your free trial has
+  expired"** — the free-account subscription is disabled, so its keys stop working. Fix: Portal
+  → *Subscriptions* → the free-account subscription → **Upgrade subscription** (add a payment
+  method, name it, pick the free *Basic* support plan) →
+  <https://learn.microsoft.com/azure/cost-management-billing/manage/upgrade-azure-subscription>.
+  Upgrading re-enables the subscription's resources, and **any non-free resource in it is
+  charged from then on** (Microsoft's note) — check the subscription for other resources
+  first; the Speech **F0** resource stays free within its quota, and "free services" last 12
+  months after the upgrade.
   Billing: **no prepaid balance** — Azure bills in arrears to the subscription's payment
   method (a card is required even for F0). F0 is hard-capped (≈500k TTS chars / 5 STT
   hours per month): past the quota calls fail with 429, they are not billed. A billing
