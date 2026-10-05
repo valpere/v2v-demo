@@ -1,6 +1,7 @@
 package dialog
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,6 +18,54 @@ type modelReply struct {
 	Reply  string            `json:"reply"`
 	Slots  map[string]string `json:"slots"`
 	Signal Signal            `json:"signal"`
+}
+
+// UnmarshalJSON accepts slot values the model did not quote. A page count or a
+// phone number often comes back as a JSON number and a yes/no as a bool; with a
+// strict map[string]string that one value failed the whole reply and the turn
+// degraded to a human handoff. Scalars become their text; a structured value
+// (object/array) is still rejected.
+func (m *modelReply) UnmarshalJSON(b []byte) error {
+	var raw struct {
+		Reply  string                     `json:"reply"`
+		Slots  map[string]json.RawMessage `json:"slots"`
+		Signal Signal                     `json:"signal"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	m.Reply, m.Signal, m.Slots = raw.Reply, raw.Signal, nil
+	if raw.Slots != nil {
+		m.Slots = make(map[string]string, len(raw.Slots))
+		for k, v := range raw.Slots {
+			text, err := slotText(v)
+			if err != nil {
+				return fmt.Errorf("slot %q: %w", k, err)
+			}
+			m.Slots[k] = text
+		}
+	}
+	return nil
+}
+
+// slotText is the text of one scalar slot value; null means "still unknown".
+func slotText(raw json.RawMessage) (string, error) {
+	v := bytes.TrimSpace(raw)
+	if len(v) == 0 {
+		return "", nil
+	}
+	switch c := v[0]; {
+	case c == '"':
+		var s string
+		err := json.Unmarshal(v, &s)
+		return s, err
+	case string(v) == "null":
+		return "", nil
+	case c == 't' || c == 'f' || c == '-' || (c >= '0' && c <= '9'):
+		return string(v), nil // true / false / the number exactly as written
+	default:
+		return "", fmt.Errorf("unsupported slot value %.20q", v)
+	}
 }
 
 // Fixed lines — one per language, no formatting. Handoff wording follows
@@ -189,25 +238,27 @@ func parseResponse(raw string) *modelReply {
 		s = strings.TrimSuffix(strings.TrimSpace(s), "```")
 	}
 
-	// take the outermost object span
-	start := strings.IndexByte(s, '{')
-	end := strings.LastIndexByte(s, '}')
-	if start < 0 || end <= start {
-		return nil
+	// Decode from each '{' in turn and keep the first object that is a valid
+	// reply. "First { to last }" broke on any brace in the surrounding prose
+	// ("… {x}", "}}", "Sure {here} you go: {…}"); a decoder stops at the end of
+	// the object it reads and ignores what follows.
+	for i := 0; i < len(s); i++ {
+		if s[i] != '{' {
+			continue
+		}
+		var mr modelReply
+		if err := json.NewDecoder(strings.NewReader(s[i:])).Decode(&mr); err != nil {
+			continue
+		}
+		if strings.TrimSpace(mr.Reply) == "" {
+			continue
+		}
+		switch mr.Signal {
+		case SignalContinue, SignalLeadReady, SignalEscalate:
+			return &mr
+		}
 	}
-	var mr modelReply
-	if err := json.Unmarshal([]byte(s[start:end+1]), &mr); err != nil {
-		return nil
-	}
-	if strings.TrimSpace(mr.Reply) == "" {
-		return nil
-	}
-	switch mr.Signal {
-	case SignalContinue, SignalLeadReady, SignalEscalate:
-		return &mr
-	default:
-		return nil
-	}
+	return nil
 }
 
 // compactSlots is the deterministic JSON of the collected slots — used for

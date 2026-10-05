@@ -67,6 +67,51 @@ func TestParseResponse(t *testing.T) {
 		}
 	})
 
+	// Models do not always quote slot values: a page count or a phone number comes
+	// back as a JSON number, a yes/no as a bool. One unquoted value must not turn
+	// the whole turn into a handoff.
+	t.Run("scalar slot values that are not strings", func(t *testing.T) {
+		mr := parseResponse(`{"reply":"Got it","slots":{"volume":10,"contact":380671234567,"ratio":-1.5,"rush":true,"note":null,"ok":"x"},"signal":"continue"}`)
+		if mr == nil {
+			t.Fatal("mr = nil: an unquoted slot value must not fail the whole reply")
+		}
+		want := map[string]string{"volume": "10", "contact": "380671234567", "ratio": "-1.5", "rush": "true", "note": "", "ok": "x"}
+		for k, v := range want {
+			if mr.Slots[k] != v {
+				t.Errorf("slot %q = %q, want %q", k, mr.Slots[k], v)
+			}
+		}
+	})
+
+	t.Run("a nested object as a slot value is still unparseable", func(t *testing.T) {
+		if parseResponse(`{"reply":"x","slots":{"volume":{"pages":10}},"signal":"continue"}`) != nil {
+			t.Fatal("want nil for a structured slot value")
+		}
+	})
+
+	// The object is taken by decoding from a '{', not by "first { to last }".
+	t.Run("braces in the prose around the object", func(t *testing.T) {
+		obj := `{"reply":"Hi","slots":{},"signal":"continue"}`
+		for name, raw := range map[string]string{
+			"trailing prose with a brace": obj + " Hope that helps {x}",
+			"stray closing brace":         obj + "}",
+			"brace-y prose before":        "Sure {here} you go: " + obj,
+			"another object before":       `{"note":1} ` + obj,
+		} {
+			mr := parseResponse(raw)
+			if mr == nil || mr.Reply != "Hi" {
+				t.Errorf("%s: mr = %+v, want the reply object", name, mr)
+			}
+		}
+	})
+
+	t.Run("a brace inside the reply text", func(t *testing.T) {
+		mr := parseResponse(`{"reply":"Use {courier} or pickup","slots":{},"signal":"continue"}`)
+		if mr == nil || mr.Reply != "Use {courier} or pickup" {
+			t.Fatalf("mr = %+v", mr)
+		}
+	})
+
 	t.Run("no object at all", func(t *testing.T) {
 		if parseResponse("  Just a sentence.  ") != nil {
 			t.Fatal("want nil for plain prose (no JSON object)")
