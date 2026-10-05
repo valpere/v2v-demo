@@ -235,8 +235,7 @@ on the other Always Free shape, **VM.Standard.E2.1.Micro** (AMD x86, 1 GB).
 - **Config:** `.env.server` in the repo root (gitignored by `.env.*`) is the
   server's `.env`; `scp` it to `~/v2v-demo/.env`, `chmod 600`.
 - **Disable a topic on the public bot without touching the repo:** upload a
-  filtered `topics/topics.json` (lyapko is off on the server) and
-  `sudo systemctl restart v2v-demo`.
+  filtered `topics/topics.json` and `sudo systemctl restart v2v-demo`.
 - **Update the binary:** `./minions/srv.sh push-bin` (builds for the server's arch,
   uploads as `bot.new`, renames over `bot` — never `scp` over the running binary —
   and restarts); logs: `./minions/srv.sh logs -f`.
@@ -274,18 +273,14 @@ Open items, most urgent first:
    Hetzner CX22 if the instance is reclaimed.
 4. **Billing sanity check** after the trial ends (Console → Billing → Cost
    Analysis); consider a $1 budget alert. Do not click Upgrade unless needed.
-5. **lyapko decision:** disabled on the server, shipped in the repo. Before
-   enabling it publicly: re-check KB prices against the shop's listing, and
-   raise the shop's own pregnancy/labour treatment claims with them (the bot
-   deliberately does not repeat them).
-6. **Live smoke sweeps** (`docs/smoke/<id>.md` §1–7 per topic) on the server
+5. **Live smoke sweeps** (`docs/smoke/<id>.md` §1–7 per topic) on the server
    config; the voice step (6e) by ear.
-7. **Data hygiene:** `~/v2v-demo/data/` holds users' messages (turns, leads,
+6. **Data hygiene:** `~/v2v-demo/data/` holds users' messages (turns, leads,
    sessions). Public demo → delete it when the pitch is over.
-8. Optional: `TTS_FALLBACK_BACKEND=espeak` on the server (`apt install
+7. Optional: `TTS_FALLBACK_BACKEND=espeak` on the server (`apt install
    espeak-ng ffmpeg`) as a spare tire; `apt upgrade` now and then.
-9. Cosmetic: the translation greeting is hard-wrapped, so Telegram shows
-   breaks mid-sentence (the lyapko greeting is not).
+8. Cosmetic: the translation greeting is hard-wrapped, so Telegram shows
+   breaks mid-sentence.
 
 ## 10. Rotating credentials
 

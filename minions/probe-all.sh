@@ -10,7 +10,7 @@
 #
 # Usage:
 #   ./minions/probe-all.sh                     # every topic in topics/topics.json
-#   ./minions/probe-all.sh lyapko dental       # selected topics
+#   ./minions/probe-all.sh auto dental       # selected topics
 #   ./minions/probe-all.sh -m gpt-4.1-mini     # override the model
 #   ./minions/probe-all.sh -b ollama           # override the backend
 set -euo pipefail

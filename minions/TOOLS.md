@@ -138,7 +138,7 @@ default, `V2V_HOST=…` to override.
 ./minions/srv.sh restart
 ./minions/srv.sh build                       # cross-compile for the server's arch (amd64 Micro / arm64 A1) -> tmp/deploy/bot-<arch>
 ./minions/srv.sh push-bin                    # build + atomic replace (scp to bot.new, mv) + restart
-./minions/srv.sh push-topics [--without id,id]   # upload topics/, optionally filter the server's manifest (lyapko is off live), restart, list live topics
+./minions/srv.sh push-topics [--without id,id]   # upload topics/, optionally filter the server's manifest, restart, list live topics
 ./minions/srv.sh push-env [file]             # upload a config (default .env.server) as ~/v2v-demo/.env, chmod 600, restart
 ```
 
@@ -178,6 +178,6 @@ gate-or-LLM, slot delta). The sweep to repeat after touching a KB, a
 
 ```
 ./minions/probe-all.sh                       # every topic in topics/topics.json
-./minions/probe-all.sh lyapko dental         # selected topics
+./minions/probe-all.sh auto dental         # selected topics
 ./minions/probe-all.sh -m gpt-4.1-mini -b openai
 ```
