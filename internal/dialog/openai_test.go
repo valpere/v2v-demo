@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -217,5 +219,21 @@ func TestOpenAICompatSetsMaxTokens(t *testing.T) {
 	}
 	if gotReq.MaxTokens != MaxReplyTokens || MaxReplyTokens < 600 {
 		t.Fatalf("max_tokens = %d, want %d (>=600: a truncated JSON reply breaks the parse)", gotReq.MaxTokens, MaxReplyTokens)
+	}
+}
+
+// The prompt-cache hit rate is logged per call so it can be measured.
+func TestOpenAICompatLogsTokenUsage(t *testing.T) {
+	var buf strings.Builder
+	log.SetOutput(&buf)
+	defer log.SetOutput(os.Stderr)
+	g := oaiStub(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"x"}}],"usage":{"prompt_tokens":3200,"completion_tokens":90,"prompt_tokens_details":{"cached_tokens":2944}}}`))
+	})
+	if _, err := g.Generate(context.Background(), "S", []Msg{{Role: "user", Text: "hi"}}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "prompt=3200 cached=2944 completion=90") {
+		t.Fatalf("log = %q", buf.String())
 	}
 }

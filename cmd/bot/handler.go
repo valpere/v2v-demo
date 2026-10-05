@@ -231,7 +231,11 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	reply, _ := dialog.Handle(work, sess, topic.Spec, a.gen, text, time.Now().In(a.loc)) // never returns a non-nil error
 
 	if a.tts != nil && (a.cfg.SpeakMaxChars <= 0 || utf8.RuneCountInString(reply.Text) <= a.cfg.SpeakMaxChars) {
-		ogg, terr := a.tts.Speak(work, tts.Spoken(reply.Text, sess.Lang), voiceID(a.cfg, sess.Voice), sess.Lang)
+		speakCtx := work
+		if reply.Fixed {
+			speakCtx = tts.Cacheable(work) // canned lines only; see tts.CachedSynth
+		}
+		ogg, terr := a.tts.Speak(speakCtx, tts.Spoken(reply.Text, sess.Lang), voiceID(a.cfg, sess.Voice), sess.Lang)
 		if terr != nil {
 			log.Printf("tts (chat %d): %v", u.ChatID, terr)
 		} else if err := a.tg.SendVoice(ctx, u.ChatID, ogg); err != nil {

@@ -337,7 +337,7 @@ func Handle(
 			Msg{Role: "user", Text: userText},
 			Msg{Role: "assistant", Text: text},
 		))
-		return Reply{Text: text, Signal: SignalEscalate}, nil
+		return Reply{Text: text, Signal: SignalEscalate, Fixed: true}, nil
 	}
 
 	// 0 — track the conversation language (lingua: uk/en, ru→uk). Updates
@@ -375,7 +375,7 @@ func Handle(
 			Msg{Role: "user", Text: userText},
 			Msg{Role: "assistant", Text: clarify},
 		))
-		return Reply{Text: clarify, Signal: SignalContinue}, nil
+		return Reply{Text: clarify, Signal: SignalContinue, Fixed: true}, nil
 	}
 
 	// 2, 3, 4 — slot-answer / small-talk bypass and the grounding gate.
@@ -403,7 +403,7 @@ func Handle(
 			Msg{Role: "user", Text: userText},
 			Msg{Role: "assistant", Text: clarify},
 		))
-		return Reply{Text: clarify, Signal: SignalContinue}, nil
+		return Reply{Text: clarify, Signal: SignalContinue, Fixed: true}, nil
 	}
 	// This turn reached the model. If the previous turn was a redirect (a gate
 	// strike), tell the model directly — a message that scraped past the gate
@@ -423,10 +423,13 @@ func Handle(
 		b.WriteString("\n")
 		b.WriteString(s.Body)
 	}
-	b.WriteString("\n\n--- COLLECTED SO FAR ---\n")
-	b.WriteString(compactSlots(sess.Slots))
+	// Stable parts first (persona, KB, format) and the per-turn parts after
+	// them: providers cache a request's longest unchanged PREFIX (OpenAI
+	// automatic prompt caching), so anything that varies must come last.
 	b.WriteString("\n\n--- RESPONSE FORMAT ---\n")
 	b.WriteString(responseFormatBlock(topic.Slots))
+	b.WriteString("\n\n--- COLLECTED SO FAR ---\n")
+	b.WriteString(compactSlots(sess.Slots))
 	if sess.Lang != "" {
 		// soft steer — the model still follows a clear mid-dialogue switch
 		b.WriteString("\n\n--- CONVERSATION LANGUAGE ---\n")
@@ -453,7 +456,7 @@ func Handle(
 	if err != nil {
 		log.Printf("dialog: generator error, escalating: %v", err)
 		sess.Escalated = true
-		return Reply{Text: apologyLine(sessLang(sess)), Signal: SignalEscalate}, nil
+		return Reply{Text: apologyLine(sessLang(sess)), Signal: SignalEscalate, Fixed: true}, nil
 	}
 
 	// 8, 9 — parse; never speak un-parseable raw output
@@ -500,5 +503,5 @@ func Handle(
 	// 12, 13, 14
 	matched := matchedTitles(userText, topic.KB)
 	sess.History = trimHistory(append(hist, Msg{Role: "assistant", Text: spoken}))
-	return Reply{Text: spoken, Signal: signal, Matched: matched}, nil
+	return Reply{Text: spoken, Signal: signal, Matched: matched, Fixed: signal == SignalEscalate}, nil
 }

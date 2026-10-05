@@ -15,6 +15,7 @@ import (
 	"github.com/valpere/v2v-demo/internal/dialog"
 	"github.com/valpere/v2v-demo/internal/kb"
 	"github.com/valpere/v2v-demo/internal/telegram"
+	"github.com/valpere/v2v-demo/internal/tts"
 )
 
 // ── fakes ───────────────────────────────────────────────────────
@@ -1016,5 +1017,39 @@ func TestFirstTurnVoiceHintIsEmpty(t *testing.T) {
 	a.handleUpdate(context.Background(), telegram.Update{ChatID: 5, VoiceFileID: "v"})
 	if got != "" {
 		t.Fatalf("first-turn hint = %q, want empty", got)
+	}
+}
+
+type countTTS struct{ n int }
+
+func (c *countTTS) Speak(context.Context, string, string, string) ([]byte, error) {
+	c.n++
+	return []byte("OggS"), nil
+}
+
+// The audio of a canned line (handoff) is cached; a model-written reply is not.
+func TestOnlyCannedLinesAreAudioCached(t *testing.T) {
+	a, _ := newTestApp(t, &fakeGen{})
+	inner := &countTTS{}
+	a.tts = tts.NewCached(inner, "test", filepath.Join(t.TempDir(), "c"), 1<<20)
+	seed(t, a, 5)
+	ctx := context.Background()
+
+	for i := 0; i < 2; i++ { // hard escalate -> the fixed handoff line
+		a.handleUpdate(ctx, telegram.Update{ChatID: 5, Text: "хочу поговорити з менеджером"})
+	}
+	if inner.n != 1 {
+		t.Fatalf("handoff line synthesised %d times, want 1 (second is a cache hit)", inner.n)
+	}
+
+	b, _ := newTestApp(t, &fakeGen{})
+	inner2 := &countTTS{}
+	b.tts = tts.NewCached(inner2, "test", filepath.Join(t.TempDir(), "c"), 1<<20)
+	seed(t, b, 6)
+	for i := 0; i < 2; i++ { // a model reply ("ok")
+		b.handleUpdate(ctx, telegram.Update{ChatID: 6, Text: "translation price"})
+	}
+	if inner2.n != 2 {
+		t.Fatalf("model replies synthesised %d times, want 2 (never cached)", inner2.n)
 	}
 }

@@ -781,3 +781,23 @@ func TestEscalationRecordedInHistory(t *testing.T) {
 		t.Fatalf("history after an escalation = %+v", sess.History)
 	}
 }
+
+// The varying prompt parts come AFTER the stable ones, so the provider's
+// prefix cache covers persona + KB + format.
+func TestSystemPromptStablePrefixFirst(t *testing.T) {
+	gen := &fakeGen{reply: reply("ok", "continue", nil)}
+	if _, err := Handle(context.Background(), &Session{Lang: "uk"}, testTopic(), gen,
+		"certified translation of a diploma, tell me about delivery", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	sys := gen.gotSys
+	order := []string{"--- KNOWLEDGE BASE ---", "--- RESPONSE FORMAT ---", "--- COLLECTED SO FAR ---", "--- CONVERSATION LANGUAGE ---", "--- CURRENT TIME ---"}
+	last := -1
+	for _, h := range order {
+		i := strings.Index(sys, h)
+		if i < 0 || i < last {
+			t.Fatalf("block %q missing or out of order in the system prompt", h)
+		}
+		last = i
+	}
+}

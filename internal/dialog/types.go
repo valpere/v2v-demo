@@ -200,4 +200,7 @@ type Reply struct {
 	Text    string   // spoken text (mr.Reply) (or a fixed handoff/apology line)
 	Signal  Signal   // continue | lead_ready | escalate
 	Matched []string // log-only: KB section titles with a query-term hit; nil on an early escalate
+	// Fixed marks a canned line (handoff, emergency, clarify, apology) that
+	// never contains anything from this client — safe to cache its audio.
+	Fixed bool
 }

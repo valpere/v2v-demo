@@ -62,6 +62,7 @@ type Config struct {
 	RateExemptChats  []int64       // chat ids never limited (the owner's)
 	MaxTextChars     int           // longest accepted user text, in runes; 0 = unlimited
 	SpeakMaxChars    int           // replies longer than this go out as text only; 0 = always speak
+	TTSCacheMB       int           // on-disk cache of canned-line audio (DATA_DIR/tts-cache); 0 = off
 	LogRetentionDays int           // prune turns/leads logs older than this at start; 0 keeps everything
 	VoiceMaxSeconds  int           // longest accepted voice note; 0 = unlimited
 	VoiceMaxBytes    int           // largest accepted voice note; 0 = unlimited
@@ -111,7 +112,7 @@ func LoadConfig() (Config, error) {
 	}
 
 	limits := map[string]int{"RATE_BURST": 4, "RATE_PER_MIN": 8, "CHAT_DAILY_TURNS": 100,
-		"DAILY_TURNS": 300, "LOG_RETENTION_DAYS": 90, "VOICE_MAX_SECONDS": 60, "VOICE_MAX_BYTES": 2 << 20, "MAX_TEXT_CHARS": 1500, "SPEAK_MAX_CHARS": 700}
+		"DAILY_TURNS": 300, "TTS_CACHE_MB": 0, "LOG_RETENTION_DAYS": 90, "VOICE_MAX_SECONDS": 60, "VOICE_MAX_BYTES": 2 << 20, "MAX_TEXT_CHARS": 1500, "SPEAK_MAX_CHARS": 700}
 	for k, def := range limits {
 		limits[k] = def
 		if v := get(k); v != "" {
@@ -138,7 +139,7 @@ func LoadConfig() (Config, error) {
 		TelegramToken: get("TELEGRAM_BOT_TOKEN"),
 		RateBurst:     limits["RATE_BURST"], RatePerMin: limits["RATE_PER_MIN"],
 		ChatDailyTurns: limits["CHAT_DAILY_TURNS"], DailyTurns: limits["DAILY_TURNS"],
-		MaxTextChars: limits["MAX_TEXT_CHARS"], LogRetentionDays: limits["LOG_RETENTION_DAYS"], VoiceMaxSeconds: limits["VOICE_MAX_SECONDS"], VoiceMaxBytes: limits["VOICE_MAX_BYTES"], SpeakMaxChars: limits["SPEAK_MAX_CHARS"],
+		MaxTextChars: limits["MAX_TEXT_CHARS"], LogRetentionDays: limits["LOG_RETENTION_DAYS"], TTSCacheMB: limits["TTS_CACHE_MB"], VoiceMaxSeconds: limits["VOICE_MAX_SECONDS"], VoiceMaxBytes: limits["VOICE_MAX_BYTES"], SpeakMaxChars: limits["SPEAK_MAX_CHARS"],
 		RateExemptChats: exempt,
 		TurnTimeout:     turnTimeout,
 

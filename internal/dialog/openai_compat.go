@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -52,7 +53,16 @@ type oaiRespFormat struct {
 	Type string `json:"type"` // "json_object"
 }
 
+type oaiUsage struct {
+	PromptTokens        int `json:"prompt_tokens"`
+	CompletionTokens    int `json:"completion_tokens"`
+	PromptTokensDetails struct {
+		CachedTokens int `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
+}
+
 type oaiResponse struct {
+	Usage   *oaiUsage `json:"usage"`
 	Choices []struct {
 		Message oaiMessage `json:"message"`
 	} `json:"choices"`
@@ -136,6 +146,9 @@ func (g *openAICompatGen) attempt(ctx context.Context, body []byte) (text string
 	}
 	if len(out.Choices) == 0 {
 		return "", false, fmt.Errorf("%s: empty choices", g.name)
+	}
+	if u := out.Usage; u != nil { // the prompt-cache hit rate, measured, not guessed
+		log.Printf("dialog: %s tokens prompt=%d cached=%d completion=%d", g.name, u.PromptTokens, u.PromptTokensDetails.CachedTokens, u.CompletionTokens)
 	}
 	return out.Choices[0].Message.Content, false, nil
 }

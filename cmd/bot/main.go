@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -330,18 +331,28 @@ func newTranscriber(cfg Config) (stt.Transcriber, error) {
 // with text only); it makes no sense as a fallback target, so callers
 // building a fallback reject it themselves (see newSynthesizer).
 func buildSynthesizer(name string, cfg Config) (tts.Synthesizer, error) {
+	var (
+		s  tts.Synthesizer
+		id string
+	)
 	switch name {
 	case "none":
 		return nil, nil
 	case "elevenlabs":
-		return tts.NewElevenLabs(cfg.ElevenKey), nil
+		s, id = tts.NewElevenLabs(cfg.ElevenKey), tts.ElevenLabsID
 	case "azure":
-		return tts.NewAzure(cfg.AzureKey, cfg.AzureRegion), nil
+		s, id = tts.NewAzure(cfg.AzureKey, cfg.AzureRegion), tts.AzureID
 	case "espeak":
-		return tts.NewEspeak(cfg.EspeakBin, cfg.FfmpegBin), nil
+		s, id = tts.NewEspeak(cfg.EspeakBin, cfg.FfmpegBin), tts.EspeakID
 	default:
 		return nil, fmt.Errorf("unknown TTS_BACKEND %q", name)
 	}
+	if cfg.TTSCacheMB > 0 {
+		// per backend (below any failover): a clip is only replayed by the
+		// engine/model that made it
+		s = tts.NewCached(s, id, filepath.Join(cfg.DataDir, "tts-cache"), int64(cfg.TTSCacheMB)<<20)
+	}
+	return s, nil
 }
 
 // newSynthesizer selects the TTS backend (TTS_BACKEND), wrapping it in a
