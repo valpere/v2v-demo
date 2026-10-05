@@ -1,6 +1,10 @@
 package main
 
 import (
+	"context"
+	"time"
+
+	"github.com/valpere/v2v-demo/internal/dialog"
 	"strings"
 	"testing"
 )
@@ -70,6 +74,49 @@ func TestShippedLyapkoTopic(t *testing.T) {
 	for _, need := range []string{"unofficial", "неофіційн"} {
 		if !strings.Contains(b.Greeting, need) {
 			t.Errorf("greeting lacks the %q disclaimer", need)
+		}
+	}
+}
+
+// 3.1 — the dental emergency patterns, run against the shipped manifest:
+// real emergencies get the fixed 103/112 text without consulting the model;
+// ordinary dental questions do not.
+func TestShippedDentalEmergency(t *testing.T) {
+	t.Chdir("../..")
+	topics, _, err := loadTopics(Config{TopicsPath: "topics/topics.json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := topics["dental"].Spec
+	for _, text := range []string{
+		"У мене сильно набрякла щока і мені важко дихати",
+		"Після видалення зуба не зупиняється кровотеча вже три години",
+		"після видалення тече кров і не зупиняється",
+		"набряк шиї збільшується",
+		"не можу ковтати",
+		"травма обличчя, вдарили по щелепі",
+		"I can't breathe properly and my face is swelling",
+		"the bleeding won't stop after my extraction",
+		"heavy bleeding since the morning",
+		"I have trouble swallowing",
+		"my son was hit in the face playing football",
+	} {
+		gen := &fakeGen{}
+		sess := &dialog.Session{}
+		reply, _ := dialog.Handle(context.Background(), sess, spec, gen, text, time.Now())
+		if !strings.Contains(reply.Text, "103") || len(gen.seen) != 0 || reply.Signal != dialog.SignalEscalate {
+			t.Errorf("%q: want the emergency text without the model, got signal=%s model-calls=%d reply=%q", text, reply.Signal, len(gen.seen), reply.Text)
+		}
+	}
+	for _, text := range []string{
+		"Скільки коштує чистка зубів?",
+		"Хочу записатися на консультацію у суботу",
+		"Чи боляче ставити пломбу?",
+		"how much is teeth whitening",
+	} {
+		reply, _ := dialog.Handle(context.Background(), &dialog.Session{}, spec, &fakeGen{}, text, time.Now())
+		if strings.Contains(reply.Text, "Якщо у вас сильна кровотеча") || strings.Contains(reply.Text, "heavy bleeding, swelling") {
+			t.Errorf("%q: false emergency alarm", text)
 		}
 	}
 }

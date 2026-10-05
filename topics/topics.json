@@ -33,6 +33,21 @@
       "closed_note_uk": "Якщо стан невідкладний, а клініка зараз зачинена — телефонуйте на 103 або зверніться до приймального відділення найближчої лікарні.",
       "closed_note_en": "If this is urgent and the clinic is closed right now, call emergency services (103) or go to the nearest hospital emergency department."
     },
+    "emergency": {
+      "patterns": [
+        "кровотеч",
+        "(?:не\\s+зупиня\\w*|тече|йде)\\s+(?:сильно\\s+)?кров|кров\\w*\\s+(?:не\\s+зупиня|тече|йде\\s+сильно)",
+        "(?:набряк|набрякл\\w*|опухл\\w*|розпух\\w*)[^.!?]{0,40}(?:шия|шиї|горл\\w*|ока|око|очей|поширю\\w*|збільшу\\w*|росте)|(?:поширю\\w*|збільшу\\w*)[^.!?]{0,20}(?:набряк|опух)",
+        "(?:важко|тяжко|не\\s+можу|складно|утруднен\\w*)\\s+(?:дихати|ковтати|дихання|ковтання)|задихаюсь|задихаюся",
+        "травм\\w*\\s+(?:обличч\\w*|щелеп\\w*|голов\\w*)|(?:вдарив\\w*|вдарили|удар)\\s+(?:по|в|у)\\s+(?:обличч\\w*|щелеп\\w*)|вибит\\w*\\s+зуб",
+        "(?:heavy|severe|uncontrolled)\\s+bleeding|bleeding[^.!?]{0,30}(?:won'?t|will\\s+not|doesn'?t|does\\s+not|not)\\s+stop|can'?t\\s+stop\\s+(?:the\\s+)?bleeding|blood[^.!?]{0,20}(?:won'?t|will\\s+not)\\s+stop",
+        "swell\\w*[^.!?]{0,40}(?:neck|throat|eye|spread\\w*|getting\\s+(?:bigger|worse))|spreading\\s+swelling",
+        "(?:can'?t|cannot|can\\s+not|unable\\s+to|hard\\s+to|difficult\\s+to|trouble|difficulty|struggling\\s+to)\\s+(?:breath\\w*|swallow\\w*)",
+        "(?:facial|face|jaw)\\s+(?:injury|trauma)|(?:hit|punched|kicked)\\s+(?:in|on)\\s+the\\s+(?:face|jaw)|knocked[\\s-]+out\\s+(?:a\\s+)?tooth"
+      ],
+      "reply_uk": "Якщо у вас сильна кровотеча, набряк, що поширюється, утруднене дихання чи ковтання або травма обличчя, негайно телефонуйте 103 (або 112) чи їдьте до найближчого відділення невідкладної допомоги. Не чекайте відповіді адміністратора.",
+      "reply_en": "If you have heavy bleeding, swelling that is spreading, difficulty breathing or swallowing, or a facial injury, call emergency services (103 or 112 in Ukraine) or go to the nearest emergency room now. Don't wait for our administrator."
+    },
     "slots": [
       { "key": "service", "ask_uk": "яка послуга потрібна", "ask_en": "what the visit is for", "rule": "консультація|чистка|карієс|видалення|протезування|імплантація|брекети|дитячий прийом|відбілювання" },
       { "key": "first_visit", "ask_uk": "чи ви вже лікувалися в клініці", "ask_en": "first visit here or a returning patient", "rule": "так|ні" },

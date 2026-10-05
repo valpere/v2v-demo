@@ -64,6 +64,13 @@ are two or more).
   is available (e.g. a clinic pointing at emergency services). Picked by the
   conversation language; the model's own reply is never spoken on escalate,
   so this is the only way to add such a line.
+- `emergency` (optional) — deterministic emergency handling: `patterns`
+  (case-insensitive regexps matched against the user's text) and
+  `reply_uk` / `reply_en` (both required when patterns are set). A match gets
+  that fixed text followed by the normal handoff line — **always, open or
+  closed, before and instead of the model**. Invalid regexps fail at load.
+  Used by dental (bleeding, breathing/swallowing, spreading swelling, facial
+  trauma → 103 / 112); the wording is medical, so change it deliberately.
 - `slots` — an **ordered** list of what the assistant collects. `key` is
   the JSON key the model returns it under (and the key in the lead record);
   `ask_uk` / `ask_en` are the plain-words phrasings the clarify line uses

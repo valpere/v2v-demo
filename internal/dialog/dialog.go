@@ -333,6 +333,14 @@ func Handle(
 		sess.Lang = l
 	}
 
+	// 0b — a topic's emergency (e.g. dental: heavy bleeding, trouble breathing):
+	// fixed safety text + the handoff, before and instead of the model.
+	if topic.Emergency.matches(userText) {
+		r, _ := esc()
+		r.Text = topic.Emergency.reply(sessLang(sess)) + "\n\n" + r.Text
+		return r, nil
+	}
+
 	// 1 — unambiguous handoff trigger
 	if hardEscalate(userText) {
 		return esc()

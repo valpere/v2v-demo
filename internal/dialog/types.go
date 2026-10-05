@@ -34,6 +34,9 @@ type TopicSpec struct {
 	ScopeUK string
 	ScopeEN string
 	Office  OfficeHours
+
+	// Emergency is optional deterministic emergency handling (see EmergencySpec).
+	Emergency EmergencySpec
 }
 
 // OfficeHours is a topic's business hours, injected into the "--- CURRENT

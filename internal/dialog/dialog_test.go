@@ -681,3 +681,53 @@ func TestTrimHistoryBytes(t *testing.T) {
 		t.Fatalf("count cap still applies, got %d", len(got))
 	}
 }
+
+type mustNotCallGen struct{ t *testing.T }
+
+func (g mustNotCallGen) Generate(context.Context, string, []Msg) (string, error) {
+	g.t.Helper()
+	g.t.Error("the model must not be consulted for an emergency")
+	return "", nil
+}
+
+func emergencyTopic(t *testing.T) TopicSpec {
+	t.Helper()
+	e := EmergencySpec{
+		Patterns: []string{`кровотеч|не\s+зупиня\w*\s+кров`, `bleeding`},
+		ReplyUK:  "ЕКСТРЕНО: телефонуйте 103.",
+		ReplyEN:  "EMERGENCY: call 103.",
+	}
+	if err := e.Compile(); err != nil {
+		t.Fatal(err)
+	}
+	return TopicSpec{System: "S", Slots: []SlotSpec{{Key: "a"}}, ScopeUK: "u", ScopeEN: "e", Emergency: e}
+}
+
+// 3.1 — an emergency gets the fixed text plus the handoff, with the model
+// never consulted, in the user's language.
+func TestEmergencyShortCircuitsTheModel(t *testing.T) {
+	for text, want := range map[string]string{
+		"Після видалення зуба не зупиняється кровотеча вже три години": "ЕКСТРЕНО: телефонуйте 103.",
+		"my gum won't stop bleeding after the extraction":              "EMERGENCY: call 103.",
+	} {
+		sess := &Session{}
+		reply, _ := Handle(context.Background(), sess, emergencyTopic(t), mustNotCallGen{t}, text, time.Now())
+		if !strings.HasPrefix(reply.Text, want) || reply.Signal != SignalEscalate || !sess.Escalated {
+			t.Errorf("%q -> %+v (escalated=%v)", text, reply, sess.Escalated)
+		}
+		if !strings.Contains(reply.Text, handoffLine(sessLang(sess))) {
+			t.Errorf("%q: emergency text must be followed by the handoff line: %q", text, reply.Text)
+		}
+	}
+}
+
+func TestEmergencyPatternErrors(t *testing.T) {
+	bad := EmergencySpec{Patterns: []string{"("}, ReplyUK: "u", ReplyEN: "e"}
+	if bad.Compile() == nil {
+		t.Error("an invalid regexp must be a load error")
+	}
+	missing := EmergencySpec{Patterns: []string{"x"}, ReplyUK: "u"}
+	if missing.Compile() == nil {
+		t.Error("patterns without both reply texts must be a load error")
+	}
+}
