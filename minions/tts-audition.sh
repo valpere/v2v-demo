@@ -41,12 +41,13 @@ model=${MODEL:-eleven_multilingual_v2}
 mkdir -p "$out_dir"
 out="$out_dir/audition-${label}-$(date +%Y%m%d-%H%M%S).mp3"
 
-body=$(python3 -c 'import json,sys; print(json.dumps({"text": sys.argv[1], "model_id": sys.argv[2], "output_format": "mp3_44100_128"}))' "$text" "$model")
+body=$(jq -nc --arg t "$text" --arg m "$model" '{text: $t, model_id: $m, output_format: "mp3_44100_128"}')
 
-code=$(curl -sS -o "$out" -w '%{http_code}' -X POST \
-	-H "xi-api-key: $key" -H 'Content-Type: application/json' \
-	-d "$body" \
-	"https://api.elevenlabs.io/v1/text-to-speech/${voice}")
+# the key goes to curl on stdin (-H @-), not argv, so it never shows up in `ps`
+code=$(printf 'xi-api-key: %s\nContent-Type: application/json\n' "$key" |
+	curl -sS -H @- -o "$out" -w '%{http_code}' -X POST \
+		-d "$body" \
+		"https://api.elevenlabs.io/v1/text-to-speech/${voice}")
 
 if [[ "$code" != "200" ]]; then
 	echo "HTTP $code:" >&2

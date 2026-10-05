@@ -22,6 +22,8 @@ jobs:
         run: make check
       - name: module checksums
         run: go mod verify
+      - name: tgdrive (separate module) builds and vets
+        run: cd minions/tgdrive && go vet ./... && go build ./...
       - name: shellcheck the dev helpers
         run: shellcheck $(git ls-files 'minions/*.sh' 'minions/**/*.sh')
 

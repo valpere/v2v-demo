@@ -124,6 +124,14 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
+Hardening (applied on the live server with `./minions/srv.sh harden`, a
+drop-in `v2v-demo.service.d/hardening.conf`): `NoNewPrivileges`, `PrivateTmp`,
+`ProtectSystem=strict` + `ProtectHome=read-only` with `ReadWritePaths` for
+`data/` only, `MemoryMax=600M`, `StartLimitBurst=5` per 300 s; plus a journald
+`SystemMaxUse=200M`. Back the data up with `./minions/srv.sh pull-data`
+(archive in `tmp/backup/`, 0600) — Oracle may reclaim an idle Always Free
+instance, and `data/` is the only state.
+
 No `Environment=`/`EnvironmentFile=` line needed — the bot reads `.env`
 from its working directory on its own (`readDotEnv`, `cmd/bot/config.go`).
 

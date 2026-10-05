@@ -30,6 +30,7 @@ done
 mkdir -p tmp
 go build -o tmp/dialog-probe ./minions/dialog-probe
 
+rc=0
 for id in "${ids[@]}"; do
   f=tmp/probe-$id.txt
   if [ ! -f "$f" ]; then
@@ -37,6 +38,8 @@ for id in "${ids[@]}"; do
     continue
   fi
   echo "== $id"
-  tmp/dialog-probe -topic "$id" "${extra[@]}" "$f" 2>&1 |
-    grep -E '^#|^  (U:|\[)|rror|panic' | cut -c1-120 || true
+  # keep the probe's own exit status: a crashed/failed probe must fail the sweep
+  out=$(tmp/dialog-probe -topic "$id" "${extra[@]}" "$f" 2>&1) || { rc=1; echo "!! dialog-probe failed for $id"; }
+  printf '%s\n' "$out" | grep -E '^#|^  (U:|\[)|rror|panic' | cut -c1-120 || true
 done
+exit "$rc"

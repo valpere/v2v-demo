@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -49,7 +50,13 @@ func AppendLead(dir string, r LeadRecord) error {
 	return appendJSONL(dir, "leads.jsonl", r)
 }
 
+// logMu serialises appends with PruneLogs' rewrite: an append landing between
+// the prune's read and its rename would otherwise be lost.
+var logMu sync.Mutex
+
 func appendJSONL(dir, name string, v any) error {
+	logMu.Lock()
+	defer logMu.Unlock()
 	if err := ensurePrivateDir(dir); err != nil {
 		return err
 	}
@@ -86,11 +93,14 @@ func ensurePrivateDir(dir string) error {
 // PruneLogs drops turns.jsonl / leads.jsonl records older than days (relative
 // to now). Lines that do not parse are kept — never delete what cannot be
 // read. days <= 0 keeps everything; a missing file or dir is not an error.
-// Call it at startup, before any writer exists: it rewrites each file.
+// It rewrites each file under a lock shared with the appenders, so it is
+// safe to call while the bot runs (startup, then daily).
 func PruneLogs(dir string, days int, now time.Time) error {
 	if days <= 0 {
 		return nil
 	}
+	logMu.Lock()
+	defer logMu.Unlock()
 	cutoff := now.AddDate(0, 0, -days)
 	for _, name := range []string{"turns.jsonl", "leads.jsonl"} {
 		if err := pruneFile(filepath.Join(dir, name), cutoff); err != nil {

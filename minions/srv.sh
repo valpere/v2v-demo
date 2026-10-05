@@ -14,6 +14,8 @@
 #   ./minions/srv.sh push-topics [--without id,id]
 #                                           # upload topics/, optionally dropping topics
 #                                           # from the server's manifest, then restart
+#   ./minions/srv.sh harden                 # one-time: systemd sandbox + MemoryMax drop-in, journald cap
+#   ./minions/srv.sh pull-data              # archive the server's data/ to tmp/backup/ (0600)
 #   ./minions/srv.sh push-env [file]        # upload a config as ~/v2v-demo/.env
 #                                           # (default .env.server) + restart
 #
@@ -87,29 +89,72 @@ case "$cmd" in
   push-topics)
     without=""
     [ "${1:-}" = "--without" ] && { without=${2:?--without needs a comma-separated id list}; shift 2; }
-    scp -q -r topics "$HOST:v2v-demo/"
-    if [ -n "$without" ]; then
-      mkdir -p tmp
-      jq --arg w "$without" '($w | split(",")) as $x | map(select(.id as $i | $x | index($i) | not))' \
-        topics/topics.json >tmp/topics.server.json
-      scp -q tmp/topics.server.json "$HOST:v2v-demo/topics/topics.json"
-    fi
+    # Build the manifest that will go live FIRST: if jq fails nothing has been
+    # touched. Everything except topics.json is streamed over, then the
+    # manifest is swapped in with a rename — the server never holds a mix of
+    # the full manifest and a half-filtered one.
+    mkdir -p tmp
+    jq --arg w "$without" '($w | split(",")) as $x | map(select(.id as $i | $x | index($i) | not))' \
+      topics/topics.json >tmp/topics.server.json
+    jq -e 'length > 0' tmp/topics.server.json >/dev/null || { echo "no topics left to push" >&2; exit 1; }
+    tar --exclude=topics/topics.json -cf - topics | R 'tar -xf - -C ~/v2v-demo'
+    scp -q tmp/topics.server.json "$HOST:v2v-demo/topics/topics.json.new"
+    R 'mv -f ~/v2v-demo/topics/topics.json.new ~/v2v-demo/topics/topics.json'
     restart
     echo "live topics: $(R "jq -r '[.[].id] | join(\", \")' ~/v2v-demo/topics/topics.json 2>/dev/null || grep -o '\"id\": *\"[a-z]*\"' ~/v2v-demo/topics/topics.json | tr '\n' ' '")" ;;
 
   push-env)
     f=${1:-.env.server}
     [ -f "$f" ] || { echo "no such file: $f" >&2; exit 2; }
-    tok() { awk -F= '$1 == "TELEGRAM_BOT_TOKEN" { print substr($0, index($0, "=") + 1); exit }' "$1"; }
+    # same parsing as the bot's readDotEnv: optional `export `, optional quotes
+    tok() {
+      awk '{ sub(/^[ \t]*export[ \t]+/, "") }
+           index($0, "TELEGRAM_BOT_TOKEN=") == 1 { v = substr($0, index($0, "=") + 1); gsub(/^["'"'"']|["'"'"']$/, "", v); print v; exit }' "$1"
+    }
     if [ -f .env ] && [ "${FORCE:-0}" != 1 ] &&
        [ "$(tok "$f" | sha256sum)" = "$(tok .env | sha256sum)" ]; then
       echo "REFUSING: $f and the local .env use the SAME Telegram token (409 Conflict)." >&2
       echo "Use a separate dev bot locally, or FORCE=1 if you stopped the local bot." >&2
       exit 1
     fi
-    scp -q "$f" "$HOST:v2v-demo/.env"
-    R 'chmod 600 ~/v2v-demo/.env'
+    # staged: a failed upload never leaves a truncated .env behind
+    scp -q "$f" "$HOST:v2v-demo/.env.new"
+    R 'chmod 600 ~/v2v-demo/.env.new && mv -f ~/v2v-demo/.env.new ~/v2v-demo/.env'
     restart ;;
 
-  *) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  harden)
+    # One-time (idempotent): systemd sandboxing + limits as a drop-in, and a
+    # journald size cap. Source of truth for docs/deploy.md §5.
+    R 'sudo mkdir -p /etc/systemd/system/v2v-demo.service.d /etc/systemd/journald.conf.d'
+    R 'sudo tee /etc/systemd/system/v2v-demo.service.d/hardening.conf >/dev/null' <<'UNIT'
+[Unit]
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/v2v-demo/data
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+MemoryMax=600M
+UNIT
+    R 'sudo tee /etc/systemd/journald.conf.d/size.conf >/dev/null' <<'JOURNAL'
+[Journal]
+SystemMaxUse=200M
+JOURNAL
+    R 'sudo systemctl daemon-reload && sudo systemctl restart systemd-journald'
+    restart ;;
+
+  pull-data)
+    # Copy the server's data/ (turns, leads, sessions.db) to a private local
+    # archive — the Oracle reclamation risk makes this the only backup.
+    mkdir -p tmp/backup
+    out=tmp/backup/data-$(date -u +%Y%m%dT%H%M%SZ).tgz
+    ( umask 077; R 'tar -czf - -C ~/v2v-demo data' >"$out" )
+    echo "saved $out ($(du -h "$out" | cut -f1))" ;;
+
+  *) sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

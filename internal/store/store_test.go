@@ -132,3 +132,41 @@ func TestPruneLogs(t *testing.T) {
 		t.Fatalf("missing dir is not an error: %v", err)
 	}
 }
+
+// A prune rewrites the file; an append racing it must not be lost. The
+// appender interleaves stale records (so every prune really rewrites) with
+// fresh ones; every fresh one must survive.
+func TestPruneDoesNotLoseConcurrentAppends(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now()
+	const n = 300
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < n; i++ {
+			ts, id := now, int64(i)
+			if i%2 == 0 {
+				ts, id = now.AddDate(0, 0, -400), -1 // stale
+			}
+			if err := AppendTurn(dir, TurnRecord{Time: ts, ChatID: id}); err != nil {
+				t.Error(err)
+			}
+		}
+	}()
+	for running := true; running; {
+		select {
+		case <-done:
+			running = false
+		default:
+			if err := PruneLogs(dir, 90, now); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := PruneLogs(dir, 90, now); err != nil {
+		t.Fatal(err)
+	}
+	if got := countLines(t, filepath.Join(dir, "turns.jsonl")); got != n/2 {
+		t.Fatalf("fresh lines = %d, want %d (a concurrent append was lost)", got, n/2)
+	}
+}

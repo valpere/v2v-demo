@@ -139,11 +139,13 @@ default, `V2V_HOST=…` to override.
 ./minions/srv.sh build                       # cross-compile for the server's arch (amd64 Micro / arm64 A1) -> tmp/deploy/bot-<arch>
 ./minions/srv.sh push-bin                    # build + atomic replace (scp to bot.new, mv) + restart
 ./minions/srv.sh push-topics [--without id,id]   # upload topics/, optionally filter the server's manifest, restart, list live topics
+./minions/srv.sh pull-data                  # archive the server data/ -> tmp/backup/ (0600)
+./minions/srv.sh harden                     # one-time: systemd sandbox + MemoryMax drop-in, journald cap
 ./minions/srv.sh push-env [file]             # upload a config (default .env.server) as ~/v2v-demo/.env, chmod 600, restart
 ```
 
 `push-env` refuses a Telegram token equal to the local `.env`'s (two pollers on
-one token = 409 Conflict) unless `FORCE=1`. Nothing secret is printed.
+one token = 409 Conflict) unless `FORCE=1`. `push-topics` builds the manifest first and swaps it in with a rename; `push-env` stages `.env.new` then renames. Nothing secret is printed.
 
 ## `env-show.sh` — print `.env*` files with secrets masked
 

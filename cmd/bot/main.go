@@ -80,6 +80,7 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	go pruneLogsDaily(ctx, cfg) // a long-running bot never restarts, so the startup prune is not enough
 
 	tg, err := telegram.New(cfg.TelegramToken)
 	if err != nil {
@@ -142,6 +143,25 @@ const (
 	slowDownWindow = 30 * time.Second // at most one "slow down" notice per chat per window
 	slowDownLine   = "Забагато повідомлень одразу — зачекайте, будь ласка, поки я відповім на попередні. / Too many messages at once — please wait until I answer the earlier ones."
 )
+
+// pruneLogsDaily re-applies LOG_RETENTION_DAYS once a day until ctx ends.
+func pruneLogsDaily(ctx context.Context, cfg Config) {
+	if cfg.LogRetentionDays <= 0 {
+		return
+	}
+	t := time.NewTicker(24 * time.Hour)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if err := store.PruneLogs(cfg.DataDir, cfg.LogRetentionDays, time.Now()); err != nil {
+				log.Printf("prune logs: %v", err)
+			}
+		}
+	}
+}
 
 // dispatch routes an update to its chat's serial worker, spawning the worker
 // on first contact. This keeps one chat's turns in strict arrival order (a
