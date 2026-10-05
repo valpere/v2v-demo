@@ -58,6 +58,10 @@ are two or more).
   closed that day. **Omitting `office` entirely** means Mon–Fri
   09:00–18:00 (the translation bureau's hours). The open/closed decision is
   made in Go against `BOT_TIMEZONE`, not by the model.
+  `reply_within` (optional, English, e.g. `"about 15 minutes"`) is the
+  response time the assistant may promise **while open**; empty = it
+  promises no specific time (only translation and cleaning state one in their
+  KB). While closed it always says "the next business morning".
   `closed_note_uk` / `closed_note_en` (optional) — a sentence appended to
   the fixed handoff line **on an `escalate` while the office is closed**,
   for the one thing a client who needs help now must be told when no human

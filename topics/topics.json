@@ -8,7 +8,7 @@
     "greeting": "topics/translation/greeting.md",
     "scope_uk": "Я допомагаю лише з перекладами документів.",
     "scope_en": "I only help with document translations.",
-    "office": { "label": "Mon–Fri 09:00–18:00 (EET)", "weekday": [9, 18] },
+    "office": { "label": "Mon–Fri 09:00–18:00 (EET)", "weekday": [9, 18], "reply_within": "about 15 minutes" },
     "slots": [
       { "key": "language_pair", "ask_uk": "з якої мови на яку", "ask_en": "which languages", "rule": "e.g. uk->de" },
       { "key": "doc_type", "ask_uk": "який це документ", "ask_en": "what kind of document", "rule": "" },
@@ -102,7 +102,7 @@
     "greeting": "topics/cleaning/greeting.md",
     "scope_uk": "Я приймаю заявки на прибирання і відповідаю на питання про послуги.",
     "scope_en": "I take cleaning requests and answer questions about the services.",
-    "office": { "label": "Mon–Sun 08:00–20:00 (EET)", "weekday": [8, 20], "sat": [8, 20], "sun": [8, 20] },
+    "office": { "label": "Mon–Sun 08:00–20:00 (EET)", "weekday": [8, 20], "sat": [8, 20], "sun": [8, 20], "reply_within": "about 15 minutes" },
     "slots": [
       { "key": "property_type", "ask_uk": "що прибрати — квартира, будинок чи офіс", "ask_en": "flat, house, or office", "rule": "квартира|будинок|офіс" },
       { "key": "area", "ask_uk": "яка площа в м² або скільки кімнат", "ask_en": "area in m² or number of rooms", "rule": "m² or rooms" },

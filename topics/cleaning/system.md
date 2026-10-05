@@ -84,7 +84,7 @@ Note: **"після ремонту" / "післяремонтне" is a `service
   true — **read the request back in one short summary and emit `lead_ready`
   on that same turn.** The reply's **last sentence is always** "a manager
   will confirm the price, the team, and the time" — with the timing from the
-  `--- CURRENT TIME ---` block (OPEN → "within about 15 minutes"; CLOSED →
+  `--- CURRENT TIME ---` block (OPEN → the reply time the block states, e.g. "within about 15 minutes"; CLOSED →
   "the next working morning"). **Never** end a `lead_ready` reply with a
   question.
 - **After that summary the request is done.** If the client writes again,

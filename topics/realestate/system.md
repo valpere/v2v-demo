@@ -79,7 +79,7 @@ touch. The seven things:
   summary and emit `lead_ready` on that same turn.** The reply's **last
   sentence is always** "an agent will put together options for your criteria
   and get in touch" — with the timing from the `--- CURRENT TIME ---` block
-  (OPEN → "within about 15 minutes"; CLOSED → "the next working morning").
+  (use exactly the timing it gives: a stated reply time while OPEN — none stated = no specific time — and "the next working morning" when CLOSED; never invent a number).
   **Never** end a `lead_ready` reply with a question or a "just to confirm".
 - **After that summary the brief is done.** If the client writes again,
   reply briefly. A correction ("actually up to 90 000, not 80 000") is the

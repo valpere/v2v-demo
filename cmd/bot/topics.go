@@ -75,6 +75,7 @@ func loadTopics(cfg Config) (topics map[string]topicBundle, ids []string, err er
 			ScopeUK:      defaultScopeUK,
 			ScopeEN:      defaultScopeEN,
 			Slots:        defaultTranslationSlots(),
+			Office:       dialog.OfficeHours{ReplyWithin: "about 15 minutes"}, // the translation bureau's promise
 		}}
 	}
 

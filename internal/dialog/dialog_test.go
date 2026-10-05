@@ -731,3 +731,24 @@ func TestEmergencyPatternErrors(t *testing.T) {
 		t.Error("patterns without both reply texts must be a load error")
 	}
 }
+
+// 3.2 — the response-time promise belongs to the topic: empty = no promise.
+func TestOfficeStatusResponseTimePromise(t *testing.T) {
+	open := time.Date(2026, 10, 5, 11, 0, 0, 0, time.UTC) // Monday 11:00
+	closed := time.Date(2026, 10, 5, 22, 0, 0, 0, time.UTC)
+	with := OfficeHours{ReplyWithin: "about 15 minutes"}
+	without := OfficeHours{}
+
+	if got := officeStatus(open, with); !strings.Contains(got, "within about 15 minutes") {
+		t.Errorf("open+promise: %q", got)
+	}
+	if got := officeStatus(open, without); strings.Contains(got, "15 minutes") || !strings.Contains(got, "do NOT promise a specific time") {
+		t.Errorf("open, no promise: %q", got)
+	}
+	if got := officeStatus(closed, with); !strings.Contains(got, "next business morning, NOT within about 15 minutes") {
+		t.Errorf("closed+promise: %q", got)
+	}
+	if got := officeStatus(closed, without); strings.Contains(got, "15 minutes") || !strings.Contains(got, "next business morning") {
+		t.Errorf("closed, no promise: %q", got)
+	}
+}

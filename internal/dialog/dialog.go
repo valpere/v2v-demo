@@ -141,9 +141,17 @@ func escalateReply(sess *Session, topic TopicSpec, now time.Time) string {
 // the configured zone (BOT_TIMEZONE); `oh` is the topic's hours (zero value
 // = Mon–Fri 09:00–18:00).
 func officeStatus(now time.Time, oh OfficeHours) string {
-	state := "CLOSED right now — promise a manager reply the next business morning, NOT within 15 minutes"
+	closedNot := ""
+	if oh.ReplyWithin != "" {
+		closedNot = ", NOT within " + oh.ReplyWithin
+	}
+	state := "CLOSED right now — promise a manager reply the next business morning" + closedNot
 	if oh.openAt(now) {
-		state = "OPEN right now — a manager can reply within about 15 minutes"
+		if oh.ReplyWithin != "" {
+			state = "OPEN right now — a manager can reply within " + oh.ReplyWithin
+		} else {
+			state = "OPEN right now — a manager will reply as soon as possible; do NOT promise a specific time"
+		}
 	}
 	return fmt.Sprintf("It is %s, %02d:%02d %s. Office hours are %s. The office is %s.",
 		now.Format("Monday, 2 January 2006"), now.Hour(), now.Minute(), now.Format("MST"), oh.hoursLabel(), state)

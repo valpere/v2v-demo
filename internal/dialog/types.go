@@ -40,7 +40,7 @@ type TopicSpec struct {
 }
 
 // OfficeHours is a topic's business hours, injected into the "--- CURRENT
-// TIME ---" prompt block so the model promises "within about 15 minutes"
+// TIME ---" prompt block so the model promises ReplyWithin (e.g. "within about 15 minutes")
 // while the office is open and "the next business morning" while it's closed.
 // The zero value means Mon–Fri 09:00–18:00 (the translation bureau's hours,
 // the original hardcoded default), so a topic that omits it keeps that.
@@ -49,6 +49,11 @@ type OfficeHours struct {
 	Weekday [2]int `json:"weekday"` // [open, close] hour Mon–Fri; the zero [0,0] means [9,18]
 	Sat     [2]int `json:"sat"`     // [open, close] hour Saturday; [0,0] = closed
 	Sun     [2]int `json:"sun"`     // [open, close] hour Sunday; [0,0] = closed
+
+	// ReplyWithin is the response time the assistant may promise while the
+	// office is open, in English as it should appear in the prompt (e.g.
+	// "about 15 minutes"). Empty = promise nothing specific.
+	ReplyWithin string `json:"reply_within"`
 
 	// ClosedNoteUK / ClosedNoteEN are appended to the fixed handoff line on an
 	// `escalate` **only while the office is closed** — the one thing a client
