@@ -803,3 +803,59 @@ func TestTurnDeadlineFreesTheWorker(t *testing.T) {
 		t.Fatalf("want the apology+handoff line after the timeout, got %q", got)
 	}
 }
+
+// gatedGen blocks the turn of the chat whose text is "block" until released;
+// every other text answers at once.
+type gatedGen struct {
+	release chan struct{}
+	fakeGen
+}
+
+func (g *gatedGen) Generate(ctx context.Context, sys string, hist []dialog.Msg) (string, error) {
+	if strings.Contains(hist[len(hist)-1].Text, "block") {
+		select {
+		case <-g.release:
+		case <-ctx.Done():
+		}
+	}
+	return g.fakeGen.Generate(ctx, sys, hist)
+}
+
+// 1.3 — a saturated chat must not stall the single update loop: another chat
+// is served, the overflow is dropped, and the flooder gets one "slow down".
+func TestDispatchSaturatedChatDoesNotBlockOthers(t *testing.T) {
+	gen := &gatedGen{release: make(chan struct{})}
+	a, tg := newTestApp(t, gen)
+	seed(t, a, 1)
+	seed(t, a, 2)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer func() { close(gen.release); cancel(); a.wg.Wait() }()
+
+	a.dispatch(ctx, telegram.Update{ChatID: 1, Text: "translation block"})
+	time.Sleep(50 * time.Millisecond) // the worker is now parked inside the turn
+	returned := make(chan struct{})
+	go func() {
+		for i := 0; i < chatQueueSize+10; i++ { // overflow the queue
+			a.dispatch(ctx, telegram.Update{ChatID: 1, Text: "translation more"})
+		}
+		a.dispatch(ctx, telegram.Update{ChatID: 2, Text: "translation price"})
+		close(returned)
+	}()
+	select {
+	case <-returned:
+	case <-time.After(3 * time.Second):
+		t.Fatal("dispatch blocked on the saturated chat")
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for len(tg.sentTo(2)) == 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if len(tg.sentTo(2)) == 0 {
+		t.Fatal("chat 2 was not served while chat 1 is saturated")
+	}
+	time.Sleep(100 * time.Millisecond)
+	if n := len(tg.sentTo(1)); n != 1 {
+		t.Fatalf("chat 1 should get exactly one slow-down notice for the burst, got %d: %q", n, tg.sentTo(1))
+	}
+}

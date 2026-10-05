@@ -35,6 +35,7 @@ type app struct {
 
 	mu    sync.Mutex
 	inbox map[int64]chan telegram.Update // per-chat FIFO queue (one serial worker each)
+	slow  map[int64]time.Time            // last "slow down" notice per chat — one per slowDownWindow
 	wg    sync.WaitGroup                 // outstanding chatWorker goroutines — see main()'s shutdown order
 }
 
@@ -126,6 +127,12 @@ func main() {
 	log.Print("v2v-demo: shut down")
 }
 
+const (
+	chatQueueSize  = 64               // pending updates per chat before overflow is dropped
+	slowDownWindow = 30 * time.Second // at most one "slow down" notice per chat per window
+	slowDownLine   = "Забагато повідомлень одразу — зачекайте, будь ласка, поки я відповім на попередні. / Too many messages at once — please wait until I answer the earlier ones."
+)
+
 // dispatch routes an update to its chat's serial worker, spawning the worker
 // on first contact. This keeps one chat's turns in strict arrival order (a
 // per-chat lock would serialise them but not order them) while different
@@ -134,7 +141,7 @@ func (a *app) dispatch(ctx context.Context, u telegram.Update) {
 	a.mu.Lock()
 	ch := a.inbox[u.ChatID]
 	if ch == nil {
-		ch = make(chan telegram.Update, 64)
+		ch = make(chan telegram.Update, chatQueueSize)
 		a.inbox[u.ChatID] = ch
 		a.wg.Add(1)
 		go a.chatWorker(ctx, ch)
@@ -143,7 +150,26 @@ func (a *app) dispatch(ctx context.Context, u telegram.Update) {
 
 	select {
 	case ch <- u:
-	case <-ctx.Done():
+	default:
+		// Queue full: never block the single update loop (that would stall
+		// every other chat). Drop the update; tell the sender once per window.
+		a.mu.Lock()
+		notify := time.Since(a.slow[u.ChatID]) >= slowDownWindow
+		if notify {
+			if a.slow == nil {
+				a.slow = make(map[int64]time.Time)
+			}
+			a.slow[u.ChatID] = time.Now()
+		}
+		a.mu.Unlock()
+		log.Printf("dispatch (chat %d): queue full, dropped an update", u.ChatID)
+		if notify {
+			a.wg.Add(1)
+			go func() {
+				defer a.wg.Done()
+				a.send(ctx, u.ChatID, slowDownLine)
+			}()
+		}
 	}
 }
 
