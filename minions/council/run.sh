@@ -8,8 +8,12 @@
 # check `git status` after a run.
 #
 # Usage:
-#   minions/council/run.sh [-r RANGE] [-p PATHSPEC] [-o OUTDIR] [-a agent1,...] [-t SECS] [-b BRIEF_FILE]
+#   minions/council/run.sh [-A] [-r RANGE] [-p PATHSPEC] [-o OUTDIR] [-a agent1,...] [-t SECS] [-b BRIEF_FILE]
 #
+#   -A             full audit of the current tree instead of a commit range: no
+#                  diff is embedded; the prompt lists the files in scope (with
+#                  line counts, narrowed by -p) and the agents read them
+#                  themselves. -r is ignored in this mode.
 #   -r RANGE       git range to review, e.g. 31f3e75..HEAD (default: HEAD~3..HEAD)
 #   -p PATHSPEC    scope the log+diff to these paths (space-separated, quoted);
 #                  passed to git as `-- $PATHSPEC`. Use it to review one
@@ -32,6 +36,11 @@
 #                 low to run a real review as of 2026-09-05. `omp --login`
 #                 or top up, then pass -a omp explicitly.)
 #
+# Agents run in OUTDIR/src — a clean `git archive HEAD` snapshot — NOT in the
+# working tree, so they can only read tracked files: never .env / .env.server,
+# tmp/, data/ or uncommitted edits (those hold live API keys and user messages
+# and would otherwise go to third-party model providers).
+#
 # Output: OUTDIR/<agent>.md (stdout), OUTDIR/<agent>.stderr.log, OUTDIR/<agent>.exit
 
 set -euo pipefail
@@ -43,9 +52,11 @@ OUTDIR=""
 AGENTS="opencode,cursor-agent,kiro-cli,kilo"
 TIMEOUT=900
 BRIEF_FILE=""
+AUDIT=0
 
-while getopts "r:p:o:a:t:b:h" opt; do
+while getopts "Ar:p:o:a:t:b:h" opt; do
 	case "$opt" in
+	A) AUDIT=1 ;;
 	r) RANGE="$OPTARG" ;;
 	p) PATHSPEC="$OPTARG" ;;
 	o) OUTDIR="$OPTARG" ;;
@@ -53,23 +64,28 @@ while getopts "r:p:o:a:t:b:h" opt; do
 	t) TIMEOUT="$OPTARG" ;;
 	b) BRIEF_FILE="$OPTARG" ;;
 	h)
-		sed -n '2,33p' "$0"
+		sed -n '2,40p' "$0"
 		exit 0
 		;;
 	*)
-		echo "usage: $0 [-r RANGE] [-p PATHSPEC] [-o OUTDIR] [-a AGENTS] [-t SECS] [-b BRIEF_FILE]" >&2
+		echo "usage: $0 [-A] [-r RANGE] [-p PATHSPEC] [-o OUTDIR] [-a AGENTS] [-t SECS] [-b BRIEF_FILE]" >&2
 		exit 2
 		;;
 	esac
 done
 
 # git pathspec args (word-split on purpose)
-# shellcheck disable=SC2206
 PATHARGS=()
+# shellcheck disable=SC2206 # word-split on purpose
 [ -n "$PATHSPEC" ] && PATHARGS=(-- $PATHSPEC)
 
 [ -z "$OUTDIR" ] && OUTDIR="tmp/council/$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$OUTDIR"
+
+# Snapshot of HEAD (tracked files only) — the agents' working directory.
+SNAP="$(realpath "$OUTDIR")/src"
+mkdir -p "$SNAP"
+git archive HEAD | tar -x -C "$SNAP"
 
 # The whole prompt (instructions + commit log + diff) is written to a file
 # and each agent is told to *read* it — the diff can be hundreds of KB, well
@@ -77,15 +93,28 @@ mkdir -p "$OUTDIR"
 # have no shell to run `git diff` themselves (kiro-cli --trust-tools=fs_read).
 PROMPT_FILE="$OUTDIR/prompt.md"
 {
-	echo "You are an independent code reviewer. Below is a git commit log and"
-	echo "unified diff for range $RANGE of a Go repository (a Telegram voice-"
-	echo "assistant bot). The working directory, if you have file-read tools, is"
-	echo "the root of this same repository — read any file the diff references"
-	echo "for more context (docs/requirements.md, docs/architecture.md,"
-	echo ".agents/plan.md, the full content of a changed source file, etc.)."
-	echo
-	echo "Focus on: correctness, concurrency/race conditions, consistency between"
-	echo "the code and its docs, missing test coverage, and regressions."
+	if [ "$AUDIT" = 1 ]; then
+		echo "You are an independent auditor of a Go repository (a Telegram voice-"
+		echo "assistant bot with several topic assistants, deployed on a small VM)."
+		echo "Your working directory is a clean snapshot of the repository root."
+		echo "Read the files listed below with your file tools (and any other file"
+		echo "they reference: docs/requirements.md, docs/architecture.md,"
+		echo ".agents/plan.md, ...). Audit what is there, not a diff."
+		echo
+		echo "Focus on: correctness, concurrency/race conditions, security,"
+		echo "error handling, consistency between the code and its docs, missing"
+		echo "test coverage, and operational risks."
+	else
+		echo "You are an independent code reviewer. Below is a git commit log and"
+		echo "unified diff for range $RANGE of a Go repository (a Telegram voice-"
+		echo "assistant bot). The working directory, if you have file-read tools, is"
+		echo "the root of this same repository — read any file the diff references"
+		echo "for more context (docs/requirements.md, docs/architecture.md,"
+		echo ".agents/plan.md, the full content of a changed source file, etc.)."
+		echo
+		echo "Focus on: correctness, concurrency/race conditions, consistency between"
+		echo "the code and its docs, missing test coverage, and regressions."
+	fi
 	if [ -n "$BRIEF_FILE" ]; then
 		echo
 		cat "$BRIEF_FILE"
@@ -98,13 +127,20 @@ PROMPT_FILE="$OUTDIR/prompt.md"
 	echo "IMPORTANT: this is a read-only review. Do not edit, write, or commit"
 	echo "any file — only read and analyze. Your final chat message IS the report."
 	echo
-	echo '```'
-	echo "commit log:"
-	git log --oneline "$RANGE" "${PATHARGS[@]}"
-	echo
-	echo "diff:"
-	git diff "$RANGE" "${PATHARGS[@]}"
-	echo '```'
+	if [ "$AUDIT" = 1 ]; then
+		echo "files in scope (lines  path):"
+		git ls-tree -r --name-only HEAD "${PATHARGS[@]}" | while IFS= read -r f; do
+			printf '%6d  %s\n' "$(wc -l <"$SNAP/$f")" "$f"
+		done
+	else
+		echo '```'
+		echo "commit log:"
+		git log --oneline "$RANGE" "${PATHARGS[@]}"
+		echo
+		echo "diff:"
+		git diff "$RANGE" "${PATHARGS[@]}"
+		echo '```'
+	fi
 } >"$PROMPT_FILE"
 PROMPT_FILE="$(realpath "$PROMPT_FILE")"
 
@@ -118,8 +154,8 @@ agent_kiro_cli() { kiro-cli chat --no-interactive --trust-tools=fs_read "$GO"; }
 agent_codex() { codex --dangerously-bypass-approvals-and-sandbox exec "$GO"; }
 agent_omp() { omp --print --model auto "$GO"; }
 
-export PROMPT_FILE GO
-echo "council: range=$RANGE pathspec='${PATHSPEC:-<all>}' agents=$AGENTS timeout=${TIMEOUT}s out=$OUTDIR"
+export PROMPT_FILE GO SNAP
+echo "council: mode=$([ "$AUDIT" = 1 ] && echo audit || echo "range=$RANGE") pathspec='${PATHSPEC:-<all>}' agents=$AGENTS timeout=${TIMEOUT}s out=$OUTDIR"
 
 IFS=',' read -ra LIST <<<"$AGENTS"
 pids=()
@@ -130,10 +166,11 @@ for name in "${LIST[@]}"; do
 		echo "council: unknown agent '$name' (no $fn function) — skipping" >&2
 		continue
 	fi
+	# shellcheck disable=SC2163 # $fn is a function *name* chosen at runtime
 	export -f "$fn"
 	(
 		set +e
-		timeout "$TIMEOUT" bash -c "$fn" </dev/null \
+		timeout "$TIMEOUT" bash -c "cd \"\$SNAP\" && $fn" </dev/null \
 			>"$OUTDIR/$name.md" 2>"$OUTDIR/$name.stderr.log"
 		echo $? >"$OUTDIR/$name.exit"
 	) &
@@ -155,5 +192,5 @@ for name in "${names[@]}"; do
 done
 
 echo
-echo "council: git status after the run (should be clean if every agent behaved):"
+echo "council: agents ran on the snapshot $SNAP; the working tree's git status (must be unchanged):"
 git status --short || true

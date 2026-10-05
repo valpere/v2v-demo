@@ -107,7 +107,15 @@ for this repo, or when you specifically want *non-Claude* eyes on it.
 ./minions/council/run.sh                              # reviews HEAD~3..HEAD, all default agents
 ./minions/council/run.sh -r 31f3e75..HEAD              # a specific range
 ./minions/council/run.sh -a opencode,kiro-cli -t 1200   # pick agents, longer per-agent timeout
+./minions/council/run.sh -A -p 'internal/dialog internal/kb' -b brief.md   # FULL audit of the current tree
 ```
+
+`-A` audits the tree instead of a commit range: no diff is embedded, the prompt
+lists the files in scope (narrowed with `-p`, line counts included) and the
+agents read them; `-b` adds the focus for that area. **Agents always run in
+`OUTDIR/src`, a clean `git archive HEAD` snapshot** — never in the working tree —
+so they cannot read `.env*`, `tmp/`, `data/` or uncommitted edits (live keys and
+user messages would otherwise go to third-party model providers).
 
 Reports land in `tmp/council/<UTC timestamp>/<agent>.md` (+ `.stderr.log` +
 `.exit`); the script prints a summary table and a `git status --short` at
