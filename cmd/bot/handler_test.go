@@ -988,7 +988,7 @@ func TestLeadNotLostOnFailedAppend(t *testing.T) {
 	if err := os.Remove(leads); err != nil {
 		t.Fatal(err)
 	}
-	a.handleUpdate(ctx, telegram.Update{ChatID: 5, Text: "translation diploma uk-en again"})
+	a.handleUpdate(ctx, telegram.Update{ChatID: 5, Text: "translation diploma uk-en"})
 	if b, _ := os.ReadFile(leads); bytes.Count(b, []byte("\n")) != 1 {
 		t.Fatalf("want the lead recorded on the repeat, got %q", b)
 	}
