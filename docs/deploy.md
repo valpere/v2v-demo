@@ -240,7 +240,10 @@ on the other Always Free shape, **VM.Standard.E2.1.Micro** (AMD x86, 1 GB).
 - **Update the binary:** `./minions/srv.sh push-bin` (builds for the server's arch,
   uploads as `bot.new`, renames over `bot` — never `scp` over the running binary —
   and restarts); logs: `./minions/srv.sh logs -f`.
-- **TTS bridge:** the Azure key returned `401` on the token endpoint from
+- **TTS (2026-10-05):** the live server runs `TTS_BACKEND=elevenlabs` while that subscription
+  lasts (decision: avoid depending on the now pay-as-you-go Azure); Azure works again after
+  the subscription upgrade and is the successor — switch with `.env.server` + `push-env`.
+- **(history) TTS bridge:** the Azure key returned `401` on the token endpoint from
   every region (checked locally and on the server), so the server runs
   `TTS_BACKEND=elevenlabs` until that subscription period ends. Fix the Azure
   key/region *before* then (portal → Speech resource → Keys and Endpoint).
@@ -343,6 +346,9 @@ revoke the old key.** (Portal labels below are from memory and may have moved.)
   hours per month): past the quota calls fail with 429, they are not billed. A billing
   problem looks like 429/403, **not 401** — 401 is a key that is not accepted; also check
   Portal → Subscriptions → status *Active*.
+
+[Get started with your upgraded account](https://portal.azure.com/#view/Microsoft_Azure_GTM/PostUpgradeRecommendationsBlade/subscriptionId/9acb5770-2222-4d7b-830b-4b151bcc304a/supportPlanCost~/null)
+
 - **Telegram** — @BotFather → `/mybots` → the bot → *API Token* → *Revoke current token*.
   This invalidates the old token **immediately**, so run `push-env` right after; the local
   dev bot has its own token (never share one token between two pollers: 409 Conflict).
