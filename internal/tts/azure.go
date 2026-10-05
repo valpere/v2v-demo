@@ -96,7 +96,7 @@ func (a *azureTTS) attempt(ctx context.Context, ssml string) (data []byte, trans
 // ssmlLang takes the locale from an "xx-YY-*" voice id (so the SSML matches
 // the voice), falling back to the conversation language.
 func ssmlLang(voiceID, lang string) string {
-	if len(voiceID) >= 5 && voiceID[2] == '-' && voiceID[5] == '-' {
+	if len(voiceID) >= 6 && voiceID[2] == '-' && voiceID[5] == '-' {
 		return voiceID[:5]
 	}
 	if lang == "en" {

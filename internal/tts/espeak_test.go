@@ -167,3 +167,24 @@ func TestNewEspeakDefault(t *testing.T) {
 		t.Errorf("ffmpegBin = %q, want ffmpeg", e.ffmpegBin)
 	}
 }
+
+// The reply text is model output — it can start with "-" (a negative number, a
+// list bullet, or a deliberately crafted "-f<path>", which espeak-ng reads as
+// "speak this file"). It must reach espeak-ng only AFTER an option terminator.
+func TestEspeakTextCannotBeParsedAsOptions(t *testing.T) {
+	dir := t.TempDir()
+	e := newTestEspeak(fakeEspeakNG(t, dir, ""), fakeFfmpeg(t, dir, ""))
+
+	for _, text := range []string{"-f/etc/hostname", "-15% знижка", "--version"} {
+		if _, err := e.Speak(context.Background(), text, "", "uk"); err != nil {
+			t.Fatalf("Speak(%q): %v", text, err)
+		}
+		args, err := os.ReadFile(filepath.Join(dir, "espeak-ng.args"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasSuffix(strings.TrimSpace(string(args)), "-- "+text) {
+			t.Errorf("text %q must follow a \"--\" terminator, args: %q", text, args)
+		}
+	}
+}

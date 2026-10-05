@@ -125,6 +125,20 @@ func TestSSMLLang(t *testing.T) {
 	}
 }
 
+// A voice id shorter than "xx-YY-*" (a config typo such as AZURE_VOICE_A=uk-UA)
+// must fall back to the language instead of indexing past the end.
+func TestSSMLLangShortVoiceIDDoesNotPanic(t *testing.T) {
+	for _, id := range []string{"", "uk", "uk-UA", "uk-UA-", "en-US"} {
+		got := ssmlLang(id, "en")
+		if got == "" {
+			t.Errorf("ssmlLang(%q) returned an empty locale", id)
+		}
+	}
+	if got := ssmlLang("uk-UA", "en"); got != "en-US" {
+		t.Errorf("a bare locale is not a voice id: want the lang fallback en-US, got %q", got)
+	}
+}
+
 func TestEscapeXML(t *testing.T) {
 	got := escapeXML(`a & b < c > d " e ' f`)
 	want := `a &amp; b &lt; c &gt; d &quot; e &apos; f`

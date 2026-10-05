@@ -53,7 +53,9 @@ func (e *espeakSynth) Speak(ctx context.Context, text, _, lang string) ([]byte, 
 	wavPath := filepath.Join(dir, "out.wav")
 	oggPath := filepath.Join(dir, "out.ogg")
 
-	espeakCmd := exec.CommandContext(ctx, e.bin, "-v", voice, "-w", wavPath, text)
+	// "--": the text is model output and may start with "-"; without the
+	// terminator espeak-ng would read it as an option ("-f<path>" speaks a file).
+	espeakCmd := exec.CommandContext(ctx, e.bin, "-v", voice, "-w", wavPath, "--", text)
 	var espeakErr strings.Builder
 	espeakCmd.Stderr = &espeakErr
 	if err := espeakCmd.Run(); err != nil {
