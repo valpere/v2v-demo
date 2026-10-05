@@ -305,6 +305,9 @@ revoke the old key.** (Portal labels below are from memory and may have moved.)
   Links (log in): <https://platform.openai.com/api-keys> (create / revoke keys),
   <https://platform.openai.com/settings/organization/billing/overview> (balance;
   *Allowed models* are under Settings → your project → Limits).
+  Billing: the **prepaid balance belongs to the organization, not the key** — a new key in
+  the same org needs no new top-up; at zero balance calls return `429 insufficient_quota`
+  (`check-keys.sh`: `FAIL openai`). If you enable auto-recharge, also set a monthly budget.
 - **Azure Speech** — portal.azure.com → search *Speech* → your Speech resource (free tier
   F0 if none: one per region per subscription) → *Keys and Endpoint* → **KEY 1** →
   `AZURE_SPEECH_KEY`, and **Location/Region** as the short name (`swedencentral`, not the
@@ -315,6 +318,11 @@ revoke the old key.** (Portal labels below are from memory and may have moved.)
   <https://learn.microsoft.com/azure/ai-services/rotate-keys> · region short names
   <https://learn.microsoft.com/azure/ai-services/speech-service/regions> · F0 free-tier limits
   <https://azure.microsoft.com/pricing/details/cognitive-services/speech-services/>.
+  Billing: **no prepaid balance** — Azure bills in arrears to the subscription's payment
+  method (a card is required even for F0). F0 is hard-capped (≈500k TTS chars / 5 STT
+  hours per month): past the quota calls fail with 429, they are not billed. A billing
+  problem looks like 429/403, **not 401** — 401 is a key that is not accepted; also check
+  Portal → Subscriptions → status *Active*.
 - **Telegram** — @BotFather → `/mybots` → the bot → *API Token* → *Revoke current token*.
   This invalidates the old token **immediately**, so run `push-env` right after; the local
   dev bot has its own token (never share one token between two pollers: 409 Conflict).
