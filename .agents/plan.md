@@ -265,23 +265,12 @@ type TurnRecord struct {
 	LatencyMS int64             `json:"latency_ms"`
 }
 
+// the shape a CRM lead would take — written to the log, not sent anywhere
 type LeadRecord struct {
 	Time   time.Time         `json:"time"`
 	ChatID int64             `json:"chat_id"`
 	Topic  string            `json:"topic"`  // Session.Topic
 	Fields map[string]string `json:"fields"` // the topic's collected slots
-}
-
-// the shape a Zoho lead would take — written to the log, not sent anywhere
-type LeadRecord struct {
-	Time          time.Time `json:"time"`
-	ChatID        int64     `json:"chat_id"`
-	LanguagePair  string    `json:"language_pair"`
-	DocType       string    `json:"doc_type"`
-	Volume        string    `json:"volume"`
-	Deadline      string    `json:"deadline"`
-	Certification string    `json:"certification"`
-	Delivery      string    `json:"delivery"`
 }
 
 func AppendTurn(dir string, r TurnRecord) error // dir/turns.jsonl
@@ -395,7 +384,7 @@ per-section retrieval.
 English-only, so `kbOverlap` scored every Ukrainian content question 0 and
 the gate false-escalated it pre-LLM. Fixed by making the KB bilingual — an
 English block then a Ukrainian block under each `## ` heading (headings
-`English / Українською`), ~19 KB, 13 sections. The B1 stemmer note now
+`English / Українською`), ~19 KB, 11 sections. The B1 stemmer note now
 applies only to within-Ukrainian inflection, not the cross-language wall.
 
 ### kbOverlap(query string, kb []Section) float64

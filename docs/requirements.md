@@ -393,7 +393,7 @@ named constants are `@schema GateParams` in §1.
     handoff line (`dialog.escalateReply`).
     -> [LOG-DLG-16] dialog.Handle steps 1, 4, 9, 11 — every escalate path substitutes dialog.escalateReply(sess, topic, now) = handoffLine(sessLang(sess)) [+ the after-hours closed-note]; step 11 has the lead_ready-vs-Complete and lead_ready-vs-LeadDone guards
 
-22. [REQ-DLG-17] Any `Generator.Generate` error must be caught inside
+22. [REQ-DLG-22] Any `Generator.Generate` error must be caught inside
     `dialog.Handle` and turned into a `Reply{Signal: escalate}` with a fixed
     apology line in the session language — the error is never returned to the
     caller and never crashes the update loop (see REQ-NFR-03).
@@ -517,7 +517,8 @@ named constants are `@schema GateParams` in §1.
 32. [REQ-BOT-01] The update loop must, per inbound update: send the greeting
     body once per chat (on `/start` or an unseen chat id); obtain the text
     (STT for voice, `Update.Text` for text); handle any `/…` message locally
-    (`/voice a|b` switches, anything else gets a `/voice` usage hint) — never
+    (`/voice a|b` switches, `/reset` clears the chat's session, anything else gets
+    a `/voice` usage hint) — never
     a dialogue turn; otherwise call `dialog.Handle`; `tts.Speak` the reply; `SendVoice` (no
     caption) then one `SendText(reply.Text)`; `store.AppendTurn` **always**;
     `store.AppendLead` iff `reply.Signal == lead_ready`.

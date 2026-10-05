@@ -42,7 +42,7 @@ flowchart TD
         P --> M[merge slots\nvalidate, never silently unset]
     end
 
-    KB[internal/kb — 12 sections] --> R
+    KB[internal/kb — per-topic sections] --> R
     KB -->|whole KB verbatim| LLM
     S[(session state\nper chat id: history, slots, voice)] <--> CORE
 
@@ -181,8 +181,8 @@ persona. `cmd/bot.loadTopics` builds `app.topics map[string]topicBundle`
 order) from the manifest, falling back to one synthetic topic
 (`KB_PATH`/`SYSTEM_PROMPT_PATH`/`GREETING_PATH` + the translation slot
 schema) when the manifest is missing or empty. **The repo ships a
-one-topic `topics.json`, so the picker below does not appear by default;**
-2+ entries turn it on.
+five-topic `topics.json`, so the picker below appears by default;**
+a single-entry manifest turns it off.
 
 With 2+ topics, first contact sends a Telegram inline keyboard (one button
 per topic) instead of the plain greeting; tapping a button is a

@@ -15,7 +15,7 @@ import (
 type Config struct {
 	TelegramToken string
 
-	TTSBackend         string // "elevenlabs" | "azure" | "espeak"
+	TTSBackend         string // "none" (text only) | "elevenlabs" | "azure" | "espeak"
 	TTSFallbackBackend string // "" (default, no failover) | "elevenlabs" | "azure" | "espeak" — tried when TTSBackend errors
 	ElevenKey          string
 	ElevenVoiceA       string
