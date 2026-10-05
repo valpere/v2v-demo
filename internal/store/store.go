@@ -6,6 +6,7 @@
 package store
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -49,20 +50,93 @@ func AppendLead(dir string, r LeadRecord) error {
 }
 
 func appendJSONL(dir, name string, v any) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("store: mkdir %s: %w", dir, err)
+	if err := ensurePrivateDir(dir); err != nil {
+		return err
 	}
 	line, err := json.Marshal(v)
 	if err != nil {
 		return fmt.Errorf("store: marshal %s: %w", name, err)
 	}
-	f, err := os.OpenFile(filepath.Join(dir, name), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(filepath.Join(dir, name), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return fmt.Errorf("store: open %s: %w", name, err)
 	}
 	defer f.Close()
+	if err := f.Chmod(0o600); err != nil { // tighten a file created by an older build
+		return fmt.Errorf("store: chmod %s: %w", name, err)
+	}
 	if _, err := f.Write(append(line, '\n')); err != nil {
 		return fmt.Errorf("store: write %s: %w", name, err)
 	}
 	return nil
+}
+
+// ensurePrivateDir creates dir (0700) and tightens an existing one: the logs
+// and the session DB hold user messages and contact details.
+func ensurePrivateDir(dir string) error {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("store: mkdir %s: %w", dir, err)
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return fmt.Errorf("store: chmod %s: %w", dir, err)
+	}
+	return nil
+}
+
+// PruneLogs drops turns.jsonl / leads.jsonl records older than days (relative
+// to now). Lines that do not parse are kept — never delete what cannot be
+// read. days <= 0 keeps everything; a missing file or dir is not an error.
+// Call it at startup, before any writer exists: it rewrites each file.
+func PruneLogs(dir string, days int, now time.Time) error {
+	if days <= 0 {
+		return nil
+	}
+	cutoff := now.AddDate(0, 0, -days)
+	for _, name := range []string{"turns.jsonl", "leads.jsonl"} {
+		if err := pruneFile(filepath.Join(dir, name), cutoff); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func pruneFile(path string, cutoff time.Time) error {
+	in, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("store: prune open %s: %w", path, err)
+	}
+	defer in.Close()
+
+	tmp, err := os.OpenFile(path+".tmp", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		return fmt.Errorf("store: prune tmp %s: %w", path, err)
+	}
+	dropped := 0
+	sc := bufio.NewScanner(in)
+	sc.Buffer(make([]byte, 0, 64<<10), 4<<20)
+	for sc.Scan() {
+		var head struct {
+			Time time.Time `json:"time"`
+		}
+		if json.Unmarshal(sc.Bytes(), &head) == nil && !head.Time.IsZero() && head.Time.Before(cutoff) {
+			dropped++
+			continue
+		}
+		if _, err := tmp.Write(append(sc.Bytes(), '\n')); err != nil {
+			tmp.Close()
+			os.Remove(tmp.Name())
+			return fmt.Errorf("store: prune write %s: %w", path, err)
+		}
+	}
+	if err := sc.Err(); err != nil || tmp.Close() != nil {
+		os.Remove(tmp.Name())
+		return fmt.Errorf("store: prune read %s: %v", path, err)
+	}
+	if dropped == 0 {
+		return os.Remove(tmp.Name())
+	}
+	return os.Rename(tmp.Name(), path)
 }

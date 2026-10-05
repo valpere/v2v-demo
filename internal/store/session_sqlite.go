@@ -31,8 +31,8 @@ type SQLiteSessions struct {
 // (WAL removes reader/writer contention, not writer/writer).
 func NewSQLiteSessions(path string) (*SQLiteSessions, error) {
 	if dir := filepath.Dir(path); dir != "." {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return nil, fmt.Errorf("store: mkdir %s: %w", dir, err)
+		if err := ensurePrivateDir(dir); err != nil {
+			return nil, err
 		}
 	}
 	dsn := fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)", path)
@@ -49,6 +49,11 @@ func NewSQLiteSessions(path string) (*SQLiteSessions, error) {
 	)`); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("store: create sessions table: %w", err)
+	}
+	// WAL/SHM side files inherit the main file's mode.
+	if err := os.Chmod(path, 0o600); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: chmod %s: %w", path, err)
 	}
 	return &SQLiteSessions{db: db}, nil
 }

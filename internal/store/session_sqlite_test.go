@@ -1,6 +1,7 @@
 package store
 
 import (
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -113,6 +114,21 @@ func TestSQLiteSessionsConcurrentSave(t *testing.T) {
 	for i := int64(0); i < n; i++ {
 		if _, found, err := db.Load(i); err != nil || !found {
 			t.Errorf("Load(%d): found=%v err=%v", i, found, err)
+		}
+	}
+}
+
+func TestSQLiteFilePrivate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "d", "s.db")
+	s, err := NewSQLiteSessions(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	for p, want := range map[string]os.FileMode{filepath.Dir(path): 0o700, path: 0o600} {
+		fi, err := os.Stat(p)
+		if err != nil || fi.Mode().Perm() != want {
+			t.Errorf("%s: %v %v, want %o", p, fi, err, want)
 		}
 	}
 }

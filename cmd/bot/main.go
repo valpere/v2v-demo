@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/valpere/v2v-demo/internal/dialog"
+	"github.com/valpere/v2v-demo/internal/store"
 	"github.com/valpere/v2v-demo/internal/stt"
 	"github.com/valpere/v2v-demo/internal/telegram"
 	"github.com/valpere/v2v-demo/internal/tts"
@@ -67,6 +68,9 @@ func main() {
 	synth, err := newSynthesizer(cfg)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if err := store.PruneLogs(cfg.DataDir, cfg.LogRetentionDays, time.Now()); err != nil {
+		log.Printf("prune logs: %v", err) // not fatal: retention must not stop the bot
 	}
 	sessions, err := newSessionStore(cfg)
 	if err != nil {

@@ -311,8 +311,11 @@ are used only to provide and plan treatment inside the clinic, are not
 shared with third parties without the patient's consent except where the
 law requires it, and are stored for the retention period set by regulation.
 A patient may request an extract from their own record. The assistant
-stores only the four request fields (service, first-visit flag, preferred
-time, phone number) needed to pass the booking to an administrator.
+collects only four request fields (service, first-visit flag, preferred
+time, phone number) to pass the booking to an administrator. For quality
+review, the text of the conversation is also kept in a service log for up to
+90 days and then deleted. "Clear chat" in Telegram removes the patient's own
+copy of the chat, not that log.
 
 Медичні записи пацієнта (історія хвороб, знімки, плани лікування)
 зберігаються згідно із законодавством України про охорону здоров'я та
@@ -320,9 +323,11 @@ time, phone number) needed to pass the booking to an administrator.
 планування лікування в межах клініки, не передаються третім особам без
 згоди пацієнта, крім випадків, передбачених законом, і зберігаються
 протягом строку, визначеного нормативними актами. Пацієнт може запросити
-витяг зі своєї медичної картки. Асистент зберігає лише чотири поля заявки
-(послуга, ознака першого візиту, бажаний час, номер телефону), потрібні,
-щоб передати запис адміністратору.
+витяг зі своєї медичної картки. Асистент збирає лише чотири поля заявки
+(послуга, ознака першого візиту, бажаний час, номер телефону), щоб передати
+запис адміністратору. Для контролю якості текст розмови також зберігається
+в службовому журналі до 90 днів, після чого видаляється. «Очистити чат» у
+Telegram прибирає лише власну копію переписки пацієнта, а не цей журнал.
 
 ## Working hours / Робочі години
 

@@ -11,7 +11,7 @@ import (
 // environment (e.g. an exported GEMINI_API_KEY) never leaks into a test.
 var configEnvKeys = []string{
 	"TELEGRAM_BOT_TOKEN", "TURN_TIMEOUT", "RATE_BURST", "RATE_PER_MIN", "CHAT_DAILY_TURNS", "DAILY_TURNS",
-	"MAX_TEXT_CHARS", "SPEAK_MAX_CHARS", "VOICE_MAX_SECONDS", "VOICE_MAX_BYTES", "RATE_EXEMPT_CHATS",
+	"MAX_TEXT_CHARS", "SPEAK_MAX_CHARS", "VOICE_MAX_SECONDS", "VOICE_MAX_BYTES", "LOG_RETENTION_DAYS", "RATE_EXEMPT_CHATS",
 	"TTS_BACKEND", "TTS_FALLBACK_BACKEND", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_A", "ELEVENLABS_VOICE_B",
 	"AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION", "AZURE_VOICE_A", "AZURE_VOICE_B", "ESPEAK_BIN", "FFMPEG_BIN",
 	"STT_BACKEND", "STT_FALLBACK_BACKEND", "WHISPER_BIN", "WHISPER_MODEL", "WHISPER_LANG",
@@ -266,7 +266,7 @@ func TestLoadConfigLimits(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.RateBurst != 4 || cfg.RatePerMin != 8 || cfg.ChatDailyTurns != 100 || cfg.DailyTurns != 300 ||
-		cfg.MaxTextChars != 1500 || cfg.SpeakMaxChars != 700 || cfg.TurnTimeout != 120*time.Second {
+		cfg.MaxTextChars != 1500 || cfg.LogRetentionDays != 90 || cfg.SpeakMaxChars != 700 || cfg.TurnTimeout != 120*time.Second {
 		t.Fatalf("approved defaults not applied: %+v", cfg)
 	}
 
