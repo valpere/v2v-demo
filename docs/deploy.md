@@ -305,6 +305,15 @@ revoke the old key.** (Portal labels below are from memory and may have moved.)
   Links (log in): <https://platform.openai.com/api-keys> (create / revoke keys),
   <https://platform.openai.com/settings/organization/billing/overview> (balance;
   *Allowed models* are under Settings → your project → Limits).
+  **Key permissions — create the new key as *Restricted* (least privilege), mirroring the
+  old key** (checked on its edit dialog, 2026-10-05): every resource **None** (Agents,
+  Traces, Vaults, Voices, **List models**, Threads, Evals, Fine-tuning, Files, Videos,
+  Vector Stores, Prompts, Batch, Tunnels, Datasets, Safety, Project safety alerts) **except
+  *Model capabilities* = *Request***. The old key has **10 permissions selected inside that
+  group** (collapsed in the screenshots; expand the group on the old key to copy the exact
+  list — the bot itself only needs Chat completions and Audio transcriptions). Not granting
+  *List models* is why `GET /v1/models` returns 403 with this key and why `check-keys.sh`
+  probes with a 1-token chat call instead. Permission changes can take a few minutes.
   Billing: the **prepaid balance belongs to the organization, not the key** — a new key in
   the same org needs no new top-up; at zero balance calls return `429 insufficient_quota`
   (`check-keys.sh`: `FAIL openai`). If you enable auto-recharge, also set a monthly budget.
