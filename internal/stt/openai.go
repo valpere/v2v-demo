@@ -73,7 +73,10 @@ func (w *openaiWhisper) Transcribe(ctx context.Context, oggPath, langHint string
 		return "", fmt.Errorf("stt: openai: %w", err)
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	raw, rerr := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if rerr != nil {
+		return "", fmt.Errorf("stt: openai: read body: %w", rerr)
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("stt: openai: %s: %s", resp.Status, strings.TrimSpace(string(raw)))

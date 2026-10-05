@@ -137,3 +137,26 @@ func TestElevenLabsRetry(t *testing.T) {
 		}
 	})
 }
+
+// A body cut off mid-transfer is a failure, not a short "successful" clip.
+func TestElevenLabsTruncatedAudioIsAnError(t *testing.T) {
+	var n int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n++
+		w.Header().Set("Content-Length", "100000")
+		w.Write([]byte("OggS-partial"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		conn, _, _ := w.(http.Hijacker).Hijack()
+		conn.Close()
+	}))
+	defer srv.Close()
+	audio, err := testEleven(srv).Speak(context.Background(), "hi", "v", "uk")
+	if err == nil {
+		t.Fatalf("want an error for a truncated body, got %d bytes of audio", len(audio))
+	}
+	if n != 2 {
+		t.Fatalf("calls = %d, want 2 (a cut-off body is transient: retried once)", n)
+	}
+}

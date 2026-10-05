@@ -95,7 +95,10 @@ func (e *elevenLabs) attempt(ctx context.Context, voiceID string, body []byte) (
 		return nil, ctx.Err() == nil, fmt.Errorf("tts: elevenlabs: %w", err)
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	raw, rerr := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	if rerr != nil { // cut off mid-transfer: truncated audio must not look like success
+		return nil, ctx.Err() == nil, fmt.Errorf("tts: elevenlabs: read body: %w", rerr)
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		transient := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500

@@ -996,3 +996,25 @@ func TestLeadNotLostOnFailedAppend(t *testing.T) {
 		t.Fatal("LeadDone should be set once the lead is recorded")
 	}
 }
+
+type hintSTT struct{ hint *string }
+
+func (s hintSTT) Transcribe(_ context.Context, _, langHint string) (string, error) {
+	*s.hint = langHint
+	return "translation price", nil
+}
+
+// 5.3 — before the conversation language is known the handler passes NO hint,
+// so each backend applies its own configured default (WHISPER_LANG for local,
+// WHISPER_CPP_LANG for whisper.cpp) instead of the handler forcing WHISPER_LANG on all.
+func TestFirstTurnVoiceHintIsEmpty(t *testing.T) {
+	a, _ := newTestApp(t, &fakeGen{})
+	got := "unset"
+	a.stt = hintSTT{hint: &got}
+	a.cfg.WhisperLang = "uk"
+	seed(t, a, 5)
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 5, VoiceFileID: "v"})
+	if got != "" {
+		t.Fatalf("first-turn hint = %q, want empty", got)
+	}
+}

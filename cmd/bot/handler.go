@@ -226,6 +226,7 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	if a.tts != nil {
 		stopTicker = a.startRecordingTicker(work, u.ChatID)
 	}
+	defer stopTicker() // idempotent; also covers a panic between here and the explicit stop below
 	prevLeadDone, prevLeadSlots := sess.LeadDone, sess.LeadSlots
 	reply, _ := dialog.Handle(work, sess, topic.Spec, a.gen, text, time.Now().In(a.loc)) // never returns a non-nil error
 
@@ -331,17 +332,15 @@ func (a *app) resolveText(work, ctx context.Context, sess *dialog.Session, u tel
 	defer stop()
 
 	// pin STT to the conversation's language once it's known (lingua-detected
-	// from earlier turns); fall back to the config default on first contact.
+	// from earlier turns). On first contact the hint is empty and each backend
+	// applies its own configured default (WHISPER_LANG / WHISPER_CPP_LANG).
 	langHint := sess.Lang
-	if langHint == "" {
-		langHint = a.cfg.WhisperLang
-	}
 
 	ogg, err := a.tg.DownloadVoice(work, u.VoiceFileID)
 	var text string
 	if err == nil {
+		defer os.Remove(ogg) // also on a panic inside Transcribe
 		text, err = a.stt.Transcribe(work, ogg, langHint)
-		os.Remove(ogg)
 	}
 	if err != nil || stt.IsNonSpeech(text) {
 		if err != nil {

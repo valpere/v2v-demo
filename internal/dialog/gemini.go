@@ -96,7 +96,10 @@ func (g *geminiGen) Generate(ctx context.Context, systemPrompt string, history [
 		return "", fmt.Errorf("gemini: %w", err)
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	raw, rerr := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if rerr != nil {
+		return "", fmt.Errorf("gemini: read body: %w", rerr)
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("gemini: %s: %s", resp.Status, strings.TrimSpace(string(raw)))

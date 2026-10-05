@@ -16,6 +16,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -233,17 +234,93 @@ func safeFilePath(p string) bool {
 	return path.Clean(p) == p
 }
 
+// maxMessageRunes keeps a message under Telegram's 4096-character limit with
+// a margin (the limit counts UTF-16 units after entity parsing).
+const maxMessageRunes = 4000
+
+// sleepFn waits d or until ctx ends; a var so tests need not really sleep.
+var sleepFn = func(ctx context.Context, d time.Duration) {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+	case <-t.C:
+	}
+}
+
+// withRetry runs send and, on a rate limit (HTTP 429, honouring retry_after,
+// capped at 10 s) or a transient transport error, once more. A cancelled ctx
+// is never retried.
+func withRetry(ctx context.Context, send func() error) error {
+	err := send()
+	if err == nil || ctx.Err() != nil {
+		return err
+	}
+	wait := time.Second
+	var tm *bot.TooManyRequestsError
+	switch {
+	case errors.As(err, &tm):
+		wait = time.Duration(tm.RetryAfter) * time.Second
+		if wait <= 0 || wait > 10*time.Second {
+			wait = 10 * time.Second
+		}
+	case errors.Is(err, bot.ErrorBadRequest), errors.Is(err, bot.ErrorForbidden),
+		errors.Is(err, bot.ErrorUnauthorized), errors.Is(err, bot.ErrorNotFound):
+		return err // retrying cannot help
+	}
+	sleepFn(ctx, wait)
+	if ctx.Err() != nil {
+		return err
+	}
+	return send()
+}
+
+// splitText cuts text into parts of at most max runes, preferring paragraph,
+// then line, then word boundaries; with no boundary it cuts hard.
+func splitText(text string, max int) []string {
+	r := []rune(text)
+	if len(r) <= max {
+		return []string{text}
+	}
+	var parts []string
+	for len(r) > max {
+		cut := max
+		window := string(r[:max])
+		for _, sep := range []string{"\n\n", "\n", " "} {
+			if i := strings.LastIndex(window, sep); i > 0 {
+				cut = utf8.RuneCountInString(window[:i])
+				break
+			}
+		}
+		parts = append(parts, strings.TrimSpace(string(r[:cut])))
+		r = []rune(strings.TrimLeft(string(r[cut:]), " \n"))
+	}
+	if len(r) > 0 {
+		parts = append(parts, string(r))
+	}
+	return parts
+}
+
 func (c *client) SendText(ctx context.Context, chatID int64, text string) error {
-	if _, err := c.b.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: text}); err != nil {
-		return fmt.Errorf("telegram: sendMessage: %w", err)
+	for _, part := range splitText(text, maxMessageRunes) {
+		err := withRetry(ctx, func() error {
+			_, err := c.b.SendMessage(ctx, &bot.SendMessageParams{ChatID: chatID, Text: part})
+			return err
+		})
+		if err != nil {
+			return fmt.Errorf("telegram: sendMessage: %w", err)
+		}
 	}
 	return nil
 }
 
 func (c *client) SendVoice(ctx context.Context, chatID int64, ogg []byte) error {
-	_, err := c.b.SendVoice(ctx, &bot.SendVoiceParams{
-		ChatID: chatID,
-		Voice:  &models.InputFileUpload{Filename: "reply.ogg", Data: bytes.NewReader(ogg)},
+	err := withRetry(ctx, func() error {
+		_, err := c.b.SendVoice(ctx, &bot.SendVoiceParams{
+			ChatID: chatID,
+			Voice:  &models.InputFileUpload{Filename: "reply.ogg", Data: bytes.NewReader(ogg)},
+		})
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("telegram: sendVoice: %w", err)

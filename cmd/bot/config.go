@@ -280,6 +280,9 @@ func (c Config) validate() error {
 	}
 
 	errs = append(errs, c.requireTTSKey(c.TTSBackend, "TTS_BACKEND")...)
+	if c.TTSBackend == "none" && c.TTSFallbackBackend != "" {
+		errs = append(errs, "TTS_FALLBACK_BACKEND is set but TTS_BACKEND=none — there is no primary to fail over from")
+	}
 	if c.TTSFallbackBackend != "" {
 		if c.TTSFallbackBackend == "none" {
 			errs = append(errs, "TTS_FALLBACK_BACKEND cannot be none")
@@ -289,6 +292,9 @@ func (c Config) validate() error {
 	}
 
 	errs = append(errs, c.requireSTTKey(c.STTBackend, "STT_BACKEND")...)
+	if c.STTBackend == "none" && c.STTFallbackBackend != "" {
+		errs = append(errs, "STT_FALLBACK_BACKEND is set but STT_BACKEND=none — there is no primary to fail over from")
+	}
 	if c.STTFallbackBackend != "" {
 		if c.STTFallbackBackend == "none" {
 			errs = append(errs, "STT_FALLBACK_BACKEND cannot be none")

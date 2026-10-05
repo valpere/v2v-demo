@@ -81,7 +81,10 @@ func (a *azureTTS) attempt(ctx context.Context, ssml string) (data []byte, trans
 		return nil, ctx.Err() == nil, fmt.Errorf("tts: azure: %w", err)
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	raw, rerr := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	if rerr != nil {
+		return nil, ctx.Err() == nil, fmt.Errorf("tts: azure: read body: %w", rerr)
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		t := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500

@@ -117,7 +117,10 @@ func (g *openAICompatGen) attempt(ctx context.Context, body []byte) (text string
 		return "", ctx.Err() == nil, fmt.Errorf("%s: %w", g.name, err)
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	raw, rerr := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if rerr != nil {
+		return "", ctx.Err() == nil, fmt.Errorf("%s: read body: %w", g.name, rerr)
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		transient := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500

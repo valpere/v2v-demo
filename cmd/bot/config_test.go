@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -280,6 +281,18 @@ func TestLoadConfigLimits(t *testing.T) {
 		chdirWithEnv(t, minValidEnv+bad+"\n")
 		if _, err := LoadConfig(); err == nil {
 			t.Errorf("%s: want a config error", bad)
+		}
+	}
+}
+
+func TestNoneBackendWithFallbackRejected(t *testing.T) {
+	for _, extra := range []string{
+		"TTS_BACKEND=none\nTTS_FALLBACK_BACKEND=espeak\n",
+		"STT_BACKEND=none\nSTT_FALLBACK_BACKEND=local\n",
+	} {
+		chdirWithEnv(t, minValidEnv+extra)
+		if _, err := LoadConfig(); err == nil || !strings.Contains(err.Error(), "no primary") {
+			t.Errorf("%q: want a 'no primary' config error, got %v", extra, err)
 		}
 	}
 }
