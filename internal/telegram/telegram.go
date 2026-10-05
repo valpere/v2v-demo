@@ -7,9 +7,11 @@ package telegram
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -173,11 +175,11 @@ func (c *client) DownloadVoice(ctx context.Context, fileID string) (string, erro
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.b.FileDownloadLink(f), nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("telegram: download: %w", withoutURL(err))
 	}
 	resp, err := c.httpc.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("telegram: download: %w", err)
+		return "", fmt.Errorf("telegram: download: %w", withoutURL(err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -202,6 +204,17 @@ func (c *client) DownloadVoice(ctx context.Context, fileID string) (string, erro
 
 // safeFilePath guards the Telegram-supplied relative path before it is used to
 // build a download URL: relative, cleaned, no "..".
+// withoutURL strips the request URL from a net/http transport error. The file
+// download URL embeds the bot token (…/file/bot<TOKEN>/…) and *url.Error prints
+// it verbatim, so the error must be sanitised before it is wrapped or logged.
+func withoutURL(err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		return ue.Err
+	}
+	return err
+}
+
 func safeFilePath(p string) bool {
 	if p == "" || strings.HasPrefix(p, "/") || strings.Contains(p, "..") {
 		return false
