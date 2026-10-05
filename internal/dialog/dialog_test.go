@@ -801,3 +801,53 @@ func TestSystemPromptStablePrefixFirst(t *testing.T) {
 		last = i
 	}
 }
+
+func evRule(t *testing.T) EscalateRule {
+	t.Helper()
+	r := EscalateRule{
+		If:     `tesla|електромобіл|\bEV\b`,
+		And:    `гальм|brake|діагност|ремонт`,
+		Unless: `шиномонтаж|розвал|tyre`,
+		Slot:   "car",
+	}
+	if err := r.Compile(); err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+func TestEscalateRule(t *testing.T) {
+	r := evRule(t)
+	for _, c := range []struct {
+		text string
+		slot string
+		want bool
+	}{
+		{"Tesla Model 3, треба замінити гальмівні колодки", "", true},
+		{"потрібні гальма", "Tesla Model 3", true}, // the EV was said a turn earlier
+		{"електромобіль, потрібна діагностика", "", true},
+		{"Tesla, потрібен шиномонтаж", "", false}, // the permitted exception
+		{"Tesla Model 3", "", false}, // no job named yet
+		{"Skoda Octavia, замінити гальмівні колодки", "Skoda Octavia", false},
+	} {
+		if got := r.matches(c.text, map[string]string{"car": c.slot}); got != c.want {
+			t.Errorf("%q (car=%q) = %v, want %v", c.text, c.slot, got, c.want)
+		}
+	}
+}
+
+func TestEscalateRuleShortCircuitsTheModel(t *testing.T) {
+	topic := testTopic()
+	topic.EscalateRules = []EscalateRule{evRule(t)}
+	sess := &Session{}
+	reply, _ := Handle(context.Background(), sess, topic, mustNotCallGen{t}, "Tesla Model 3, треба замінити гальмівні колодки", time.Now())
+	if reply.Signal != SignalEscalate || !sess.Escalated || !reply.Fixed {
+		t.Fatalf("reply = %+v", reply)
+	}
+}
+
+func TestEscalateRuleCompileErrors(t *testing.T) {
+	if (&EscalateRule{If: "(", And: "x"}).Compile() == nil || (&EscalateRule{If: "x"}).Compile() == nil {
+		t.Error("a bad or incomplete rule must be a load error")
+	}
+}

@@ -12,17 +12,18 @@ import (
 
 // topicManifestEntry is one row of TOPICS_PATH's JSON array.
 type topicManifestEntry struct {
-	ID           string               `json:"id"`
-	Title        string               `json:"title"`    // picker button label (Ukrainian / primary)
-	TitleEN      string               `json:"title_en"` // optional English half of the button label; blank -> Title only
-	KB           string               `json:"kb"`
-	SystemPrompt string               `json:"system_prompt"`
-	Greeting     string               `json:"greeting"`
-	ScopeUK      string               `json:"scope_uk"` // "Я допомагаю лише з …" — the clarify line's scope sentence
-	ScopeEN      string               `json:"scope_en"`
-	Slots        []dialog.SlotSpec    `json:"slots"`     // what this assistant collects, in ask order
-	Office       dialog.OfficeHours   `json:"office"`    // business hours for the CURRENT TIME block; zero = Mon–Fri 09:00–18:00
-	Emergency    dialog.EmergencySpec `json:"emergency"` // optional deterministic emergency reply (dental: bleeding, breathing…)
+	ID            string                `json:"id"`
+	Title         string                `json:"title"`    // picker button label (Ukrainian / primary)
+	TitleEN       string                `json:"title_en"` // optional English half of the button label; blank -> Title only
+	KB            string                `json:"kb"`
+	SystemPrompt  string                `json:"system_prompt"`
+	Greeting      string                `json:"greeting"`
+	ScopeUK       string                `json:"scope_uk"` // "Я допомагаю лише з …" — the clarify line's scope sentence
+	ScopeEN       string                `json:"scope_en"`
+	Slots         []dialog.SlotSpec     `json:"slots"`          // what this assistant collects, in ask order
+	Office        dialog.OfficeHours    `json:"office"`         // business hours for the CURRENT TIME block; zero = Mon–Fri 09:00–18:00
+	EscalateRules []dialog.EscalateRule `json:"escalate_rules"` // optional deterministic handoffs (auto: EV work other than tyres)
+	Emergency     dialog.EmergencySpec  `json:"emergency"`      // optional deterministic emergency reply (dental: bleeding, breathing…)
 }
 
 // topicBundle is a fully loaded topic: its own KB, persona, greeting and slot
@@ -97,6 +98,11 @@ func loadTopics(cfg Config) (topics map[string]topicBundle, ids []string, err er
 		if err := e.Emergency.Compile(); err != nil {
 			return nil, nil, fmt.Errorf("topics: %s: %w", e.ID, err)
 		}
+		for i := range e.EscalateRules {
+			if err := e.EscalateRules[i].Compile(); err != nil {
+				return nil, nil, fmt.Errorf("topics: %s: %w", e.ID, err)
+			}
+		}
 		sections, err := kb.Load(e.KB)
 		if err != nil {
 			return nil, nil, fmt.Errorf("topics: %s (kb): %w", e.ID, err)
@@ -118,13 +124,14 @@ func loadTopics(cfg Config) (topics map[string]topicBundle, ids []string, err er
 			TitleEN:  e.TitleEN,
 			Greeting: greeting,
 			Spec: dialog.TopicSpec{
-				KB:        sections,
-				System:    string(sys),
-				Slots:     e.Slots,
-				ScopeUK:   e.ScopeUK,
-				ScopeEN:   e.ScopeEN,
-				Office:    e.Office,
-				Emergency: e.Emergency,
+				KB:            sections,
+				System:        string(sys),
+				Slots:         e.Slots,
+				ScopeUK:       e.ScopeUK,
+				ScopeEN:       e.ScopeEN,
+				Office:        e.Office,
+				Emergency:     e.Emergency,
+				EscalateRules: e.EscalateRules,
 			},
 		}
 		ids = append(ids, e.ID)

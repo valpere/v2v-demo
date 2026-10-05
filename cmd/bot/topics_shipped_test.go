@@ -85,3 +85,39 @@ func TestShippedDentalEmergency(t *testing.T) {
 		}
 	}
 }
+
+// An electric vehicle is served for tyres and alignment only (auto KB): any
+// other job is a deterministic handoff, whatever the model would have done.
+func TestShippedAutoElectricVehicleRule(t *testing.T) {
+	t.Chdir("../..")
+	topics, _, err := loadTopics(Config{TopicsPath: "topics/topics.json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := topics["auto"].Spec
+	for _, text := range []string{
+		"Tesla Model 3, треба замінити гальмівні колодки",
+		"Nissan Leaf потрібна діагностика",
+		"у мене електромобіль, стукає підвіска",
+		"my EV needs an oil check", // not a real EV job but the rule is deliberately conservative
+		"Hyundai Ioniq 5, ремонт кондиціонера",
+	} {
+		gen := &fakeGen{}
+		reply, _ := dialog.Handle(context.Background(), &dialog.Session{}, spec, gen, text, time.Now())
+		if reply.Signal != dialog.SignalEscalate || len(gen.seen) != 0 {
+			t.Errorf("%q: want a handoff without the model, got %s (model calls %d)", text, reply.Signal, len(gen.seen))
+		}
+	}
+	for _, text := range []string{
+		"Tesla Model 3, потрібен шиномонтаж",
+		"Nissan Leaf, розвал-сходження",
+		"Skoda Octavia, замінити гальмівні колодки",
+		"Toyota Prius гібрид, діагностика", // a hybrid is not an EV
+	} {
+		gen := &fakeGen{}
+		dialog.Handle(context.Background(), &dialog.Session{}, spec, gen, text, time.Now())
+		if len(gen.seen) != 1 {
+			t.Errorf("%q: the EV rule must not fire — the model should be consulted once, got %d calls", text, len(gen.seen))
+		}
+	}
+}

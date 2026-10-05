@@ -50,3 +50,53 @@ func (e EmergencySpec) reply(lang string) string {
 	}
 	return e.ReplyEN
 }
+
+// EscalateRule is a per-topic deterministic handoff: when the conversation is
+// about X (If — tested on the message plus the named slot, so "Tesla" said a
+// turn earlier still counts), the message asks for Y (And — tested on the
+// message only) and is not the permitted exception (Unless — message only),
+// the bot hands off with the plain handoff line, before the model. It exists
+// for rules a prompt cannot be trusted to follow (e.g. auto: an electric
+// vehicle is only served for tyres and alignment).
+type EscalateRule struct {
+	If     string `json:"if"`
+	And    string `json:"and"`
+	Unless string `json:"unless"`
+	Slot   string `json:"slot"` // optional slot key whose value also feeds If
+
+	ifRe, andRe, unlessRe *regexp.Regexp
+}
+
+// Compile validates and compiles the patterns; call once when the topic loads.
+func (r *EscalateRule) Compile() error {
+	var err error
+	if r.If == "" || r.And == "" {
+		return fmt.Errorf("escalate rule needs both \"if\" and \"and\"")
+	}
+	if r.ifRe, err = regexp.Compile("(?i)" + r.If); err != nil {
+		return fmt.Errorf("escalate rule if %q: %w", r.If, err)
+	}
+	if r.andRe, err = regexp.Compile("(?i)" + r.And); err != nil {
+		return fmt.Errorf("escalate rule and %q: %w", r.And, err)
+	}
+	if r.Unless != "" {
+		if r.unlessRe, err = regexp.Compile("(?i)" + r.Unless); err != nil {
+			return fmt.Errorf("escalate rule unless %q: %w", r.Unless, err)
+		}
+	}
+	return nil
+}
+
+func (r EscalateRule) matches(text string, slots map[string]string) bool {
+	if r.ifRe == nil || r.andRe == nil { // not compiled
+		return false
+	}
+	subject := text
+	if r.Slot != "" {
+		subject += " " + slots[r.Slot]
+	}
+	if !r.ifRe.MatchString(subject) || !r.andRe.MatchString(text) {
+		return false
+	}
+	return r.unlessRe == nil || !r.unlessRe.MatchString(text)
+}

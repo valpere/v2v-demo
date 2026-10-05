@@ -37,6 +37,9 @@ type TopicSpec struct {
 
 	// Emergency is optional deterministic emergency handling (see EmergencySpec).
 	Emergency EmergencySpec
+
+	// EscalateRules are deterministic topic-specific handoffs (see EscalateRule).
+	EscalateRules []EscalateRule
 }
 
 // OfficeHours is a topic's business hours, injected into the "--- CURRENT

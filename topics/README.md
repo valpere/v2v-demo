@@ -75,6 +75,12 @@ behaves like a single-topic bot).
   closed, before and instead of the model**. Invalid regexps fail at load.
   Used by dental (bleeding, breathing/swallowing, spreading swelling, facial
   trauma → 103 / 112); the wording is medical, so change it deliberately.
+- `escalate_rules` (optional) — deterministic handoffs for rules a prompt
+  cannot be trusted with: `{if, and, unless, slot}` regexps. Fires (plain
+  handoff, before the model) when `if` matches the message plus the named
+  slot's value (so an EV named a turn earlier still counts), `and` matches the
+  message, and `unless` does not. Auto uses it: an electric vehicle is served
+  for tyres and alignment only.
 - `slots` — an **ordered** list of what the assistant collects. `key` is
   the JSON key the model returns it under (and the key in the lead record);
   `ask_uk` / `ask_en` are the plain-words phrasings the clarify line uses

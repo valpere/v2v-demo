@@ -356,6 +356,13 @@ func Handle(
 		return r, nil
 	}
 
+	// 0c — topic rules a prompt cannot be trusted with (e.g. auto: EV work)
+	for _, rule := range topic.EscalateRules {
+		if rule.matches(userText, sess.Slots) {
+			return esc()
+		}
+	}
+
 	// 1 — unambiguous handoff trigger
 	if hardEscalate(userText) {
 		return esc()
