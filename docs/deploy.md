@@ -302,16 +302,25 @@ revoke the old key.** (Portal labels below are from memory and may have moved.)
   balance) → API keys → *Create new secret key* → `OPENAI_API_KEY`. A key from another
   project returns 403/404 for the model; `check-keys.sh` shows it as `FAIL openai`.
   The same key serves STT (`whisper-1`) and the dialogue.
+  Links (log in): <https://platform.openai.com/api-keys> (create / revoke keys),
+  <https://platform.openai.com/settings/organization/billing/overview> (balance;
+  *Allowed models* are under Settings → your project → Limits).
 - **Azure Speech** — portal.azure.com → search *Speech* → your Speech resource (free tier
   F0 if none: one per region per subscription) → *Keys and Endpoint* → **KEY 1** →
   `AZURE_SPEECH_KEY`, and **Location/Region** as the short name (`swedencentral`, not the
   endpoint URL) → `AZURE_SPEECH_REGION`. To rotate without downtime put KEY 2 in the bot,
   then *Regenerate* KEY 1. `401` from `check-keys.sh` = wrong/regenerated key or a key from
   a resource in another region.
+  Links: <https://portal.azure.com/> (log in) · official rotation guide
+  <https://learn.microsoft.com/azure/ai-services/rotate-keys> · region short names
+  <https://learn.microsoft.com/azure/ai-services/speech-service/regions> · F0 free-tier limits
+  <https://azure.microsoft.com/pricing/details/cognitive-services/speech-services/>.
 - **Telegram** — @BotFather → `/mybots` → the bot → *API Token* → *Revoke current token*.
   This invalidates the old token **immediately**, so run `push-env` right after; the local
   dev bot has its own token (never share one token between two pollers: 409 Conflict).
+  Link: <https://t.me/BotFather>.
 - **ElevenLabs** — only while its subscription lasts (the bridge); `--tts` tests it.
+  Link (log in): <https://elevenlabs.io/app/settings/api-keys>.
 
 ## Cost & limits
 
