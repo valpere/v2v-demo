@@ -909,3 +909,26 @@ func TestLongReplyIsNotSpoken(t *testing.T) {
 		t.Fatalf("want no voice for an over-cap reply, got %d", n)
 	}
 }
+
+// 1.5 — an over-long or over-large voice note is refused before any download
+// or STT spend.
+func TestOversizedVoiceRefusedBeforeDownload(t *testing.T) {
+	for name, u := range map[string]telegram.Update{
+		"too long":  {ChatID: 5, VoiceFileID: "v", VoiceSeconds: 61, VoiceBytes: 1000},
+		"too large": {ChatID: 5, VoiceFileID: "v", VoiceSeconds: 10, VoiceBytes: 3 << 20},
+	} {
+		t.Run(name, func(t *testing.T) {
+			a, tg := newTestApp(t, &fakeGen{})
+			a.stt = fakeSTT{text: "translation price"}
+			a.cfg.VoiceMaxSeconds, a.cfg.VoiceMaxBytes = 60, 2<<20
+			seed(t, a, 5)
+			a.handleUpdate(context.Background(), u)
+			if tg.downloads != 0 {
+				t.Fatalf("downloaded %d times, want 0", tg.downloads)
+			}
+			if got := tg.sentTo(5); len(got) != 1 || !strings.Contains(got[0], "60") {
+				t.Fatalf("want one refusal naming the limit, got %q", got)
+			}
+		})
+	}
+}

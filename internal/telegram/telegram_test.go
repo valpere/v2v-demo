@@ -32,6 +32,12 @@ func TestToUpdate(t *testing.T) {
 			ok:   true,
 		},
 		{
+			name: "voice carries duration and size",
+			in:   &models.Update{Message: &models.Message{Chat: models.Chat{ID: 7}, Voice: &models.Voice{FileID: "abc", Duration: 42, FileSize: 9000}}},
+			want: Update{ChatID: 7, VoiceFileID: "abc", VoiceSeconds: 42, VoiceBytes: 9000},
+			ok:   true,
+		},
+		{
 			name: "voice wins over text caption",
 			in:   &models.Update{Message: &models.Message{Chat: models.Chat{ID: 7}, Voice: &models.Voice{FileID: "abc"}, Text: "x"}},
 			want: Update{ChatID: 7, VoiceFileID: "abc"},

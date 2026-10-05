@@ -27,10 +27,12 @@ import (
 // itself be empty — Telegram allows a button with no payload) and Text /
 // VoiceFileID are empty.
 type Update struct {
-	ChatID      int64
-	Text        string // empty for a voice-only message
-	VoiceFileID string // empty for a text message
-	IsStart     bool   // the message is the /start command
+	ChatID       int64
+	Text         string // empty for a voice-only message
+	VoiceFileID  string // empty for a text message
+	VoiceSeconds int    // voice note duration as reported by Telegram; 0 = unknown
+	VoiceBytes   int64  // voice note size as reported by Telegram; 0 = unknown
+	IsStart      bool   // the message is the /start command
 
 	CallbackData string // an inline-keyboard tap's payload; empty for anything else
 	CallbackID   string // that tap's callback query id — AnswerCallback needs it
@@ -144,7 +146,7 @@ func toUpdate(u *models.Update) (Update, bool) {
 	}
 	switch {
 	case m.Voice != nil && m.Voice.FileID != "":
-		return Update{ChatID: m.Chat.ID, VoiceFileID: m.Voice.FileID}, true
+		return Update{ChatID: m.Chat.ID, VoiceFileID: m.Voice.FileID, VoiceSeconds: m.Voice.Duration, VoiceBytes: m.Voice.FileSize}, true
 	case strings.TrimSpace(m.Text) != "":
 		return Update{ChatID: m.Chat.ID, Text: m.Text, IsStart: isStartCommand(m.Text)}, true
 	default:
@@ -163,6 +165,11 @@ func isStartCommand(text string) bool {
 	}
 	return cmd == "/start"
 }
+
+// MaxVoiceDownloadBytes is the hard ceiling on a downloaded voice file,
+// whatever Telegram claimed in the update — the bot's own (lower) limit is
+// VOICE_MAX_BYTES, checked before any download.
+const MaxVoiceDownloadBytes = 10 << 20
 
 func (c *client) DownloadVoice(ctx context.Context, fileID string) (string, error) {
 	f, err := c.b.GetFile(ctx, &bot.GetFileParams{FileID: fileID})
@@ -190,7 +197,11 @@ func (c *client) DownloadVoice(ctx context.Context, fileID string) (string, erro
 	if err != nil {
 		return "", err
 	}
-	if _, err := io.Copy(tmp, resp.Body); err != nil {
+	n, err := io.Copy(tmp, io.LimitReader(resp.Body, MaxVoiceDownloadBytes+1))
+	if err == nil && n > MaxVoiceDownloadBytes {
+		err = errors.New("file too large")
+	}
+	if err != nil {
 		tmp.Close()
 		os.Remove(tmp.Name())
 		return "", fmt.Errorf("telegram: save: %w", err)

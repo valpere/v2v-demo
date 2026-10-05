@@ -276,6 +276,10 @@ func (a *app) admit(ctx context.Context, u telegram.Update) bool {
 		a.send(ctx, u.ChatID, fmt.Sprintf("Повідомлення задовге — скоротіть його, будь ласка (до %d символів). / Message too long — please shorten it (up to %d characters).", max, max))
 		return false
 	}
+	if u.VoiceFileID != "" && a.voiceTooBig(u) {
+		a.send(ctx, u.ChatID, fmt.Sprintf("Голосове задовге або завелике — надішліть, будь ласка, коротше (до %d с). / That voice message is too long or too large — please send a shorter one (up to %d s).", a.cfg.VoiceMaxSeconds, a.cfg.VoiceMaxSeconds))
+		return false
+	}
 	if a.lim == nil {
 		return true
 	}
@@ -290,6 +294,13 @@ func (a *app) admit(ctx context.Context, u telegram.Update) bool {
 		return false
 	}
 	return true
+}
+
+// voiceTooBig reports a voice note over the configured duration/size caps,
+// judged from the update's metadata before anything is downloaded.
+func (a *app) voiceTooBig(u telegram.Update) bool {
+	return (a.cfg.VoiceMaxSeconds > 0 && u.VoiceSeconds > a.cfg.VoiceMaxSeconds) ||
+		(a.cfg.VoiceMaxBytes > 0 && u.VoiceBytes > int64(a.cfg.VoiceMaxBytes))
 }
 
 // turnContext derives the budgeted context for one turn's slow work.
