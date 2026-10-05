@@ -662,3 +662,22 @@ func dialogHandle(t *testing.T, sess *Session, gen Generator, text string) (Repl
 	t.Helper()
 	return Handle(context.Background(), sess, testTopic(), gen, text, time.Time{})
 }
+
+// 1.4 — history is bounded by bytes as well as by entry count; the newest
+// message always survives.
+func TestTrimHistoryBytes(t *testing.T) {
+	big := strings.Repeat("я", HistoryMaxBytes/2/2) // ~HistoryMaxBytes/2 bytes (2 per rune)
+	msgs := []Msg{{Role: "user", Text: big}, {Role: "assistant", Text: big}, {Role: "user", Text: big}}
+	got := trimHistory(msgs)
+	if len(got) != 2 || got[len(got)-1].Text != big {
+		t.Fatalf("want the 2 newest messages within the cap, got %d", len(got))
+	}
+	huge := []Msg{{Role: "user", Text: strings.Repeat("x", 3*HistoryMaxBytes)}}
+	if got := trimHistory(huge); len(got) != 1 {
+		t.Fatalf("the newest message must survive even when alone over the cap, got %d", len(got))
+	}
+	many := make([]Msg, HistoryLimit+5)
+	if got := trimHistory(many); len(got) != HistoryLimit {
+		t.Fatalf("count cap still applies, got %d", len(got))
+	}
+}

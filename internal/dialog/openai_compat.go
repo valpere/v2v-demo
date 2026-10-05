@@ -44,6 +44,7 @@ type oaiRequest struct {
 	Messages       []oaiMessage   `json:"messages"`
 	Stream         bool           `json:"stream"`
 	Temperature    float64        `json:"temperature"`
+	MaxTokens      int            `json:"max_tokens"`
 	ResponseFormat *oaiRespFormat `json:"response_format,omitempty"`
 }
 
@@ -67,7 +68,7 @@ func (g *openAICompatGen) Generate(ctx context.Context, systemPrompt string, his
 		msgs = append(msgs, oaiMessage{Role: m.Role, Content: m.Text})
 	}
 
-	req := oaiRequest{Model: g.model, Messages: msgs, Stream: false, Temperature: 0.2}
+	req := oaiRequest{Model: g.model, Messages: msgs, Stream: false, Temperature: 0.2, MaxTokens: MaxReplyTokens}
 	if g.jsonMode {
 		req.ResponseFormat = &oaiRespFormat{Type: "json_object"}
 	}

@@ -55,8 +55,15 @@ type Config struct {
 	SessionStore  string // "memory" (default) | "sqlite" (SESSION_STORE)
 	SessionDBPath string // SQLite file, only used when SessionStore=="sqlite"
 
-	TurnTimeout time.Duration // per-turn budget for STT+dialog+TTS; 0 disables
-	TopicsPath  string        // topics.json manifest (TOPICS_PATH); missing file -> one synthetic topic from KBPath/SystemPromptPath/GreetingPath, no picker shown
+	RateBurst       int           // per-chat token bucket size; 0 disables the per-minute limit
+	RatePerMin      int           // per-chat refill, messages per minute
+	ChatDailyTurns  int           // per-chat turns per day; 0 = unlimited
+	DailyTurns      int           // global paid turns per day (STT+LLM+TTS); 0 = unlimited
+	RateExemptChats []int64       // chat ids never limited (the owner's)
+	MaxTextChars    int           // longest accepted user text, in runes; 0 = unlimited
+	SpeakMaxChars   int           // replies longer than this go out as text only; 0 = always speak
+	TurnTimeout     time.Duration // per-turn budget for STT+dialog+TTS; 0 disables
+	TopicsPath      string        // topics.json manifest (TOPICS_PATH); missing file -> one synthetic topic from KBPath/SystemPromptPath/GreetingPath, no picker shown
 }
 
 // LoadConfig builds Config from the process environment, falling back to a
@@ -100,9 +107,37 @@ func LoadConfig() (Config, error) {
 		turnTimeout = d
 	}
 
+	limits := map[string]int{"RATE_BURST": 4, "RATE_PER_MIN": 8, "CHAT_DAILY_TURNS": 100,
+		"DAILY_TURNS": 300, "MAX_TEXT_CHARS": 1500, "SPEAK_MAX_CHARS": 700}
+	for k, def := range limits {
+		limits[k] = def
+		if v := get(k); v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 0 {
+				return Config{}, fmt.Errorf("config: %s %q: must be a non-negative integer (0 disables)", k, v)
+			}
+			limits[k] = n
+		}
+	}
+	var exempt []int64
+	for _, f := range strings.Split(get("RATE_EXEMPT_CHATS"), ",") {
+		if f = strings.TrimSpace(f); f == "" {
+			continue
+		}
+		id, err := strconv.ParseInt(f, 10, 64)
+		if err != nil {
+			return Config{}, fmt.Errorf("config: RATE_EXEMPT_CHATS: %q is not a chat id", f)
+		}
+		exempt = append(exempt, id)
+	}
+
 	cfg := Config{
 		TelegramToken: get("TELEGRAM_BOT_TOKEN"),
-		TurnTimeout:   turnTimeout,
+		RateBurst:     limits["RATE_BURST"], RatePerMin: limits["RATE_PER_MIN"],
+		ChatDailyTurns: limits["CHAT_DAILY_TURNS"], DailyTurns: limits["DAILY_TURNS"],
+		MaxTextChars: limits["MAX_TEXT_CHARS"], SpeakMaxChars: limits["SPEAK_MAX_CHARS"],
+		RateExemptChats: exempt,
+		TurnTimeout:     turnTimeout,
 
 		TTSBackend:         def("TTS_BACKEND", "elevenlabs"),
 		TTSFallbackBackend: get("TTS_FALLBACK_BACKEND"), // "" → no failover

@@ -283,6 +283,21 @@ func truncate(s string, n int) string {
 	return string(r[:n]) + "…"
 }
 
+// trimHistory keeps the newest HistoryLimit messages and, within them, drops
+// the oldest until the text fits HistoryMaxBytes — the newest always stays.
+func trimHistory(msgs []Msg) []Msg {
+	msgs = trimTail(msgs, HistoryLimit)
+	total := 0
+	for _, m := range msgs {
+		total += len(m.Text)
+	}
+	for len(msgs) > 1 && total > HistoryMaxBytes {
+		total -= len(msgs[0].Text)
+		msgs = msgs[1:]
+	}
+	return msgs
+}
+
 func trimTail(msgs []Msg, n int) []Msg {
 	if len(msgs) <= n {
 		return msgs
@@ -333,10 +348,10 @@ func Handle(
 		}
 		sess.GateStrike = true
 		clarify := clarifyLine(sess, topic)
-		sess.History = trimTail(append(sess.History,
+		sess.History = trimHistory(append(sess.History,
 			Msg{Role: "user", Text: userText},
 			Msg{Role: "assistant", Text: clarify},
-		), HistoryLimit)
+		))
 		return Reply{Text: clarify, Signal: SignalContinue}, nil
 	}
 
@@ -361,10 +376,10 @@ func Handle(
 		}
 		sess.GateStrike = true
 		clarify := clarifyLine(sess, topic)
-		sess.History = trimTail(append(sess.History,
+		sess.History = trimHistory(append(sess.History,
 			Msg{Role: "user", Text: userText},
 			Msg{Role: "assistant", Text: clarify},
-		), HistoryLimit)
+		))
 		return Reply{Text: clarify, Signal: SignalContinue}, nil
 	}
 	// This turn reached the model. If the previous turn was a redirect (a gate
@@ -408,7 +423,7 @@ func Handle(
 	sysPrompt := b.String()
 
 	// 6 — append the user message, trim to the history limit
-	hist := trimTail(append(sess.History, Msg{Role: "user", Text: userText}), HistoryLimit)
+	hist := trimHistory(append(sess.History, Msg{Role: "user", Text: userText}))
 
 	// 7 — generate; any error degrades to a fixed apology (never bubbles)
 	raw, err := gen.Generate(ctx, sysPrompt, hist)
@@ -461,6 +476,6 @@ func Handle(
 
 	// 12, 13, 14
 	matched := matchedTitles(userText, topic.KB)
-	sess.History = trimTail(append(hist, Msg{Role: "assistant", Text: spoken}), HistoryLimit)
+	sess.History = trimHistory(append(hist, Msg{Role: "assistant", Text: spoken}))
 	return Reply{Text: spoken, Signal: signal, Matched: matched}, nil
 }

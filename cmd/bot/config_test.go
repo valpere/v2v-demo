@@ -4,12 +4,14 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // every env var LoadConfig looks at — blanked so a value in the dev
 // environment (e.g. an exported GEMINI_API_KEY) never leaks into a test.
 var configEnvKeys = []string{
-	"TELEGRAM_BOT_TOKEN",
+	"TELEGRAM_BOT_TOKEN", "TURN_TIMEOUT", "RATE_BURST", "RATE_PER_MIN", "CHAT_DAILY_TURNS", "DAILY_TURNS",
+	"MAX_TEXT_CHARS", "SPEAK_MAX_CHARS", "RATE_EXEMPT_CHATS",
 	"TTS_BACKEND", "TTS_FALLBACK_BACKEND", "ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_A", "ELEVENLABS_VOICE_B",
 	"AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION", "AZURE_VOICE_A", "AZURE_VOICE_B", "ESPEAK_BIN", "FFMPEG_BIN",
 	"STT_BACKEND", "STT_FALLBACK_BACKEND", "WHISPER_BIN", "WHISPER_MODEL", "WHISPER_LANG",
@@ -254,5 +256,30 @@ func TestLoadConfigWhisperCPP(t *testing.T) {
 	}
 	if cfg.WhisperCPPThreads != 8 {
 		t.Fatalf("WhisperCPPThreads = %d, want 8", cfg.WhisperCPPThreads)
+	}
+}
+
+func TestLoadConfigLimits(t *testing.T) {
+	chdirWithEnv(t, minValidEnv)
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.RateBurst != 4 || cfg.RatePerMin != 8 || cfg.ChatDailyTurns != 100 || cfg.DailyTurns != 300 ||
+		cfg.MaxTextChars != 1500 || cfg.SpeakMaxChars != 700 || cfg.TurnTimeout != 120*time.Second {
+		t.Fatalf("approved defaults not applied: %+v", cfg)
+	}
+
+	chdirWithEnv(t, minValidEnv+"DAILY_TURNS=0\nRATE_EXEMPT_CHATS=12, -34\n")
+	cfg, err = LoadConfig()
+	if err != nil || cfg.DailyTurns != 0 || len(cfg.RateExemptChats) != 2 || cfg.RateExemptChats[1] != -34 {
+		t.Fatalf("overrides: %+v, %v", cfg, err)
+	}
+
+	for _, bad := range []string{"RATE_BURST=-1", "MAX_TEXT_CHARS=abc", "RATE_EXEMPT_CHATS=x", "TURN_TIMEOUT=soon"} {
+		chdirWithEnv(t, minValidEnv+bad+"\n")
+		if _, err := LoadConfig(); err == nil {
+			t.Errorf("%s: want a config error", bad)
+		}
 	}
 }

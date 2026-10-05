@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/valpere/v2v-demo/internal/dialog"
 	"github.com/valpere/v2v-demo/internal/store"
@@ -173,6 +175,10 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 		}
 	}
 
+	if !a.admit(ctx, u) {
+		return
+	}
+
 	// work bounds the slow backends (STT, LLM, TTS); replies, saves and the
 	// apology still go out on the root ctx after it expires.
 	work, cancelWork := a.turnContext(ctx)
@@ -222,7 +228,7 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	}
 	reply, _ := dialog.Handle(work, sess, topic.Spec, a.gen, text, time.Now().In(a.loc)) // never returns a non-nil error
 
-	if a.tts != nil {
+	if a.tts != nil && (a.cfg.SpeakMaxChars <= 0 || utf8.RuneCountInString(reply.Text) <= a.cfg.SpeakMaxChars) {
 		ogg, terr := a.tts.Speak(work, tts.Spoken(reply.Text, sess.Lang), voiceID(a.cfg, sess.Voice), sess.Lang)
 		if terr != nil {
 			log.Printf("tts (chat %d): %v", u.ChatID, terr)
@@ -252,6 +258,38 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 			log.Printf("store lead (chat %d): %v", u.ChatID, err)
 		}
 	}
+}
+
+const (
+	throttleLine = "Забагато повідомлень — зачекайте хвилинку, будь ласка. / Too many messages — please wait a minute."
+	dayCapLine   = "На сьогодні ліміт розмов вичерпано — спробуйте, будь ласка, завтра. / Today's conversation limit has been reached — please try again tomorrow."
+)
+
+// admit applies the spend limits to a message that would start a turn. It
+// replies (once, via the limiter) and returns false when the message must not
+// be processed. Slash commands are free; they never reach a paid backend.
+func (a *app) admit(ctx context.Context, u telegram.Update) bool {
+	if u.VoiceFileID == "" && strings.HasPrefix(strings.TrimSpace(u.Text), "/") {
+		return true
+	}
+	if max := a.cfg.MaxTextChars; max > 0 && utf8.RuneCountInString(u.Text) > max {
+		a.send(ctx, u.ChatID, fmt.Sprintf("Повідомлення задовге — скоротіть його, будь ласка (до %d символів). / Message too long — please shorten it (up to %d characters).", max, max))
+		return false
+	}
+	if a.lim == nil {
+		return true
+	}
+	switch a.lim.admit(u.ChatID) {
+	case admitThrottleNotify:
+		a.send(ctx, u.ChatID, throttleLine)
+		return false
+	case admitDayCapNotify:
+		a.send(ctx, u.ChatID, dayCapLine)
+		return false
+	case admitDrop:
+		return false
+	}
+	return true
 }
 
 // turnContext derives the budgeted context for one turn's slow work.

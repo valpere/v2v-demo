@@ -33,6 +33,8 @@ type app struct {
 
 	sessions sessionStore
 
+	lim *limiter // nil = no limits
+
 	mu    sync.Mutex
 	inbox map[int64]chan telegram.Update // per-chat FIFO queue (one serial worker each)
 	slow  map[int64]time.Time            // last "slow down" notice per chat — one per slowDownWindow
@@ -79,7 +81,10 @@ func main() {
 		log.Fatal(err)
 	}
 
+	lim := newLimiter(cfg)
+	lim.loc = loc
 	a := &app{
+		lim:      lim,
 		cfg:      cfg,
 		tg:       tg,
 		gen:      gen,

@@ -202,3 +202,20 @@ func TestNewOllamaOpenAIDefaults(t *testing.T) {
 		t.Fatalf("explicit model dropped: %+v", g)
 	}
 }
+
+// 1.4 — every chat completion carries a max_tokens cap, so one turn cannot
+// cost an unbounded number of output tokens.
+func TestOpenAICompatSetsMaxTokens(t *testing.T) {
+	var gotReq oaiRequest
+	g := oaiStub(t, func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(b, &gotReq)
+		w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"x"}}]}`))
+	})
+	if _, err := g.Generate(context.Background(), "S", []Msg{{Role: "user", Text: "hi"}}); err != nil {
+		t.Fatal(err)
+	}
+	if gotReq.MaxTokens != MaxReplyTokens || MaxReplyTokens < 600 {
+		t.Fatalf("max_tokens = %d, want %d (>=600: a truncated JSON reply breaks the parse)", gotReq.MaxTokens, MaxReplyTokens)
+	}
+}

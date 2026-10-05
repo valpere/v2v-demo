@@ -859,3 +859,53 @@ func TestDispatchSaturatedChatDoesNotBlockOthers(t *testing.T) {
 		t.Fatalf("chat 1 should get exactly one slow-down notice for the burst, got %d: %q", n, tg.sentTo(1))
 	}
 }
+
+// 1.4 — over-long text is refused with one line and never reaches the dialog.
+func TestOverlongTextRefused(t *testing.T) {
+	gen := &fakeGen{}
+	a, tg := newTestApp(t, gen)
+	a.cfg.MaxTextChars = 50
+	seed(t, a, 5)
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 5, Text: strings.Repeat("я", 51)})
+	got := tg.sentTo(5)
+	if len(got) != 1 || !strings.Contains(got[0], "50") {
+		t.Fatalf("want one too-long notice naming the limit, got %q", got)
+	}
+	if len(gen.seen) != 0 {
+		t.Fatalf("the dialog must not run, saw %v", gen.seen)
+	}
+}
+
+// 1.4 — a throttled chat gets one notice, then silence; no dialog turn runs.
+func TestThrottledChatGetsOneNotice(t *testing.T) {
+	gen := &fakeGen{}
+	a, tg := newTestApp(t, gen)
+	a.lim = newLimiter(Config{RateBurst: 1, RatePerMin: 1})
+	a.cfg.TTSBackend = "none"
+	a.tts = nil
+	seed(t, a, 5)
+	for i := 0; i < 4; i++ {
+		a.handleUpdate(context.Background(), telegram.Update{ChatID: 5, Text: "translation price"})
+	}
+	got := tg.sentTo(5)
+	if len(got) != 2 || !strings.Contains(got[1], "Забагато") {
+		t.Fatalf("want 1 reply + 1 throttle notice, got %q", got)
+	}
+	if len(gen.seen) != 1 {
+		t.Fatalf("only the admitted turn may reach the LLM, saw %v", gen.seen)
+	}
+}
+
+// 1.4 — a reply over SPEAK_MAX_CHARS goes out as text only (no TTS spend).
+func TestLongReplyIsNotSpoken(t *testing.T) {
+	a, tg := newTestApp(t, &fakeGen{})
+	a.cfg.SpeakMaxChars = 1 // "ok" is 2 runes
+	seed(t, a, 5)
+	a.handleUpdate(context.Background(), telegram.Update{ChatID: 5, Text: "translation price"})
+	tg.mu.Lock()
+	n := tg.voices
+	tg.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("want no voice for an over-cap reply, got %d", n)
+	}
+}

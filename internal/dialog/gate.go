@@ -10,9 +10,11 @@ import (
 
 // Behavioural constants — see @schema GateParams in docs/requirements.md §1.
 const (
-	GateFloor        = 0.25 // kbOverlap below this on a content question -> escalate pre-LLM
-	HistoryLimit     = 20   // Session.History cap, in Msg entries (~10 turns)
-	SlotAnswerMaxTok = 6    // isSlotAnswer: max tokens for a plausible slot answer
+	GateFloor        = 0.25     // kbOverlap below this on a content question -> escalate pre-LLM
+	HistoryLimit     = 20       // Session.History cap, in Msg entries (~10 turns)
+	HistoryMaxBytes  = 12 << 10 // ...and in bytes of text: an input-token bound on every call
+	MaxReplyTokens   = 600      // max_tokens per chat completion; never lower — a truncated JSON reply breaks the parse
+	SlotAnswerMaxTok = 6        // isSlotAnswer: max tokens for a plausible slot answer
 )
 
 // stopwords is a fixed uk+en function-word list. Without it, "the"/"of"/"і"/"на"
