@@ -106,7 +106,7 @@
     "slots": [
       { "key": "property_type", "ask_uk": "що прибрати — квартира, будинок чи офіс", "ask_en": "flat, house, or office", "rule": "квартира|будинок|офіс" },
       { "key": "area", "ask_uk": "яка площа в м² або скільки кімнат", "ask_en": "area in m² or number of rooms", "rule": "m² or rooms" },
-      { "key": "service_type", "ask_uk": "який вид прибирання", "ask_en": "type of cleaning", "rule": "регулярне|генеральне|післяремонтне|миття вікон|хімчистка меблів" },
+      { "key": "service_type", "ask_uk": "який вид прибирання", "ask_en": "type of cleaning", "rule": "регулярне|генеральне|післяремонтне|миття вікон|хімчистка меблів|офісне обслуговування" },
       { "key": "frequency", "ask_uk": "як часто — разово чи регулярно", "ask_en": "one-off or regular", "rule": "разово|щотижня|раз на 2 тижні|щомісяця" },
       { "key": "date", "ask_uk": "на яку дату", "ask_en": "preferred date", "rule": "a day" },
       { "key": "district", "ask_uk": "який район Києва", "ask_en": "which Kyiv district", "rule": "district only; full address goes to the manager" },

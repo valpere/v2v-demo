@@ -117,7 +117,8 @@ and tells the client a manager will confirm the quote.
 
 - **Certified** — the bureau confirms the translation is complete and
   accurate with its stamp and the translator's signature. Accepted by most
-  universities, employers, and many consulates.
+  universities and employers; whether a particular consulate or embassy
+  accepts it depends on their rules — the manager confirms.
 - **Notarized** — a notary certifies the translator's signature. Required by
   courts, migration offices, and civil-registry offices in most countries.
 - **Sworn** — done and stamped by a court-sworn translator in the target
@@ -130,7 +131,8 @@ and tells the client a manager will confirm the quote.
 
 - **Печатка бюро** — бюро підтверджує повноту й точність перекладу своєю
   печаткою та підписом перекладача. Приймають більшість університетів,
-  роботодавців і багато консульств.
+  роботодавців; чи приймає його конкретне консульство чи посольство,
+  залежить від їхніх вимог — це уточнює менеджер.
 - **Нотаріальне** — нотаріус засвідчує підпис перекладача. Потрібне для судів,
   міграційних органів і органів реєстрації актів цивільного стану в більшості
   країн.

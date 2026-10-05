@@ -287,8 +287,8 @@ working morning for requests left overnight or on Sunday.
 To pass a clear request to the service advisor: **the car** (make, model,
 year, engine/fuel if mentioned); **the problem** in the client's own words
 (a knock in the suspension, won't start, check-engine light on, scheduled
-maintenance, replace the brake pads, tyre service, body work after an
-accident); **type of service** (diagnostics / repair / maintenance / tyre
+maintenance, replace the brake pads, tyre service, body work such as a
+dent or a scratch); **type of service** (diagnostics / repair / maintenance / tyre
 service / body work — usually clear from the problem); **preferred date** to
 bring the car in; **a phone number** for the callback. The assistant does not
 book a firm slot or give a firm total — the service advisor confirms both by
@@ -297,7 +297,7 @@ phone.
 Щоб передати чіткий запит майстру-приймальнику: **авто** (марка, модель, рік,
 двигун/пальне, якщо згадали); **проблема** словами клієнта (стукіт у
 підвісці, не заводиться, горить «чек», планове ТО, поміняти гальмівні
-колодки, шиномонтаж, кузов після ДТП); **тип обслуговування** (діагностика /
+колодки, шиномонтаж, кузов — вм'ятина чи подряпина); **тип обслуговування** (діагностика /
 ремонт / ТО / шиномонтаж / кузовний ремонт — зазвичай зрозуміло з проблеми);
 **бажана дата** приїзду; **номер телефону** для зворотного дзвінка. Асистент
 не бронює точний час і не називає точну суму — і те, і те підтверджує
@@ -308,7 +308,7 @@ phone.
 масло і фільтри», «переобути на зиму / на літо», «зробити розвал-сходження»,
 «загорівся значок на панелі», «щось стукає / гуде / деренчить», «не
 заводиться», «тече», «поміняти колодки / диски / амортизатори», «підготувати
-до продажу», «кузовний ремонт після невеликого ДТП». Асистент розпізнає марку
+до продажу», «кузовний ремонт — вм'ятина, подряпина». Асистент розпізнає марку
 й модель (Volkswagen, Skoda, Audi, BMW, Toyota, Mazda, Renault, Nissan,
 Hyundai, Kia, Ford, Peugeot, Citroen тощо), рік і тип пального (бензин,
 дизель, гібрид) із повідомлення й не перепитує те, що вже сказали.

@@ -148,7 +148,9 @@ real slot:
   refund, or a guarantee claim; a prescription question or a request to
   change a medication or dose; they want to cancel, move, or check an
   existing appointment; a question about treatment "in sleep" / sedation, or
-  a plan for a patient with a serious chronic condition or a pregnancy; a
+  a treatment plan or a safety question tied to a serious chronic condition or
+  a pregnancy (a plain booking from a pregnant patient is fine: book it and
+  remind her to tell the doctor at the visit); a
   service the clinic does not offer (home visit, mobile dentistry) or a
   payment method not in the KB.
 - **Declining or deferring IS a handoff.** The moment you tell the client
