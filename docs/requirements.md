@@ -55,6 +55,7 @@ repo is public).
   bot_timezone:     String @constraint(default: "Europe/Kyiv", rule: "IANA name; the office-hours block in the runtime prompt is computed in this zone, not the server's — the host may be UTC. Validated with time.LoadLocation"),
   session_store:    Enum["memory","sqlite"] @constraint(default: "memory", rule: "memory = today's map[chatID]*Session, lost on restart. sqlite persists Session (modernc.org/sqlite, no cgo) — a bot restart mid-conversation resumes slots/topic/voice instead of starting over"),
   session_db_path:  String @constraint(default: "./data/sessions.db", rule: "used only when session_store=sqlite; parent dir is created if missing"),
+  turn_timeout:     Duration @constraint(default: "120s", rule: "upper bound on one turn's STT + dialog + TTS; on expiry the turn ends with the apology+handoff line and the chat worker serves the next update. 0 disables"),
   topics_path:      String @constraint(default: "topics/topics.json", rule: "a JSON array of {id,title,title_en?,kb,system_prompt,greeting,scope_uk,scope_en,slots:[SlotSpec],office?:OfficeHours}; title_en is the optional English half of the bilingual picker button label; the repo ships one with six topics (translation + dental + auto + realestate + cleaning + lyapko) so the picker appears after /start by default. 2+ entries -> the picker; point TOPICS_PATH at a single-entry file to opt out. A missing file or an empty array falls back to a synthetic topic from kb_path/system_prompt_path/greeting_path + the translation slot schema. See topics/README.md")
 }
 

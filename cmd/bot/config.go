@@ -55,7 +55,8 @@ type Config struct {
 	SessionStore  string // "memory" (default) | "sqlite" (SESSION_STORE)
 	SessionDBPath string // SQLite file, only used when SessionStore=="sqlite"
 
-	TopicsPath string // topics.json manifest (TOPICS_PATH); missing file -> one synthetic topic from KBPath/SystemPromptPath/GreetingPath, no picker shown
+	TurnTimeout time.Duration // per-turn budget for STT+dialog+TTS; 0 disables
+	TopicsPath  string        // topics.json manifest (TOPICS_PATH); missing file -> one synthetic topic from KBPath/SystemPromptPath/GreetingPath, no picker shown
 }
 
 // LoadConfig builds Config from the process environment, falling back to a
@@ -90,8 +91,18 @@ func LoadConfig() (Config, error) {
 		whisperCPPThreads = n
 	}
 
+	turnTimeout := 120 * time.Second
+	if v := get("TURN_TIMEOUT"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d < 0 {
+			return Config{}, fmt.Errorf("config: TURN_TIMEOUT %q: want a non-negative duration like 120s (0 disables)", v)
+		}
+		turnTimeout = d
+	}
+
 	cfg := Config{
 		TelegramToken: get("TELEGRAM_BOT_TOKEN"),
+		TurnTimeout:   turnTimeout,
 
 		TTSBackend:         def("TTS_BACKEND", "elevenlabs"),
 		TTSFallbackBackend: get("TTS_FALLBACK_BACKEND"), // "" → no failover

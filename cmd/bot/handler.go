@@ -173,7 +173,12 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 		}
 	}
 
-	text, ok := a.resolveText(ctx, sess, u)
+	// work bounds the slow backends (STT, LLM, TTS); replies, saves and the
+	// apology still go out on the root ctx after it expires.
+	work, cancelWork := a.turnContext(ctx)
+	defer cancelWork()
+
+	text, ok := a.resolveText(work, ctx, sess, u)
 	if !ok {
 		return
 	}
@@ -213,12 +218,12 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	// TTS_BACKEND=none → text-only: no synthesizer, no "recording voice" action.
 	stopTicker := func() {}
 	if a.tts != nil {
-		stopTicker = a.startRecordingTicker(ctx, u.ChatID)
+		stopTicker = a.startRecordingTicker(work, u.ChatID)
 	}
-	reply, _ := dialog.Handle(ctx, sess, topic.Spec, a.gen, text, time.Now().In(a.loc)) // never returns a non-nil error
+	reply, _ := dialog.Handle(work, sess, topic.Spec, a.gen, text, time.Now().In(a.loc)) // never returns a non-nil error
 
 	if a.tts != nil {
-		ogg, terr := a.tts.Speak(ctx, tts.Spoken(reply.Text, sess.Lang), voiceID(a.cfg, sess.Voice), sess.Lang)
+		ogg, terr := a.tts.Speak(work, tts.Spoken(reply.Text, sess.Lang), voiceID(a.cfg, sess.Voice), sess.Lang)
 		if terr != nil {
 			log.Printf("tts (chat %d): %v", u.ChatID, terr)
 		} else if err := a.tg.SendVoice(ctx, u.ChatID, ogg); err != nil {
@@ -249,11 +254,19 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	}
 }
 
+// turnContext derives the budgeted context for one turn's slow work.
+func (a *app) turnContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if a.cfg.TurnTimeout <= 0 {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, a.cfg.TurnTimeout)
+}
+
 // resolveText yields the turn's text: Update.Text for a text message, or the
 // STT transcript for a voice message. On an STT failure or an empty
 // transcript it replies with the fixed sttFail line and returns ok=false —
 // no dialogue turn, no turn record (REQ-BOT-03).
-func (a *app) resolveText(ctx context.Context, sess *dialog.Session, u telegram.Update) (string, bool) {
+func (a *app) resolveText(work, ctx context.Context, sess *dialog.Session, u telegram.Update) (string, bool) {
 	if u.VoiceFileID == "" {
 		return u.Text, true
 	}
@@ -262,7 +275,7 @@ func (a *app) resolveText(ctx context.Context, sess *dialog.Session, u telegram.
 		return "", false
 	}
 
-	stop := a.startRecordingTicker(ctx, u.ChatID)
+	stop := a.startRecordingTicker(work, u.ChatID)
 	defer stop()
 
 	// pin STT to the conversation's language once it's known (lingua-detected
@@ -272,10 +285,10 @@ func (a *app) resolveText(ctx context.Context, sess *dialog.Session, u telegram.
 		langHint = a.cfg.WhisperLang
 	}
 
-	ogg, err := a.tg.DownloadVoice(ctx, u.VoiceFileID)
+	ogg, err := a.tg.DownloadVoice(work, u.VoiceFileID)
 	var text string
 	if err == nil {
-		text, err = a.stt.Transcribe(ctx, ogg, langHint)
+		text, err = a.stt.Transcribe(work, ogg, langHint)
 		os.Remove(ogg)
 	}
 	if err != nil || stt.IsNonSpeech(text) {

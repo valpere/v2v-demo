@@ -770,3 +770,36 @@ func contains(s, sub string) bool {
 	}
 	return false
 }
+
+// blockingGen never answers on its own: it returns only when its ctx ends,
+// like a backend that accepted the request and then hung.
+type blockingGen struct{}
+
+func (blockingGen) Generate(ctx context.Context, _ string, _ []dialog.Msg) (string, error) {
+	<-ctx.Done()
+	return "", ctx.Err()
+}
+
+// 1.2 — a hung backend must not wedge the chat's worker: the turn ends at
+// TurnTimeout with the apology line, and the next update is served.
+func TestTurnDeadlineFreesTheWorker(t *testing.T) {
+	a, tg := newTestApp(t, blockingGen{})
+	a.cfg.TurnTimeout = 150 * time.Millisecond
+	a.topics[defaultTopicID] = testBundle(defaultTopicID, "Default", "GREETING", []kb.Section{{Title: "Ціни", Body: "переклад диплома вартість сторінка"}})
+	seed(t, a, 5)
+
+	done := make(chan struct{})
+	go func() {
+		a.handleUpdate(context.Background(), telegram.Update{ChatID: 5, Text: "Скільки коштує переклад диплома?"})
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("handleUpdate still blocked long after TurnTimeout")
+	}
+	got := tg.sentTo(5)
+	if len(got) == 0 || !strings.Contains(got[len(got)-1], "менеджер") {
+		t.Fatalf("want the apology+handoff line after the timeout, got %q", got)
+	}
+}
