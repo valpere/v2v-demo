@@ -284,6 +284,35 @@ Open items, most urgent first:
 9. Cosmetic: the translation greeting is hard-wrapped, so Telegram shows
    breaks mid-sentence (the lyapko greeting is not).
 
+## 10. Rotating credentials
+
+Order that avoids downtime: **create the new key → test it → push it → verify the bot →
+revoke the old key.** (Portal labels below are from memory and may have moved.)
+
+```bash
+# 1. put the new values into .env.server (never commit it), then:
+./minions/check-keys.sh            # every line must say OK (add --tts to test ElevenLabs)
+./minions/srv.sh push-env          # uploads as ~/v2v-demo/.env (chmod 600) and restarts
+./minions/srv.sh status            # active, 0 errors; send the bot a text + a voice message
+# 2. only now revoke the old key in the provider's console
+```
+
+- **OpenAI** — platform.openai.com → the **same project that has `gpt-4.1-mini` under
+  *Allowed models*** (a "protected" model: needs org verification and a positive prepaid
+  balance) → API keys → *Create new secret key* → `OPENAI_API_KEY`. A key from another
+  project returns 403/404 for the model; `check-keys.sh` shows it as `FAIL openai`.
+  The same key serves STT (`whisper-1`) and the dialogue.
+- **Azure Speech** — portal.azure.com → search *Speech* → your Speech resource (free tier
+  F0 if none: one per region per subscription) → *Keys and Endpoint* → **KEY 1** →
+  `AZURE_SPEECH_KEY`, and **Location/Region** as the short name (`swedencentral`, not the
+  endpoint URL) → `AZURE_SPEECH_REGION`. To rotate without downtime put KEY 2 in the bot,
+  then *Regenerate* KEY 1. `401` from `check-keys.sh` = wrong/regenerated key or a key from
+  a resource in another region.
+- **Telegram** — @BotFather → `/mybots` → the bot → *API Token* → *Revoke current token*.
+  This invalidates the old token **immediately**, so run `push-env` right after; the local
+  dev bot has its own token (never share one token between two pollers: 409 Conflict).
+- **ElevenLabs** — only while its subscription lasts (the bridge); `--tts` tests it.
+
 ## Cost & limits
 
 - **$0** as long as the A1 instances stay within 2 OCPU / 12 GB in total.
