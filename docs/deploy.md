@@ -328,7 +328,9 @@ revoke the old key.** (Portal labels below are from memory and may have moved.)
   <https://learn.microsoft.com/azure/ai-services/speech-service/regions> · F0 free-tier limits
   <https://azure.microsoft.com/pricing/details/cognitive-services/speech-services/>.
   **Likely cause of the long-standing 401 (reported 2026-10-05): "Your free trial has
-  expired"** — the free-account subscription is disabled, so its keys stop working. Fix: Portal
+  expired — your services are paused; on October 31, 2026 your account will be deleted"** —
+  the free-account subscription is disabled, so its keys stop working. **Upgrade before
+  2026-10-31 or the account (and the Speech resource) is deleted.** Fix: Portal
   → *Subscriptions* → the free-account subscription → **Upgrade subscription** (add a payment
   method, name it, pick the free *Basic* support plan) →
   <https://learn.microsoft.com/azure/cost-management-billing/manage/upgrade-azure-subscription>.
