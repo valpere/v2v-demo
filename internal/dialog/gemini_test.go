@@ -88,3 +88,24 @@ func TestNewGeminiDefault(t *testing.T) {
 		t.Fatalf("model = %q", g.model)
 	}
 }
+
+// Gemini rejects a conversation that starts with a model turn; the history
+// trimmed to its newest N messages can begin with one.
+func TestGeminiHistoryStartsWithUserTurn(t *testing.T) {
+	var gotReq geminiRequest
+	g := geminiStub(t, func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(b, &gotReq)
+		w.Write([]byte(`{"candidates":[{"content":{"role":"model","parts":[{"text":"ok"}]}}]}`))
+	})
+	_, err := g.Generate(context.Background(), "S", []Msg{
+		{Role: "assistant", Text: "orphaned reply"},
+		{Role: "user", Text: "question"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(gotReq.Contents) != 1 || gotReq.Contents[0].Role != "user" {
+		t.Fatalf("contents = %+v, want only the user turn first", gotReq.Contents)
+	}
+}

@@ -331,7 +331,13 @@ func Handle(
 ) (Reply, error) {
 	esc := func() (Reply, error) {
 		sess.Escalated = true
-		return Reply{Text: escalateReply(sess, topic, now), Signal: SignalEscalate}, nil
+		text := escalateReply(sess, topic, now)
+		// the escalation turn is part of the conversation: keep it in History
+		sess.History = trimHistory(append(sess.History,
+			Msg{Role: "user", Text: userText},
+			Msg{Role: "assistant", Text: text},
+		))
+		return Reply{Text: text, Signal: SignalEscalate}, nil
 	}
 
 	// 0 — track the conversation language (lingua: uk/en, ru→uk). Updates
@@ -346,6 +352,7 @@ func Handle(
 	if topic.Emergency.matches(userText) {
 		r, _ := esc()
 		r.Text = topic.Emergency.reply(sessLang(sess)) + "\n\n" + r.Text
+		sess.History[len(sess.History)-1].Text = r.Text // History carries what was actually said
 		return r, nil
 	}
 
@@ -464,7 +471,7 @@ func Handle(
 	}
 	known := slotKeySet(topic.Slots)
 	for k, v := range mr.Slots {
-		if v != "" && known[k] {
+		if v = strings.TrimSpace(v); v != "" && known[k] {
 			sess.Slots[k] = v
 		}
 	}

@@ -61,7 +61,10 @@ type geminiResponse struct {
 
 func (g *geminiGen) Generate(ctx context.Context, systemPrompt string, history []Msg) (string, error) {
 	contents := make([]geminiContent, 0, len(history))
-	for _, m := range history {
+	for i, m := range history {
+		if i == 0 && m.Role == "assistant" {
+			continue // Gemini rejects a conversation that opens with a model turn
+		}
 		role := "user"
 		if m.Role == "assistant" {
 			role = "model"

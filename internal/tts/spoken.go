@@ -134,6 +134,12 @@ func Spoken(s, lang string) string {
 		return g[1] + abbrSpoken[g[2]] + g[3]
 	})
 	s = reABBRlat.ReplaceAllStringFunc(s, func(m string) string {
+		if lang == "en" { // Cyrillic phonetics would be gibberish in an English reply
+			if m == "EET" {
+				return "Eastern European Time"
+			}
+			return m
+		}
 		return abbrSpoken[m]
 	})
 	s = reBrand.ReplaceAllStringFunc(s, func(m string) string {

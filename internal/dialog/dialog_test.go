@@ -752,3 +752,32 @@ func TestOfficeStatusResponseTimePromise(t *testing.T) {
 		t.Errorf("closed, no promise: %q", got)
 	}
 }
+
+// 5.6 — a whitespace-only slot value from the model is "no value": it must
+// neither fill the slot nor count toward completeness.
+func TestWhitespaceSlotValueIgnored(t *testing.T) {
+	gen := &fakeGen{reply: reply("ok", "continue", map[string]string{"a": "   ", "b": " x "})}
+	topic := testTopic()
+	topic.Slots = []SlotSpec{{Key: "a"}, {Key: "b"}}
+	sess := &Session{}
+	if _, err := Handle(context.Background(), sess, topic, gen,
+		"certified translation of a diploma, tell me about delivery", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := sess.Slots["a"]; ok {
+		t.Errorf("whitespace-only slot a was stored as %q", v)
+	}
+	if sess.Slots["b"] != "x" {
+		t.Errorf("slot b = %q, want the trimmed %q", sess.Slots["b"], "x")
+	}
+}
+
+// 5.6 — an escalation turn is part of the conversation: the user's message and
+// the handoff reply go into History, so a later turn has the context.
+func TestEscalationRecordedInHistory(t *testing.T) {
+	sess := &Session{}
+	reply, _ := Handle(context.Background(), sess, emergencyTopic(t), mustNotCallGen{t}, "не зупиняється кровотеча", time.Now())
+	if len(sess.History) != 2 || sess.History[0].Role != "user" || sess.History[1].Role != "assistant" || sess.History[1].Text != reply.Text {
+		t.Fatalf("history after an escalation = %+v", sess.History)
+	}
+}

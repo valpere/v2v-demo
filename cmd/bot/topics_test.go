@@ -291,3 +291,22 @@ func TestLoadTopicsParsesTitleEN(t *testing.T) {
 		t.Fatalf("TitleEN = %q, want %q", got, "Topic")
 	}
 }
+
+// An entry without a title would render an empty picker button (Telegram
+// rejects it); the id is the label of last resort.
+func TestLoadTopicsMissingTitleFallsBackToID(t *testing.T) {
+	dir := t.TempDir()
+	cfg := baseCfg(t, dir)
+	kbPath, sysPath, greetPath := writeTopicFixture(t, dir, "notary")
+	manifest := "[" + entryJSON("notary", "", kbPath, sysPath, greetPath) + "]"
+	if err := os.WriteFile(cfg.TopicsPath, []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	topics, _, err := loadTopics(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := topics["notary"].Title; got != "notary" {
+		t.Fatalf("title = %q, want the id as the fallback label", got)
+	}
+}

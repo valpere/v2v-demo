@@ -23,7 +23,11 @@ func TestSpoken(t *testing.T) {
 		{"оплата в USD", "uk", "оплата в доларів"},
 
 		{"переказом із ПДВ або без", "uk", "переказом із пе де ве або без"},
-		{"a signed NDA on request", "en", "a signed ен ді ей on request"},
+		// the Cyrillic phonetics are for Ukrainian replies only (5.4)
+		{"a signed NDA on request", "en", "a signed NDA on request"},
+		{"open 09:00–18:00 EET", "en", "open 09:00–18:00 Eastern European Time"},
+		{"shipped by DHL", "en", "shipped by DHL"},
+		{"a signed NDA on request", "uk", "a signed ен ді ей on request"},
 		{"працює 09:00–18:00 EET", "uk", "працює 09:00–18:00 за київським часом"},
 		{"надішліть ЄДРПОУ", "uk", "надішліть є де ер пе о у"},
 		{"доставка кур'єром DHL за кордон", "uk", "доставка кур'єром ді ейч ель за кордон"},

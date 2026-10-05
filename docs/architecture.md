@@ -278,8 +278,8 @@ vectors in Go memory and use the pure-Go driver for everything else.
 
 | Failure | Behaviour |
 |---|---|
-| STT error / empty transcript | tries `stt_fallback_backend` if configured — service-level only (local/openai are the same Whisper model, not model-diverse); still failing → text reply: "не розчув, повторіть, будь ласка"; log; no LLM call |
-| LLM error / unparseable trailer | tries `dialog_fallback_backend` if configured; still failing → text reply: apology + "з'єдную з менеджером"; mark escalated; log |
+| STT call error | tries `stt_fallback_backend` if configured (call errors only — an *empty or non-speech transcript is not a failure of the call*, so it does not fail over) — service-level only (local/openai are the same Whisper model, not model-diverse); still failing, or an empty/non-speech transcript → text reply: "не розчув, повторіть, будь ласка"; log; no LLM call |
+| LLM call error | tries `dialog_fallback_backend` if configured (call errors only — the wrapper retries on ANY error, incl. a context deadline). An *unparseable or empty reply* is **not** a call failure: it does not fail over, it degrades to `escalate` (apology + "з'єдную з менеджером"; mark escalated; log) |
 | TTS error | tries `tts_fallback_backend` if configured; still failing → send the reply as **text only**; log |
 | Telegram send error | retry once, then log and drop the turn |
 | any panic in a handler | recovered in the loop; the bot keeps serving other chats |

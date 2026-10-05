@@ -109,6 +109,9 @@ func loadTopics(cfg Config) (topics map[string]topicBundle, ids []string, err er
 		if err != nil {
 			return nil, nil, fmt.Errorf("topics: %s (greeting): %w", e.ID, err)
 		}
+		if e.Title == "" {
+			e.Title = e.ID // an empty picker button label is rejected by Telegram
+		}
 		topics[e.ID] = topicBundle{
 			ID:       e.ID,
 			Title:    e.Title,
