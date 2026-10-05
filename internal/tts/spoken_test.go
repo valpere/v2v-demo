@@ -44,6 +44,22 @@ func TestSpoken(t *testing.T) {
 		{"12,00 євро", "uk", "12 євро"},
 		{"10.00–15.00%", "uk", "10–15 відсотків"},
 		{"12.50 євро", "uk", "12.50 євро"},
+
+		// thousands separators are NOT decimals: only an exact ".00" / ",00" goes
+		{"Free delivery over EUR 1,000.", "en", "Free delivery over 1,000 euro."},
+		{"Price: 10,000 USD", "en", "Price: 10,000 dollars"},
+		{"Вартість 2.000 грн", "uk", "Вартість 2.000 грн"},
+		{"Package 1,000 pages", "en", "Package 1,000 pages"},
+		{"Total 1,500 EUR", "en", "Total 1,500 euro"},
+		{"1.000.000 євро", "uk", "1.000.000 євро"},
+		{"Bulk 100,00 EUR", "en", "Bulk 100 euro"},
+		// a single ".0" is meaningful (engine size, model number, version)
+		{"Skoda Octavia 2.0 TSI", "uk", "Шкода Octavia 2.0 TSI"},
+		{"Roller 5.0 and Camomile 5.0 mm pitch", "en", "Roller 5.0 and Camomile 5.0 mm pitch"},
+		{"версія 1.0.0", "uk", "версія 1.0.0"},
+		// the sentence-final period is not part of the amount
+		{"Free over EUR 150.", "en", "Free over 150 euro."},
+		{"вартість EUR 12.", "uk", "вартість 12 євро."},
 	}
 	for _, c := range cases {
 		if got := Spoken(c.in, c.lang); got != c.want {

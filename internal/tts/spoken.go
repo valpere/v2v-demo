@@ -14,16 +14,18 @@ var (
 
 	// currency codes the TTS engine otherwise spells out letter by letter.
 	// Symbols are normalised to codes first (with padding, so \b holds).
-	reCurBefore = regexp.MustCompile(`(?i)\b(EUR|USD)\b\s*(\d[\d.,]*)`)
+	reCurBefore = regexp.MustCompile(`(?i)\b(EUR|USD)\b\s*(\d(?:[\d.,]*\d)?)`)
 	reCurAfter  = regexp.MustCompile(`(?i)(\d[\d.,]*)\s*\b(EUR|USD)\b`)
 	reCurBare   = regexp.MustCompile(`(?i)\b(EUR|USD)\b`)
 
-	// a trailing zero-only fractional part ("12.00", "12,00") never needs
-	// speaking — drop it before the % / м² passes below so "12.00%" becomes
-	// "12%" first. Run before reBrand too: harmless either way since
-	// "Приват24" has no decimal point, but this keeps the "digit cleanup
-	// first" ordering consistent.
-	reTrailingZeroFrac = regexp.MustCompile(`(\d)[.,]0+(\D|$)`)
+	// an exact ".00" / ",00" fractional part never needs speaking — drop it
+	// before the % / м² passes below so "12.00%" becomes "12%" first. Exactly
+	// two zeros, NOT followed by another digit: "1,000" / "2.000" are
+	// thousands groups (dropping them would read 1,000 as 1), and a single
+	// ".0" is meaningful ("2.0 TSI", "Roller 5.0", "1.0.0"). Run before
+	// reBrand too: harmless either way since "Приват24" has no decimal point,
+	// but this keeps the "digit cleanup first" ordering consistent.
+	reTrailingZeroFrac = regexp.MustCompile(`(\d)[.,]00(\D|$)`)
 
 	// percent sign — bare, after a number or a dash-range of numbers. Also
 	// matches the U+2212 MINUS some KB entries use for a discount ("−15%").
