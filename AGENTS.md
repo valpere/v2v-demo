@@ -29,3 +29,12 @@ persistence is now in scope, opt-in (`SESSION_STORE=sqlite`, see
 `docs/requirements.md` §1 `@schema Config`) — it is not a general-purpose
 datastore for anything beyond `Session`. If the plan and a request
 conflict, follow the plan and note it in `.agents/changes.md`.
+
+## Git & PR workflow
+
+Profile **P4 — demo**: **direct-to-main**, no branch protection and no PR cycle. Commit
+and push straight to `main` once `make check` is green; one commit per logical change
+(test first for bug fixes). `/fix-review` / `/code-review` are optional here, not a gate.
+Never commit `.env*` (only `.env.example` and `.env.client` are tracked templates).
+`CLAUDE.md` is a symlink to this file. The repo is **public**: do not put open
+weaknesses in commit subjects, issues or tracked docs before the fix has landed.
