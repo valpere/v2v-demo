@@ -79,8 +79,8 @@ make build
 ```bash
 # on your machine
 GOOS=linux GOARCH=arm64 go build -o bot ./cmd/bot
-ssh ubuntu@<public-ip> mkdir -p ~/v2v-demo
-scp bot ubuntu@<public-ip>:~/v2v-demo/bot       # ~140 MB: lingua-go embeds all language models
+ssh ubuntu@<public-ip> 'mkdir -p ~/v2v-demo'   # quoted: an unquoted ~ expands on YOUR machine
+scp bot ubuntu@<public-ip>:v2v-demo/bot          # ~140 MB: lingua-go embeds all language models (first upload only — see §6 for updates)
 scp -r topics ubuntu@<public-ip>:~/v2v-demo/   # KB, prompts, greetings, topics.json
 ```
 
@@ -140,9 +140,13 @@ journalctl -u v2v-demo -f      # tail logs
 # option A instance, after a git pull:
 cd ~/v2v-demo && git pull && make build && sudo systemctl restart v2v-demo
 
-# option B (cross-compiled), after a local rebuild:
-scp bot ubuntu@<public-ip>:~/v2v-demo/bot
-ssh ubuntu@<public-ip> sudo systemctl restart v2v-demo
+# option B (cross-compiled), after a local rebuild. Never scp straight over the
+# running binary ("Text file busy" — and the restart would run the old one):
+# upload under another name, then rename, then restart.
+scp bot ubuntu@<public-ip>:v2v-demo/bot.new
+ssh ubuntu@<public-ip> 'mv -f ~/v2v-demo/bot.new ~/v2v-demo/bot && sudo systemctl restart v2v-demo'
+
+# or simply: ./minions/srv.sh push-bin   (builds for the server's arch, does the above)
 ```
 
 ## 7. Co-hosting a second bot (shopogoda)
@@ -233,8 +237,9 @@ on the other Always Free shape, **VM.Standard.E2.1.Micro** (AMD x86, 1 GB).
 - **Disable a topic on the public bot without touching the repo:** upload a
   filtered `topics/topics.json` (lyapko is off on the server) and
   `sudo systemctl restart v2v-demo`.
-- **Update the binary:** `scp bot v2vdemo:~/v2v-demo/bot && ssh v2vdemo sudo
-  systemctl restart v2v-demo`; logs: `ssh v2vdemo journalctl -u v2v-demo -f`.
+- **Update the binary:** `./minions/srv.sh push-bin` (builds for the server's arch,
+  uploads as `bot.new`, renames over `bot` — never `scp` over the running binary —
+  and restarts); logs: `./minions/srv.sh logs -f`.
 - **TTS bridge:** the Azure key returned `401` on the token endpoint from
   every region (checked locally and on the server), so the server runs
   `TTS_BACKEND=elevenlabs` until that subscription period ends. Fix the Azure
