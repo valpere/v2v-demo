@@ -961,3 +961,38 @@ func waitFor(t *testing.T, cond func() bool, what string) {
 	}
 	t.Fatalf("timed out waiting for %s", what)
 }
+
+type leadGen struct{}
+
+func (leadGen) Generate(context.Context, string, []dialog.Msg) (string, error) {
+	return `{"reply":"Передаю заявку.","slots":{"language_pair":"uk-en","doc_type":"diploma","volume":"3","deadline":"fri","certification":"yes","delivery":"email"},"signal":"lead_ready"}`, nil
+}
+
+// 2.2 — a lead whose append failed must not be marked done: the next
+// lead_ready for the same slots is recorded once the log is writable again.
+func TestLeadNotLostOnFailedAppend(t *testing.T) {
+	a, _ := newTestApp(t, leadGen{})
+	seed(t, a, 5)
+	leads := filepath.Join(a.cfg.DataDir, "leads.jsonl")
+	if err := os.MkdirAll(leads, 0o700); err != nil { // an unwritable "file"
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	a.handleUpdate(ctx, telegram.Update{ChatID: 5, Text: "translation diploma uk-en"})
+	sess, _, _ := a.sessions.Load(5)
+	if sess.LeadDone {
+		t.Fatal("LeadDone set although the lead was not recorded")
+	}
+
+	if err := os.Remove(leads); err != nil {
+		t.Fatal(err)
+	}
+	a.handleUpdate(ctx, telegram.Update{ChatID: 5, Text: "translation diploma uk-en again"})
+	if b, _ := os.ReadFile(leads); bytes.Count(b, []byte("\n")) != 1 {
+		t.Fatalf("want the lead recorded on the repeat, got %q", b)
+	}
+	if sess, _, _ = a.sessions.Load(5); !sess.LeadDone {
+		t.Fatal("LeadDone should be set once the lead is recorded")
+	}
+}

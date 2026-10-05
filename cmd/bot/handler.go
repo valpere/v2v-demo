@@ -226,6 +226,7 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	if a.tts != nil {
 		stopTicker = a.startRecordingTicker(work, u.ChatID)
 	}
+	prevLeadDone, prevLeadSlots := sess.LeadDone, sess.LeadSlots
 	reply, _ := dialog.Handle(work, sess, topic.Spec, a.gen, text, time.Now().In(a.loc)) // never returns a non-nil error
 
 	if a.tts != nil && (a.cfg.SpeakMaxChars <= 0 || utf8.RuneCountInString(reply.Text) <= a.cfg.SpeakMaxChars) {
@@ -256,6 +257,8 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 	if reply.Signal == dialog.SignalLeadReady {
 		if err := store.AppendLead(a.cfg.DataDir, leadFrom(u.ChatID, sess.Topic, sess.Slots)); err != nil {
 			log.Printf("store lead (chat %d): %v", u.ChatID, err)
+			// not recorded -> not done: a repeat lead_ready must be able to record it
+			sess.LeadDone, sess.LeadSlots = prevLeadDone, prevLeadSlots
 		}
 	}
 }
