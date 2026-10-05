@@ -127,3 +127,14 @@ func TestCachedSynthPrivateFiles(t *testing.T) {
 		t.Errorf("file mode %o", fi.Mode().Perm())
 	}
 }
+
+func TestCachedSynthCountsHitsAndMisses(t *testing.T) {
+	c := NewCached(&countingSynth{audio: []byte("a")}, "x", t.TempDir(), 1<<20)
+	ctx := Cacheable(context.Background())
+	c.Speak(ctx, "t", "A", "uk")
+	c.Speak(ctx, "t", "A", "uk")
+	c.Speak(ctx, "t", "A", "uk")
+	if c.hits.Load() != 2 || c.misses.Load() != 1 {
+		t.Fatalf("hits=%d misses=%d, want 2/1", c.hits.Load(), c.misses.Load())
+	}
+}

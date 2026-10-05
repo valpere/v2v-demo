@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -42,6 +44,8 @@ type CachedSynth struct {
 	dir      string
 	maxBytes int64
 	mu       sync.Mutex
+	hits     atomic.Int64 // cacheable calls served from disk
+	misses   atomic.Int64 // cacheable calls that had to synthesise
 }
 
 // NewCached caches inner's audio under dir (0700, files 0600), evicting the
@@ -67,8 +71,11 @@ func (c *CachedSynth) Speak(ctx context.Context, text, voiceID, lang string) ([]
 	if b, err := os.ReadFile(p); err == nil && len(b) > 0 {
 		now := time.Now()
 		_ = os.Chtimes(p, now, now) // touch: recently used survives eviction
+		c.hits.Add(1)
+		log.Printf("tts cache: hit (%s) hits=%d misses=%d", c.id, c.hits.Load(), c.misses.Load())
 		return b, nil
 	}
+	c.misses.Add(1)
 	audio, err := c.inner.Speak(ctx, text, voiceID, lang)
 	if err != nil || len(audio) == 0 {
 		return audio, err
