@@ -15,6 +15,7 @@ scenario sweep for each assistant lives in its own file under `docs/smoke/`:
 | Автосервіс «Подбай-Авто» (auto) | `docs/smoke/auto.md` | yes |
 | Агенція «Ваші Ключі» (realestate) | `docs/smoke/realestate.md` | yes |
 | Клінінг «Тримаємо чистоту» (cleaning) | `docs/smoke/cleaning.md` | yes |
+| Магазин «Lyapko Shop» (lyapko) | `docs/smoke/lyapko.md` | yes |
 
 **How to read a scenario.** Each step says what to **send** and what to
 **expect** — compare against that. `[R]` = a regression case for a bug
@@ -49,7 +50,7 @@ make run            # starts the bot (Ctrl-C to stop)
     (`.env`) to have a restart resume mid-conversation instead — that
     changes the "restart" vs "`/reset`" distinction wherever a scenario
     relies on a restart.
-  - **`TOPICS_PATH`** — the repo ships `topics/topics.json` with **five
+  - **`TOPICS_PATH`** — the repo ships `topics/topics.json` with **six
     topics**, so `/start` **shows the picker by default**. Point
     `TOPICS_PATH` at a single-entry file to get the plain no-picker
     greeting; §0 below covers the picker checks and assumes 2+
@@ -150,7 +151,7 @@ topic from the first message, and this section is skipped.*
 2. Stop the bot, remove the `cleaning` entry from `topics/topics.json`,
    restart, send `А ще є знижка на миття вікон?` in the same chat.
    - **Expect:** the picker is shown — "Оберіть тему розмови · Choose a
-     topic:" with four buttons (translation/dental/auto/realestate — no
+     topic:" with five buttons (translation/dental/auto/realestate/lyapko — no
      cleaning), **not** "Так, миття вікон коштує…", **not** a crash, no
      voice reply, no `TurnRecord` in `data/turns.jsonl`. The persisted
      `Session.Topic=cleaning` no longer resolves (it was removed from the

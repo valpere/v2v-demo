@@ -5,8 +5,8 @@
 prompt, greeting **and slot schema** (what it collects before it hands a
 lead to a manager), not just a KB slice of the same persona.
 
-This repo **ships `topics/topics.json`** with five topics (translation,
-dental, auto, realestate, cleaning), so `/start` shows the inline-keyboard
+This repo **ships `topics/topics.json`** with six topics (translation,
+dental, auto, realestate, cleaning, lyapko), so `/start` shows the inline-keyboard
 picker. A manifest with a single entry turns the picker off (the bot then
 behaves like a single-topic bot).
 
