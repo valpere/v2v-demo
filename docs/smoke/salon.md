@@ -1,11 +1,11 @@
-# Smoke test — beauty salon (Салон краси «Aurora Beauty Studio» / Дарина)
+# Smoke test — beauty salon (Салон краси «Ніжна Королева» / Дарина)
 
 The per-topic scenario sweep for the **salon** assistant. The shared Setup,
 the multi-topic picker checks, and the cross-topic robustness / clock /
 logging sections are in **`docs/smoke-test.md`** — read that first.
 
 **Pick the topic first.** `/start` shows a picker — tap **«Салон краси
-«Aurora Beauty Studio»»** before any scenario below.
+«Ніжна Королева»»** before any scenario below.
 
 **Channel:** send `code font` as a typed / pasted text message, verbatim. Only
 scenario 6 needs a real **voice message**.

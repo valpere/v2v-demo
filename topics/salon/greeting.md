@@ -7,7 +7,7 @@ lines that are exactly `---`; trim; send as **one** message.
 
 ---
 
-Вітаю! Мене звати Дарина, я асистентка салону краси «Aurora Beauty Studio».
+Вітаю! Мене звати Дарина, я асистентка салону краси «Ніжна Королева».
 Допоможу записатися на стрижку, фарбування, манікюр, брови та вії, косметолога,
 шугарінг чи масаж і відповім на питання про послуги — можна писати текстом або
 надсилати голосові, українською чи англійською.
@@ -19,7 +19,7 @@ lines that are exactly `---`; trim; send as **one** message.
 
 ---
 
-Hi! I'm Daryna, the assistant at the Aurora Beauty Studio salon. I can book a
+Hi! I'm Daryna, the assistant at the Tender Queen salon. I can book a
 haircut, colouring, manicure, brows and lashes, a cosmetologist, sugaring or a
 massage and answer questions about the services — you can type or send voice
 messages, in Ukrainian or English.

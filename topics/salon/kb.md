@@ -1,22 +1,22 @@
-# Knowledge base — «Aurora Beauty Studio» women's beauty salon (fictional, demo only)
+# Knowledge base — «Ніжна Королева» / Tender Queen women's beauty salon (fictional, demo only)
 
 All names, prices, and policies below are invented for a demo. Not a real
 salon. Figures are plausible market ranges for Kyiv (2026), built from public
 price lists of several salons, but they are not any real salon's price list.
-Any resemblance to an existing studio called «Aurora» is coincidental.
+Any resemblance to an existing salon called «Ніжна Королева» / Tender Queen is coincidental.
 
 Усі назви, ціни та умови нижче — вигадані для демо. Це не реальний салон. Цифри —
 правдоподібні ринкові діапазони для Києва (2026), складені з відкритих прайсів
 кількох салонів, але не є прайсом жодного реального салону. Будь-який збіг із
-наявною студією «Aurora» — випадковий.
+наявним салоном «Ніжна Королева» — випадковий.
 
-Aurora Beauty Studio (салон краси «Aurora Beauty Studio») is a women's beauty
+Tender Queen (салон краси «Ніжна Королева») is a women's beauty
 salon in Kyiv (Central Street 12 — a placeholder address). It offers hair,
 nails, brows and lashes, non-injection cosmetology, sugaring / waxing and
 massage. All prices are in hryvnia (грн, UAH). The assistant takes the booking
 request; an administrator confirms the exact slot, master and price.
 
-Aurora Beauty Studio — жіночий салон краси в Києві (вул. Центральна, 12 —
+«Ніжна Королева» — жіночий салон краси в Києві (вул. Центральна, 12 —
 адреса-заглушка). Перукарські послуги, нігтьовий сервіс, брови та вії,
 неін'єкційна косметологія, шугарінг / воск і масаж. Усі ціни — у гривні (грн).
 Асистент приймає заявку на запис; точний час, майстра та вартість підтверджує

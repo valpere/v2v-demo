@@ -7,7 +7,7 @@ lines that are exactly `---`; trim; send as **one** message.
 
 ---
 
-Привіт! Я Макс, асистент барбершопу «Клинок». Запишу на стрижку, бороду чи
+Привіт! Я Макс, асистент барбершопу «Барбароса». Запишу на стрижку, бороду чи
 гоління і відповім на питання про послуги — можна писати текстом або
 надсилати голосові, українською чи англійською.
 
@@ -18,7 +18,7 @@ lines that are exactly `---`; trim; send as **one** message.
 
 ---
 
-Hi! I'm Max, the assistant at the Klynok barbershop. I'll book a haircut, a beard
+Hi! I'm Max, the assistant at the Barbarossa barbershop. I'll book a haircut, a beard
 or a shave and answer questions about the services — you can type or send voice
 messages, in Ukrainian or English.
 

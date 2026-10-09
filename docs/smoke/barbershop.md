@@ -1,11 +1,11 @@
-# Smoke test — barbershop (Барбершоп «Клинок» / Макс)
+# Smoke test — barbershop (Барбершоп «Барбароса» / Макс)
 
 The per-topic scenario sweep for the **barbershop** assistant. The shared
 Setup, the multi-topic picker checks, and the cross-topic robustness / clock /
 logging sections are in **`docs/smoke-test.md`** — read that first.
 
 **Pick the topic first.** `/start` shows a picker — tap **«Барбершоп
-«Клинок»»** before any scenario below.
+«Барбароса»»** before any scenario below.
 
 **Channel:** send `code font` as a typed / pasted text message, verbatim. Only
 scenario 6 needs a real **voice message**.

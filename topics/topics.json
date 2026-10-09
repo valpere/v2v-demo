@@ -118,8 +118,8 @@
   },
   {
       "id": "salon",
-      "title": "Салон краси «Aurora Beauty Studio»",
-      "title_en": "«Aurora» beauty salon",
+      "title": "Салон краси «Ніжна Королева»",
+      "title_en": "«Tender Queen» beauty salon",
       "kb": "topics/salon/kb.md",
       "system_prompt": "topics/salon/system.md",
       "greeting": "topics/salon/greeting.md",
@@ -196,8 +196,8 @@
   },
   {
       "id": "barbershop",
-      "title": "Барбершоп «Клинок»",
-      "title_en": "«Klynok» barbershop",
+      "title": "Барбершоп «Барбароса»",
+      "title_en": "«Barbarossa» barbershop",
       "kb": "topics/barbershop/kb.md",
       "system_prompt": "topics/barbershop/system.md",
       "greeting": "topics/barbershop/greeting.md",

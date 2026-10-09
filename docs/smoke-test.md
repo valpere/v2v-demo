@@ -15,8 +15,8 @@ scenario sweep for each assistant lives in its own file under `docs/smoke/`:
 | Автосервіс «Подбай-Авто» (auto) | `docs/smoke/auto.md` | yes |
 | Агенція «Ваші Ключі» (realestate) | `docs/smoke/realestate.md` | yes |
 | Клінінг «Тримаємо чистоту» (cleaning) | `docs/smoke/cleaning.md` | yes |
-| Салон краси «Aurora Beauty Studio» (salon) | `docs/smoke/salon.md` | yes |
-| Барбершоп «Клинок» (barbershop) | `docs/smoke/barbershop.md` | yes |
+| Салон краси «Ніжна Королева» (salon) | `docs/smoke/salon.md` | yes |
+| Барбершоп «Барбароса» (barbershop) | `docs/smoke/barbershop.md` | yes |
 | Магазин «Lyapko Shop» (lyapko) | `docs/smoke/lyapko.md` | yes |
 
 **How to read a scenario.** Each step says what to **send** and what to

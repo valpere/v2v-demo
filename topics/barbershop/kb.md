@@ -1,22 +1,22 @@
-# Knowledge base — «Клинок Barbershop» (fictional, demo only)
+# Knowledge base — «Барбароса» / Barbarossa barbershop (fictional, demo only)
 
 All names, prices, and policies below are invented for a demo. Not a real
 barbershop. Figures are plausible market ranges for Kyiv (2026), built from
 public price lists of several barbershops, but they are not any real
 barbershop's price list. Any resemblance to an existing barbershop called
-«Клинок» is coincidental.
+«Барбароса» / Barbarossa is coincidental.
 
 Усі назви, ціни та умови нижче — вигадані для демо. Це не реальний барбершоп.
 Цифри — правдоподібні ринкові діапазони для Києва (2026), складені з відкритих
 прайсів кількох барбершопів, але не є прайсом жодного реального закладу.
-Будь-який збіг з наявним барбершопом «Клинок» — випадковий.
+Будь-який збіг з наявним барбершопом «Барбароса» — випадковий.
 
-Klynok Barbershop («Клинок Barbershop») is a men's barbershop in Kyiv (Central
+Barbarossa Barbershop («Барбароса») is a men's barbershop in Kyiv (Central
 Street 12 — a placeholder address), six barbers. All prices are in hryvnia (грн,
 UAH). The assistant takes the booking request; an administrator confirms the
 exact slot, the barber and the price.
 
-«Клинок Barbershop» — чоловічий барбершоп у Києві (вул. Центральна, 12 —
+«Барбароса» — чоловічий барбершоп у Києві (вул. Центральна, 12 —
 адреса-заглушка), шість барберів. Усі ціни — у гривні (грн). Асистент приймає
 заявку на запис; точний час, барбера та вартість підтверджує адміністратор.
 
