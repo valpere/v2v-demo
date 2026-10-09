@@ -1,8 +1,8 @@
 # v2v-demo
 
-A demo: a **Telegram voice assistant** that comes in five fabricated,
+A demo: a **Telegram voice assistant** that comes in seven fabricated,
 neutral business scenarios (translation bureau, dental clinic, car service,
-real-estate agency, cleaning company — pick one after `/start`; each is a
+real-estate agency, cleaning company, beauty salon, barbershop — pick one after `/start`; each is a
 bilingual UK/EN KB under `topics/`) plus one unofficial demo modelled on a real
 online shop (lyapko). Built to let a prospective client hear how the assistant sounds and
 holds a conversation — not production code, not a framework. Design notes:

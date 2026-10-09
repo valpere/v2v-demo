@@ -117,6 +117,158 @@
     ]
   },
   {
+      "id": "salon",
+      "title": "Салон краси «Aurora Beauty Studio»",
+      "title_en": "«Aurora» beauty salon",
+      "kb": "topics/salon/kb.md",
+      "system_prompt": "topics/salon/system.md",
+      "greeting": "topics/salon/greeting.md",
+      "scope_uk": "Я записую на послуги салону краси і відповідаю на питання про послуги.",
+      "scope_en": "I book beauty-salon services and answer questions about them.",
+      "office": {
+          "label": "Mon–Sat 09:00–20:00, Sun 10:00–18:00 (EET)",
+          "weekday": [
+              9,
+              20
+          ],
+          "sat": [
+              9,
+              20
+          ],
+          "sun": [
+              10,
+              18
+          ],
+          "reply_within": "about 15 minutes"
+      },
+      "emergency": {
+          "patterns": [
+              "(?:набряк|набрякл\\w*|опух\\w*)[^.!?]{0,30}(?:обличч\\w*|губ\\w*|горл\\w*|язик\\w*|повік\\w*)|(?:обличч\\w*|губ\\w*|горл\\w*)[^.!?]{0,20}(?:набряк|набрякл\\w*|опух\\w*)",
+              "(?:важко|тяжко|не\\s+можу|утруднен\\w*)\\s+(?:дихати|ковтати|дихання|ковтання)|задихаюсь|задихаюся",
+              "swell\\w*[^.!?]{0,30}(?:face|lips?|throat|tongue|eyelids?)|(?:face|lips?|throat)[^.!?]{0,20}swell\\w*",
+              "(?:can'?t|cannot|can\\s+not|unable\\s+to|trouble|difficulty|struggling\\s+to)\\s+(?:breath\\w*|swallow\\w*)"
+          ],
+          "reply_uk": "Якщо після процедури у вас набряк обличчя, губ чи горла або утруднене дихання чи ковтання, негайно телефонуйте 103 (або 112) чи їдьте до найближчого відділення невідкладної допомоги. Не чекайте відповіді адміністратора.",
+          "reply_en": "If after a procedure you have swelling of the face, lips or throat, or trouble breathing or swallowing, call emergency services (103 or 112 in Ukraine) or go to the nearest emergency room now. Don't wait for our administrator."
+      },
+      "escalate_rules": [
+          {
+              "if": "вагітн|лактац|годую\\s+груддю|pregnan|breast-?feed|nursing",
+              "and": "фарбув|хім|кератин|ботокс|пілінг|шугар|воск|депіл|косметолог|ламінув|нарощув|масаж|чистк|dye|colou?r|peel|wax|sugar|lash|laminat|massage|keratin|facial|brow"
+          },
+          {
+              "if": "алерг|висип|опік|подразн|реакці|запален|грибок|дерматит|псоріаз|ізотретиноїн|allerg|\\brash\\b|\\bburn(?:s|t|ed)?\\b|irritat|reaction|inflam|fungal|dermatitis|psoriasis|isotretinoin",
+              "and": "."
+          }
+      ],
+      "slots": [
+          {
+              "key": "service",
+              "ask_uk": "яка послуга потрібна",
+              "ask_en": "which service",
+              "rule": "стрижка|фарбування|укладка|манікюр|педикюр|брови|вії|косметолог|шугарінг|масаж|SPA|сертифікат"
+          },
+          {
+              "key": "master",
+              "ask_uk": "до якого майстра — або будь-який",
+              "ask_en": "which master, or any",
+              "rule": "a master's name or будь-який майстер"
+          },
+          {
+              "key": "date_time",
+              "ask_uk": "на який день і час",
+              "ask_en": "preferred day and time",
+              "rule": "a day plus a time or a part of the day (ранок / день / вечір) is enough"
+          },
+          {
+              "key": "name",
+              "ask_uk": "як вас звати",
+              "ask_en": "your first name",
+              "rule": "first name"
+          },
+          {
+              "key": "contact",
+              "ask_uk": "ваш номер телефону",
+              "ask_en": "a phone number",
+              "rule": "phone for the confirmation"
+          }
+      ]
+  },
+  {
+      "id": "barbershop",
+      "title": "Барбершоп «Клинок»",
+      "title_en": "«Klynok» barbershop",
+      "kb": "topics/barbershop/kb.md",
+      "system_prompt": "topics/barbershop/system.md",
+      "greeting": "topics/barbershop/greeting.md",
+      "scope_uk": "Я записую на стрижки, бороду й гоління і відповідаю на питання про барбершоп.",
+      "scope_en": "I book haircuts, beard work and shaves and answer questions about the barbershop.",
+      "office": {
+          "label": "Every day 10:00–21:00 (EET)",
+          "weekday": [
+              10,
+              21
+          ],
+          "sat": [
+              10,
+              21
+          ],
+          "sun": [
+              10,
+              21
+          ],
+          "reply_within": "about 15 minutes"
+      },
+      "emergency": {
+          "patterns": [
+              "кров[^.!?]{0,30}(?:не\\s+зупиня\\w*|не\\s+спиня\\w*|тече\\s+сильно|ллється)|(?:не\\s+зупиня\\w*|не\\s+спиня\\w*)[^.!?]{0,20}кров|кровотеч",
+              "(?:набряк|набрякл\\w*|опух\\w*)[^.!?]{0,30}(?:обличч\\w*|губ\\w*|горл\\w*|язик\\w*)",
+              "(?:важко|тяжко|не\\s+можу|утруднен\\w*)\\s+(?:дихати|ковтати|дихання|ковтання)|задихаюсь|задихаюся",
+              "(?:bleeding|blood)[^.!?]{0,30}(?:won'?t|will\\s+not|doesn'?t|does\\s+not|not)\\s+stop|can'?t\\s+stop\\s+the\\s+bleeding|swell\\w*[^.!?]{0,30}(?:face|lips?|throat|tongue)|(?:can'?t|cannot|trouble|difficulty)\\s+(?:breath\\w*|swallow\\w*)"
+          ],
+          "reply_uk": "Якщо кров не зупиняється, є набряк обличчя чи горла або утруднене дихання, негайно телефонуйте 103 (або 112) чи їдьте до найближчого відділення невідкладної допомоги. Не чекайте відповіді адміністратора.",
+          "reply_en": "If the bleeding does not stop, or you have swelling of the face or throat or trouble breathing, call emergency services (103 or 112 in Ukraine) or go to the nearest emergency room now. Don't wait for our administrator."
+      },
+      "escalate_rules": [
+          {
+              "if": "подразн|пече|печіння|почервонін|висип|фолікуліт|врослі?\\s+волос|порізав|порізала|поріз(?:$|[^\\p{L}])|(?:^|[^\\p{L}])рана(?:$|[^\\p{L}])|алерг|дерматит|псоріаз|випадін|новоутворен|родимк|irritat|burning|redness|\\brash\\b|folliculitis|ingrown|nicked|cut\\s+(?:myself|me)|\\bwound|allerg|dermatitis|psoriasis|hair\\s+loss|\\bmole\\b",
+              "and": "."
+          }
+      ],
+      "slots": [
+          {
+              "key": "service",
+              "ask_uk": "що робимо — стрижка, борода чи комбо",
+              "ask_en": "haircut, beard or combo",
+              "rule": "стрижка|фейд|борода|комбо|гоління|камуфляж сивини|дитяча стрижка|батько + син|догляд|сертифікат"
+          },
+          {
+              "key": "barber",
+              "ask_uk": "до якого барбера — або будь-який",
+              "ask_en": "which barber, or any",
+              "rule": "a barber's name or будь-який барбер"
+          },
+          {
+              "key": "date_time",
+              "ask_uk": "на який день і час",
+              "ask_en": "preferred day and time",
+              "rule": "a day plus a time or a part of the day (ранок / день / вечір) is enough"
+          },
+          {
+              "key": "name",
+              "ask_uk": "як вас звати",
+              "ask_en": "your first name",
+              "rule": "first name"
+          },
+          {
+              "key": "contact",
+              "ask_uk": "ваш номер телефону",
+              "ask_en": "a phone number",
+              "rule": "phone for the confirmation"
+          }
+      ]
+  },
+  {
       "id": "lyapko",
       "title": "Магазин «Lyapko Shop»",
       "title_en": "Acupressure shop",

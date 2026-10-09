@@ -21,7 +21,7 @@ func TestShippedTopicsManifestLoads(t *testing.T) {
 		t.Fatalf("loadTopics(shipped manifest): %v", err)
 	}
 
-	want := []string{"translation", "dental", "auto", "realestate", "cleaning", "lyapko"}
+	want := []string{"translation", "dental", "auto", "realestate", "cleaning", "salon", "barbershop", "lyapko"}
 	if strings.Join(ids, ",") != strings.Join(want, ",") {
 		t.Fatalf("shipped topic ids = %v, want %v", ids, want)
 	}
@@ -170,6 +170,57 @@ func TestShippedLyapkoMedicalHandoff(t *testing.T) {
 		reply, _ := dialog.Handle(context.Background(), &dialog.Session{}, topics["lyapko"].Spec, gen, text, time.Now())
 		if reply.Signal != dialog.SignalEscalate || len(gen.seen) != 0 {
 			t.Errorf("%q: want a handoff without the model, got %s (%d model calls)", text, reply.Signal, len(gen.seen))
+		}
+	}
+}
+
+// Beauty topics: medical/skin cases are handed off without the model, ordinary
+// bookings are not (a regex that over-matches would hand off "зранку" or
+// "sideburns"), and a severe reaction gets the 103/112 text.
+func TestShippedSalonAndBarbershopSafety(t *testing.T) {
+	t.Chdir("../..")
+	topics, _, err := loadTopics(Config{TopicsPath: "topics/topics.json"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	type tc struct {
+		topic, text string
+		want        string // "handoff" | "emergency" | "model"
+	}
+	for _, c := range []tc{
+		{"salon", "Я вагітна, можна зробити фарбування?", "handoff"},
+		{"salon", "I'm pregnant, can I get lash lamination?", "handoff"},
+		{"salon", "У мене алергія на фарбу, хочу записатися", "handoff"},
+		{"salon", "після нарощування вій з'явився висип", "handoff"},
+		{"salon", "після чистки набряк обличчя і важко дихати", "emergency"},
+		{"salon", "face is swelling and I can't breathe after the peel", "emergency"},
+		{"salon", "Хочу записатися на манікюр завтра", "model"},
+		{"salon", "Я вагітна, хочу просто стрижку", "model"},
+		{"salon", "Скільки коштує ламінування брів?", "model"},
+		{"barbershop", "Після гоління подразнення і почервоніння", "handoff"},
+		{"barbershop", "порізав шию бритвою, рана", "handoff"},
+		{"barbershop", "кров не зупиняється після гоління", "emergency"},
+		{"barbershop", "bleeding won't stop after my shave", "emergency"},
+		{"barbershop", "Хочу фейд завтра зранку", "model"},
+		{"barbershop", "Do you trim sideburns?", "model"},
+		{"barbershop", "Скільки коштує стрижка з бородою?", "model"},
+	} {
+		gen := &fakeGen{}
+		sess := &dialog.Session{}
+		reply, _ := dialog.Handle(context.Background(), sess, topics[c.topic].Spec, gen, c.text, time.Now())
+		switch c.want {
+		case "handoff":
+			if reply.Signal != dialog.SignalEscalate || len(gen.seen) != 0 || strings.Contains(reply.Text, "103") {
+				t.Errorf("%s %q: want a plain handoff without the model, got %s model-calls=%d %q", c.topic, c.text, reply.Signal, len(gen.seen), reply.Text)
+			}
+		case "emergency":
+			if reply.Signal != dialog.SignalEscalate || len(gen.seen) != 0 || !strings.Contains(reply.Text, "103") {
+				t.Errorf("%s %q: want the 103/112 text without the model, got %s %q", c.topic, c.text, reply.Signal, reply.Text)
+			}
+		case "model":
+			if sess.Escalated || reply.Signal == dialog.SignalEscalate {
+				t.Errorf("%s %q: an ordinary request was handed off: %q", c.topic, c.text, reply.Text)
+			}
 		}
 	}
 }

@@ -42,6 +42,9 @@ type topicEntry struct {
 	ScopeEN      string             `json:"scope_en"`
 	Slots        []dialog.SlotSpec  `json:"slots"`
 	Office       dialog.OfficeHours `json:"office"`
+
+	Emergency     dialog.EmergencySpec  `json:"emergency"`
+	EscalateRules []dialog.EscalateRule `json:"escalate_rules"`
 }
 
 func main() {
@@ -67,13 +70,20 @@ func main() {
 	gen, err := newGen(*backend, *model)
 	must(err)
 
+	// the deterministic safety layers must run in the probe exactly as in the bot
+	must(topic.Emergency.Compile())
+	for i := range topic.EscalateRules {
+		must(topic.EscalateRules[i].Compile())
+	}
 	spec := dialog.TopicSpec{
-		KB:      sections,
-		System:  string(sysBytes),
-		Slots:   topic.Slots,
-		ScopeUK: topic.ScopeUK,
-		ScopeEN: topic.ScopeEN,
-		Office:  topic.Office,
+		KB:            sections,
+		System:        string(sysBytes),
+		Slots:         topic.Slots,
+		ScopeUK:       topic.ScopeUK,
+		ScopeEN:       topic.ScopeEN,
+		Office:        topic.Office,
+		Emergency:     topic.Emergency,
+		EscalateRules: topic.EscalateRules,
 	}
 
 	in := os.Stdin
