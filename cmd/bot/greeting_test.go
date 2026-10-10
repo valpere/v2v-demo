@@ -62,21 +62,3 @@ func TestGreetingBodyErrors(t *testing.T) {
 		t.Error("no '---': want error")
 	}
 }
-
-func TestVoiceID(t *testing.T) {
-	cfg := Config{
-		TTSBackend:   "elevenlabs",
-		ElevenVoiceA: "el-a", ElevenVoiceB: "el-b",
-		AzureVoiceA: "az-a", AzureVoiceB: "az-b",
-	}
-	if voiceID(cfg, "a") != "el-a" || voiceID(cfg, "b") != "el-b" {
-		t.Errorf("elevenlabs: a=%q b=%q", voiceID(cfg, "a"), voiceID(cfg, "b"))
-	}
-	if voiceID(cfg, "") != "el-a" {
-		t.Errorf("default voice should be A, got %q", voiceID(cfg, ""))
-	}
-	cfg.TTSBackend = "azure"
-	if voiceID(cfg, "a") != "az-a" || voiceID(cfg, "b") != "az-b" {
-		t.Errorf("azure: a=%q b=%q", voiceID(cfg, "a"), voiceID(cfg, "b"))
-	}
-}

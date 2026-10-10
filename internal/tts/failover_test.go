@@ -62,3 +62,40 @@ func TestFailoverSynthesizerBothError(t *testing.T) {
 		t.Errorf("err = %v, want fallback's error to bubble unwrapped", err)
 	}
 }
+
+type voiceRecorder struct {
+	err   error
+	voice string
+}
+
+func (v *voiceRecorder) Speak(_ context.Context, _, voiceID, _ string) ([]byte, error) {
+	v.voice = voiceID
+	if v.err != nil {
+		return nil, v.err
+	}
+	return []byte("ogg"), nil
+}
+
+// SF-2 — a paid→paid failover must speak with the FALLBACK backend's own
+// voice, not the primary's voice id (ElevenLabs would reject an Azure id).
+func TestVoiceMapPerBackendSurvivesFailover(t *testing.T) {
+	azure := &voiceRecorder{err: errors.New("401")}
+	eleven := &voiceRecorder{}
+	f := &FailoverSynthesizer{
+		Primary:  WithVoices(azure, "az-a", "az-b"),
+		Fallback: WithVoices(eleven, "el-a", "el-b"),
+	}
+	if _, err := f.Speak(context.Background(), "t", "b", "uk"); err != nil {
+		t.Fatal(err)
+	}
+	if azure.voice != "az-b" || eleven.voice != "el-b" {
+		t.Fatalf("voices: azure=%q eleven=%q, want az-b / el-b", azure.voice, eleven.voice)
+	}
+	// "a", "" and anything else map to voice A
+	for _, in := range []string{"a", "", "x"} {
+		WithVoices(eleven, "el-a", "el-b").Speak(context.Background(), "t", in, "uk")
+		if eleven.voice != "el-a" {
+			t.Errorf("voice %q mapped to %q, want el-a", in, eleven.voice)
+		}
+	}
+}

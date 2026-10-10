@@ -377,7 +377,10 @@ const (
 (gemma4:cloud / Gemini Flash / gpt-4.1-mini all have the headroom).
 There is **no retrieval-for-context**. A keyword-overlap score is computed
 *only* to feed the grounding gate. If exact-match overlap proves too weak for
-inflected Ukrainian in testing, add a stemmer (B1 fallback — candidates:
+inflected Ukrainian in testing, add a stemmer (B1 fallback — **shipped 2026-08-31 as
+`stemMatch` in `internal/dialog/gate.go`**: a shared stem of ≥5 runes, or a ≥4-rune
+token that prefixes the other; the library candidates below were not needed —
+candidates:
 `github.com/amakukha/stemmers_ukrainian`, `github.com/dbklim/Uk_Stemmer`,
 k-centre.uacorpus.org tools) and re-tune `GateFloor`; do not reintroduce
 per-section retrieval.
@@ -402,7 +405,8 @@ return float64(hit) / float64(len(qterms))     // fraction of the meaningful que
 - **stopwords** — a fixed ~40-word uk+en function-word list, package-level
   `var stopwords map[string]bool`. Rationale: without it "the"/"of"/"і"/"на"
   inflate the overlap and the gate never fires (ragline's tsquery lesson).
-- exact-match, no stemming (B1 fallback if this misses inflected forms).
+- exact match **or** `stemMatch` (shared prefix of ≥5 runes, or a ≥4-rune token
+  that is a prefix of the other) — the B1 fallback, shipped 2026-08-31.
 - deterministic.
 
 ### hardEscalate(query string) bool   (B3)

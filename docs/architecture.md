@@ -245,7 +245,7 @@ The demo validates the *conversation design*; the MVP swaps the *substrate*.
 | JSONL turn log | SQLite `message` + `audit_log` tables |
 | lead record written to the log | real Zoho lead via REST (`.eu` base) |
 | Telegram voice glue in `internal/telegram` | a reusable `channel/voice` adapter |
-| ~~single provider (gpt-4.1-mini)~~ dialog + STT + TTS runtime failover done (TTS via local `espeak` backend) | An elevenlabs↔azure *mutual* TTS failover — `voiceID()` (`cmd/bot/main.go`) still picks a voice id from static `cfg.TTSBackend`, not from whichever instance actually handles a call. Not a blocker for the shipped elevenlabs/azure→espeak pairing (espeak ignores voiceID entirely), only for a future paid↔paid pairing |
+| ~~single provider (gpt-4.1-mini)~~ dialog + STT + TTS runtime failover done (TTS via local `espeak` backend) | Paid↔paid TTS failover (e.g. azure→elevenlabs) is supported: every backend is wrapped in `tts.WithVoices`, so the handler passes the abstract voice `a`/`b` and each backend speaks with its own configured voice id (`cmd/bot/main.go` `buildSynthesizer`) |
 
 ### 7.1 Datastore (MVP) — SQLite by default
 

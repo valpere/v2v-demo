@@ -352,6 +352,15 @@ func buildSynthesizer(name string, cfg Config) (tts.Synthesizer, error) {
 		// engine/model that made it
 		s = tts.NewCached(s, id, filepath.Join(cfg.DataDir, "tts-cache"), int64(cfg.TTSCacheMB)<<20)
 	}
+	// each backend maps the abstract voice ("a"/"b") to its own voice id, so a
+	// failover between paid backends never sends one backend's id to the other
+	// (outside the cache: the cache key then carries the real voice id)
+	switch name {
+	case "elevenlabs":
+		s = tts.WithVoices(s, cfg.ElevenVoiceA, cfg.ElevenVoiceB)
+	case "azure":
+		s = tts.WithVoices(s, cfg.AzureVoiceA, cfg.AzureVoiceB)
+	}
 	return s, nil
 }
 
@@ -371,19 +380,4 @@ func newSynthesizer(cfg Config) (tts.Synthesizer, error) {
 		return nil, fmt.Errorf("tts fallback: %w", err)
 	}
 	return &tts.FailoverSynthesizer{Primary: primary, Fallback: fallback}, nil
-}
-
-// voiceID resolves the active backend's voice id for "a" | "b".
-func voiceID(cfg Config, voice string) string {
-	b := voice == "b"
-	if cfg.TTSBackend == "azure" {
-		if b {
-			return cfg.AzureVoiceB
-		}
-		return cfg.AzureVoiceA
-	}
-	if b {
-		return cfg.ElevenVoiceB
-	}
-	return cfg.ElevenVoiceA
 }

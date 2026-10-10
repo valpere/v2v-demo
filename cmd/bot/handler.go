@@ -235,7 +235,7 @@ func (a *app) handleUpdate(ctx context.Context, u telegram.Update) {
 		if reply.Fixed {
 			speakCtx = tts.Cacheable(work) // canned lines only; see tts.CachedSynth
 		}
-		ogg, terr := a.tts.Speak(speakCtx, tts.Spoken(reply.Text, sess.Lang), voiceID(a.cfg, sess.Voice), sess.Lang)
+		ogg, terr := a.tts.Speak(speakCtx, tts.Spoken(reply.Text, sess.Lang), sess.Voice, sess.Lang)
 		if terr != nil {
 			log.Printf("tts (chat %d): %v", u.ChatID, terr)
 		} else if err := a.tg.SendVoice(ctx, u.ChatID, ogg); err != nil {
