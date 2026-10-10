@@ -21,7 +21,7 @@ func TestShippedTopicsManifestLoads(t *testing.T) {
 		t.Fatalf("loadTopics(shipped manifest): %v", err)
 	}
 
-	want := []string{"translation", "dental", "auto", "realestate", "cleaning", "salon", "barbershop", "lyapko"}
+	want := []string{"translation", "dental", "auto", "realestate", "cleaning", "salon", "barbershop", "restaurant", "pizzeria", "lyapko"}
 	if strings.Join(ids, ",") != strings.Join(want, ",") {
 		t.Fatalf("shipped topic ids = %v, want %v", ids, want)
 	}
@@ -220,6 +220,60 @@ func TestShippedSalonAndBarbershopSafety(t *testing.T) {
 		case "model":
 			if sess.Escalated || reply.Signal == dialog.SignalEscalate {
 				t.Errorf("%s %q: an ordinary request was handed off: %q", c.topic, c.text, reply.Text)
+			}
+		}
+	}
+}
+
+// Food topics: reactions / poisoning get the 103/112 text, complaints, order
+// status and big orders are handed off without the model, and an ordinary
+// question about allergies or a normal order is NOT.
+func TestShippedFoodTopicsSafety(t *testing.T) {
+	t.Chdir("../..")
+	topics, err0 := func() (map[string]topicBundle, error) {
+		m, _, err := loadTopics(Config{TopicsPath: "topics/topics.json"})
+		return m, err
+	}()
+	if err0 != nil {
+		t.Fatal(err0)
+	}
+	type tc struct{ topic, text, want string }
+	for _, c := range []tc{
+		{"restaurant", "У мене алергічна реакція після салату, набряк губ", "emergency"},
+		{"restaurant", "think we got food poisoning after dinner", "emergency"},
+		{"restaurant", "Мені стало погано, ми отруїлись", "emergency"},
+		{"restaurant", "Ми хочемо поскаржитись, чекаємо страву вже 40 хвилин", "handoff"},
+		{"restaurant", "I want a refund for my bill", "handoff"},
+		{"restaurant", "У мене алергія на горіхи, що можна замовити?", "model"},
+		{"restaurant", "Чи є безглютенова паста?", "model"},
+		{"restaurant", "Забронюйте столик на завтра на 19:00 на 4 людей", "model"},
+		{"pizzeria", "після піци алергічна реакція, важко дихати", "emergency"},
+		{"pizzeria", "Мені стало погано після вашої піци", "emergency"},
+		{"pizzeria", "Привезли не ту піцу", "handoff"},
+		{"pizzeria", "піца холодна, хочу повернути гроші", "handoff"},
+		{"pizzeria", "Де мій кур'єр?", "handoff"},
+		{"pizzeria", "Where is my order?", "handoff"},
+		{"pizzeria", "Потрібно 12 піц для офісу на 13:00", "handoff"},
+		{"pizzeria", "Хочу велику 4 сири та пепероні з собою на 18:30", "model"},
+		{"pizzeria", "Можна без цибулі?", "model"},
+		{"pizzeria", "Замовлення на 2 піци і напій", "model"},
+		{"pizzeria", "I want one pizza, it is not late for lunch", "model"},
+	} {
+		gen := &fakeGen{}
+		sess := &dialog.Session{}
+		reply, _ := dialog.Handle(context.Background(), sess, topics[c.topic].Spec, gen, c.text, time.Now())
+		switch c.want {
+		case "handoff":
+			if reply.Signal != dialog.SignalEscalate || len(gen.seen) != 0 || strings.Contains(reply.Text, "103") {
+				t.Errorf("%s %q: want a plain handoff without the model, got %s calls=%d %q", c.topic, c.text, reply.Signal, len(gen.seen), reply.Text)
+			}
+		case "emergency":
+			if reply.Signal != dialog.SignalEscalate || len(gen.seen) != 0 || !strings.Contains(reply.Text, "103") {
+				t.Errorf("%s %q: want the 103/112 text without the model, got %s %q", c.topic, c.text, reply.Signal, reply.Text)
+			}
+		case "model":
+			if sess.Escalated || reply.Signal == dialog.SignalEscalate {
+				t.Errorf("%s %q: an ordinary message was handed off: %q", c.topic, c.text, reply.Text)
 			}
 		}
 	}

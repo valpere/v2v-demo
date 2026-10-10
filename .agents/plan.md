@@ -86,8 +86,9 @@ internal/store/     store.go — append-only JSONL turn + lead records (DATA_DIR
                     table). cmd/bot/session_mem.go is the in-process default.
 
 topics/topics.json  the topic manifest (id/title/paths/scope/slots/office per
-                   topic); ships with eight topics (translation + dental + auto
-                   + realestate + cleaning + salon + barbershop + lyapko) — the picker is on by default;
+                   topic); ships with ten topics (translation + dental + auto
+                   + realestate + cleaning + salon + barbershop + restaurant
+                   + pizzeria + lyapko) — the picker is on by default;
                    a single-entry manifest opts out. lyapko is modelled on a
                    real third-party shop (an unofficial demo; see its smoke doc)
 topics/translation/system.md   the assistant persona + conversation playbook +

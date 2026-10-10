@@ -269,6 +269,174 @@
       ]
   },
   {
+      "id": "restaurant",
+      "title": "Ресторан «Смачний Двір»",
+      "title_en": "«Gastro Yard» restaurant",
+      "kb": "topics/restaurant/kb.md",
+      "system_prompt": "topics/restaurant/system.md",
+      "greeting": "topics/restaurant/greeting.md",
+      "scope_uk": "Я бронюю столики й відповідаю на питання про ресторан, меню та алергени.",
+      "scope_en": "I book tables and answer questions about the restaurant, the menu and allergens.",
+      "office": {
+          "label": "Every day 12:00–22:00 (EET)",
+          "weekday": [
+              12,
+              22
+          ],
+          "sat": [
+              12,
+              22
+          ],
+          "sun": [
+              12,
+              22
+          ],
+          "reply_within": "about 15 minutes"
+      },
+      "emergency": {
+          "patterns": [
+              "алергічн\\w*\\s+реакці|анафілакс|allergic\\s+reaction|anaphyla",
+              "(?:набряк|набрякл\\w*|опух\\w*)[^.!?]{0,30}(?:обличч\\w*|губ\\w*|горл\\w*|язик\\w*)|swell\\w*[^.!?]{0,30}(?:face|lips?|throat|tongue)",
+              "(?:важко|тяжко|не\\s+можу|утруднен\\w*)\\s+(?:дихати|ковтати|дихання|ковтання)|задихаюсь|задихаюся|(?:can'?t|cannot|trouble|difficulty)\\s+(?:breath\\w*|swallow\\w*)",
+              "отруїл\\w*|отруєн\\w*|отруїв\\w*|food\\s+poisoning|poisoned"
+          ],
+          "reply_uk": "Якщо в когось алергічна реакція (набряк обличчя чи горла, утруднене дихання) або підозра на харчове отруєння, негайно повідомте персонал і телефонуйте 103 (або 112) чи їдьте до найближчого відділення невідкладної допомоги. Не чекайте відповіді адміністратора.",
+          "reply_en": "If someone has an allergic reaction (swelling of the face or throat, trouble breathing) or you suspect food poisoning, tell the staff at once and call emergency services (103 or 112 in Ukraine) or go to the nearest emergency room. Don't wait for our administrator."
+      },
+      "escalate_rules": [
+          {
+              "if": "скарг|скаржи|не\\s+принесли|довго\\s+чекаємо|чекаємо\\s+вже|повернення\\s+коштів|повернути\\s+гроші|завищен\\w*\\s+рахунок|complain|refund|wrong\\s+bill|still\\s+waiting",
+              "and": "."
+          }
+      ],
+      "slots": [
+          {
+              "key": "guests",
+              "ask_uk": "на скільки осіб",
+              "ask_en": "for how many guests",
+              "rule": "a number"
+          },
+          {
+              "key": "date_time",
+              "ask_uk": "на який день і час",
+              "ask_en": "which day and time",
+              "rule": "a day plus a time"
+          },
+          {
+              "key": "zone",
+              "ask_uk": "де сидіти — основний зал чи тераса",
+              "ask_en": "main hall or terrace",
+              "rule": "основний зал|тераса|будь-яка|за узгодженням (banquet)"
+          },
+          {
+              "key": "notes",
+              "ask_uk": "чи потрібне дитяче крісло, є привід чи алергії",
+              "ask_en": "a child's chair, an occasion or allergies",
+              "rule": "short notes, or немає"
+          },
+          {
+              "key": "name",
+              "ask_uk": "як вас звати",
+              "ask_en": "your first name",
+              "rule": "first name"
+          },
+          {
+              "key": "contact",
+              "ask_uk": "ваш номер телефону",
+              "ask_en": "a phone number",
+              "rule": "phone for the confirmation"
+          }
+      ]
+  },
+  {
+      "id": "pizzeria",
+      "title": "Піцерія «Папа Пепе»",
+      "title_en": "«Papa Pepe» pizzeria",
+      "kb": "topics/pizzeria/kb.md",
+      "system_prompt": "topics/pizzeria/system.md",
+      "greeting": "topics/pizzeria/greeting.md",
+      "scope_uk": "Я приймаю замовлення на піцу та відповідаю на питання про меню й доставку.",
+      "scope_en": "I take pizza orders and answer questions about the menu and delivery.",
+      "office": {
+          "label": "Every day 11:00–22:00 (EET)",
+          "weekday": [
+              11,
+              22
+          ],
+          "sat": [
+              11,
+              22
+          ],
+          "sun": [
+              11,
+              22
+          ],
+          "reply_within": "about 5 minutes"
+      },
+      "emergency": {
+          "patterns": [
+              "алергічн\\w*\\s+реакці|анафілакс|allergic\\s+reaction|anaphyla",
+              "(?:набряк|набрякл\\w*|опух\\w*)[^.!?]{0,30}(?:обличч\\w*|губ\\w*|горл\\w*|язик\\w*)|swell\\w*[^.!?]{0,30}(?:face|lips?|throat|tongue)",
+              "(?:важко|тяжко|не\\s+можу|утруднен\\w*)\\s+(?:дихати|ковтати|дихання|ковтання)|задихаюсь|задихаюся|(?:can'?t|cannot|trouble|difficulty)\\s+(?:breath\\w*|swallow\\w*)",
+              "отруїл\\w*|отруєн\\w*|отруїв\\w*|food\\s+poisoning|poisoned|мені\\s+(?:стало\\s+)?погано\\s+після"
+          ],
+          "reply_uk": "Якщо після їжі в когось алергічна реакція (набряк обличчя чи горла, утруднене дихання) або підозра на харчове отруєння, негайно телефонуйте 103 (або 112) чи їдьте до найближчого відділення невідкладної допомоги. Не чекайте відповіді оператора.",
+          "reply_en": "If someone has an allergic reaction after eating (swelling of the face or throat, trouble breathing) or you suspect food poisoning, call emergency services (103 or 112 in Ukraine) or go to the nearest emergency room now. Don't wait for our operator."
+      },
+      "escalate_rules": [
+          {
+              "if": "не\\s+та\\s+піца|не\\s+ту\\s+піцу|холодн\\w*\\s+піц|піца\\s+(?:була\\s+)?холодна|запізнил|не\\s+привезл|повернення\\s+коштів|повернути\\s+гроші|компенсац|скарг|complain|refund|wrong\\s+pizza|cold\\s+pizza|arrived\\s+late",
+              "and": "."
+          },
+          {
+              "if": "де\\s+(?:моє\\s+замовлення|кур.єр|мій\\s+кур.єр)|статус\\s+замовлення|where\\s+is\\s+my\\s+(?:order|courier|pizza)|order\\s+status",
+              "and": "."
+          },
+          {
+              "if": "(?:^|[^\\d])(?:1[0-9]|[2-9]\\d)\\s*(?:піц|pizza)|для\\s+офісу|рахунок\\s+для|corporate\\s+order|office\\s+order",
+              "and": "."
+          }
+      ],
+      "slots": [
+          {
+              "key": "order_type",
+              "ask_uk": "доставка чи самовивіз",
+              "ask_en": "delivery or pickup",
+              "rule": "доставка|самовивіз"
+          },
+          {
+              "key": "items",
+              "ask_uk": "яка піца, який розмір — 30 чи 40 см",
+              "ask_en": "which pizza and size, 30 or 40 cm",
+              "rule": "the whole order: pizzas with sizes, changes, add-ons, drinks"
+          },
+          {
+              "key": "when",
+              "ask_uk": "на котру годину",
+              "ask_en": "for what time",
+              "rule": "якнайшвидше or a time"
+          },
+          {
+              "key": "address",
+              "ask_uk": "вулиця й номер будинку",
+              "ask_en": "street and building number",
+              "rule": "street + building; самовивіз for pickup"
+          },
+          {
+              "key": "contact",
+              "ask_uk": "ваш номер телефону",
+              "ask_en": "a phone number",
+              "rule": "phone for the courier"
+          },
+          {
+              "key": "payment",
+              "ask_uk": "оплата — карткою кур'єру, готівкою чи онлайн",
+              "ask_en": "card to the courier, cash or online",
+              "rule": "картка кур'єру|готівка|онлайн"
+          }
+      ]
+  },
+  {
       "id": "lyapko",
       "title": "Магазин «Lyapko Shop»",
       "title_en": "Acupressure shop",
