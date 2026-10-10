@@ -59,7 +59,7 @@ round and the I-10 recording are what's left).
 | Demo-readiness review (2026-09-01) | **D-20** — dialogue LLM dual-mode: dev `gemma4:cloud`, client artefact `gpt-4o-mini` (Ollama free tier is 13–86 s/turn). New **`.env.client`** (3 backend flips together). `openai_compat.go` retries once on a transient. |
 | Left | full `docs/smoke/translation.md` sweep on `.env.client` · prepay OpenAI + ElevenLabs Starter · the I-10 recording |
 | `make check` (gofmt + vet + `go test -race`) | clean, 128 tests |
-| minions-curator | wired (`.claude/settings.local.json` + `.claude/skills/curate-minions/`), active. First `scan` → 0 candidates (Go files not scanned; `turn.sh` too thin) — `tgdrive` promoted by hand. |
+| minions/ | `.claude/settings.local.json` wired to `~/wrk/common_claude/hooks/` (registry injection, `tmp/` guard); promotion is done in-session (user-level PreCompact reminder); the curator scanner was retired 2026-10-10 — `tgdrive` was promoted by hand. |
 | Deps | `github.com/go-telegram/bot` v1.24.0; `github.com/pemistahl/lingua-go` v1.4.0 (language detection — D-19; +~126 MB binary, accepted) |
 
 **Your task:** the build order and a live smoke round are done. What's left
@@ -215,8 +215,7 @@ for a given step. The plan is precise enough for either path.
 - Tracked: source, `Makefile`, `docs/`, `.agents/plan.md`, `minions/`,
   `AGENTS.md`, `.env.example`, **`.env.client`** (a template — no real keys),
   `HANDOFF.md`, `.claude/settings.json` (bash allowlist for the build loop) +
-  `.claude/hooks/` + `.claude/skills/` (session-end / session-recall /
-  curate-minions). Gitignored: `.env` + `*.env`, `tmp/`, `.engage/`,
+  `.claude/hooks/` + `.claude/skills/` (session-end / session-recall). Gitignored: `.env` + `*.env`, `tmp/`, `.engage/`,
   `.agents/{changes,test-report,summary}.md`, `/bot`, `*.db`,
   `.claude/settings.local.json`.
 - End commit messages with:
