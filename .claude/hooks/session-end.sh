@@ -116,6 +116,31 @@ is_valid_summary() {
   [[ "$1" == "## $TODAY"* ]]
 }
 
+# Tier 1: straight to the local Ollama API (it forwards :cloud models). About
+# 1-2 s a call where the agy/opencode CLIs take 15-45 s each (a CLI and a
+# session to start), which is what pushed this Stop hook into its 60 s timeout
+# (131 of 680 runs, /doctor 2026-10-10). Two models in turn, each capped at
+# 20 s. Ported from lance-agent / showroomla (2026-10-10); minimax-m3 answered
+# in 1.1 s here, gpt-oss:120b timed out once, so minimax goes first.
+try_ollama_api() {
+  local url="${OLLAMA_API_URL:-http://localhost:11434}"
+  local body result model
+  for model in ${SESSION_END_MODELS:-minimax-m3:cloud gpt-oss:120b-cloud}; do
+    echo "[$(date -Iseconds)] session-end: trying ollama api model: $model" >> "$LOG_FILE"
+    body=$(jq -n --arg m "$model" --arg p "$1" \
+      '{model:$m,stream:false,think:false,messages:[{role:"user",content:$p}]}') || return 1
+    result=$(curl -s -m 20 "$url/api/chat" -d "$body" 2>>"$LOG_FILE" | jq -r '.message.content // empty' 2>>"$LOG_FILE") || true
+    is_valid_summary "$result" && { echo "$result"; return 0; }
+    echo "[$(date -Iseconds)] session-end: ollama api model $model returned no usable summary" >> "$LOG_FILE"
+  done
+  return 1
+}
+
+# remaining_budget prints the seconds left of the 60 s Stop-hook limit (kept
+# 3 s short), so a slow CLI tier is cut off instead of the whole hook being
+# killed before it writes anything.
+remaining_budget() { echo $(( 57 - SECONDS )); }
+
 try_agy() {
   # Refreshed 2026-10-10 — the 3.5 series is retired (live "invalid model
   # selection" error; `agy models` starts at 3.6). Same list as canonical
@@ -129,12 +154,15 @@ try_agy() {
   )
   command -v agy &>/dev/null || return 1
   for model in "${models[@]}"; do
-    echo "[$(date -Iseconds)] session-end: trying agy model: $model" >> "$LOG_FILE"
+    local budget; budget=$(remaining_budget)
+    (( budget < 8 )) && return 1   # not enough of the 60 s hook limit left for another try
+    (( budget > 45 )) && budget=45
+    echo "[$(date -Iseconds)] session-end: trying agy model: $model (budget ${budget}s)" >> "$LOG_FILE"
     local result
     # Prompt as a positional arg, not stdin — `agy -p` reads the prompt
     # from its argument; piping via `<<<` leaves it unset and agy falls
     # back to a generic interactive-style greeting instead of erroring.
-    result=$(timeout 45 agy -p "$1" --model "$model" 2>>"$LOG_FILE") && \
+    result=$(timeout "$budget" agy -p "$1" --model "$model" 2>>"$LOG_FILE") && \
       is_valid_summary "$result" && { echo "$result"; return 0; }
     echo "[$(date -Iseconds)] session-end: agy model $model returned no usable summary" >> "$LOG_FILE"
   done
@@ -173,15 +201,18 @@ try_opencode() {
   # second glm entry alongside glm-5.2 above.
   local models=(
     "ollama/glm-5.2:cloud"
-    "ollama/kimi-k2.6:cloud"
-    "ollama/minimax-m2.7:cloud"
+    "ollama/kimi-k2.7-code:cloud"
+    "ollama/minimax-m3:cloud"
     "ollama/deepseek-v4.1-flash:cloud"
   )
   command -v opencode &>/dev/null || return 1
   for model in "${models[@]}"; do
-    echo "[$(date -Iseconds)] session-end: trying opencode model: $model" >> "$LOG_FILE"
+    local budget; budget=$(remaining_budget)
+    (( budget < 8 )) && return 1   # not enough of the 60 s hook limit left for another try
+    (( budget > 45 )) && budget=45
+    echo "[$(date -Iseconds)] session-end: trying opencode model: $model (budget ${budget}s)" >> "$LOG_FILE"
     local result
-    result=$(timeout 45 opencode run "$OPENCODE_MSG" \
+    result=$(timeout "$budget" opencode run "$OPENCODE_MSG" \
       --file "$EXCERPT_TMP" --model "$model" --format json 2>>"$LOG_FILE" | \
       python3 -c "
 import json,sys
@@ -205,7 +236,11 @@ print(''.join(parts))
 
 SUMMARY=""
 
-SUMMARY=$(try_agy "$PROMPT" 2>>"$LOG_FILE") || true
+SUMMARY=$(try_ollama_api "$PROMPT" 2>>"$LOG_FILE") || true
+
+if [[ -z "$SUMMARY" ]]; then
+  SUMMARY=$(try_agy "$PROMPT" 2>>"$LOG_FILE") || true
+fi
 
 if [[ -z "$SUMMARY" ]]; then
   SUMMARY=$(try_opencode 2>>"$LOG_FILE") || true
